@@ -1,10 +1,20 @@
-import { useMemo, useState } from "react";
-import { BarChart3, BriefcaseBusiness, CheckCircle2, ClipboardList, FileText, Gauge, Lightbulb, Search, ShieldCheck, Sparkles, Target, Wand2 } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  ArrowUpRight,
+  BriefcaseBusiness,
+  CheckCircle2,
+  ClipboardCheck,
+  FileText,
+  Lightbulb,
+  Search,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { jobs, studentProfile } from "./data";
-import { analyzeMatch } from "./matchEngine";
+import { jobs, studentProfile, type Job } from "./data";
+import { analyzeMatch, type MatchResult } from "./matchEngine";
 
-const scoreColor = (score: number) => {
+const toneOf = (score: number) => {
   if (score >= 82) return "strong";
   if (score >= 68) return "medium";
   return "weak";
@@ -18,198 +28,248 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className="hero">
-        <div>
-          <div className="eyebrow">
-            <Sparkles size={16} />
-            学生求职匹配智能体 Demo
-          </div>
-          <h1>孔明 Offer 捕手</h1>
-          <p>把学生简历、求职偏好和岗位 JD 转化为可解释的匹配结果，帮助学生判断先投什么、差在哪里、简历怎么改。</p>
-        </div>
-        <div className="hero-actions" aria-label="Demo 状态">
-          <span><ShieldCheck size={16} />本地可解释评分</span>
-          <span><Wand2 size={16} />AI 建议模拟层</span>
-          <span><Gauge size={16} />无密钥也可演示</span>
-        </div>
-      </header>
+      <Hero result={result} selectedJob={selectedJob} />
 
-      <section className="metric-strip" aria-label="核心指标">
-        <Metric icon={<Target size={20} />} label="当前目标岗位" value={selectedJob.title} note={`${selectedJob.city} · ${selectedJob.track}`} />
-        <Metric icon={<BarChart3 size={20} />} label="匹配评分" value={`${result.total}`} note={result.verdict} tone={scoreColor(result.total)} />
-        <Metric icon={<Search size={20} />} label="关键词覆盖" value={`${result.coveredKeywords.length}/${selectedJob.keywords.length}`} note="影响初筛识别" />
-        <Metric icon={<ClipboardList size={20} />} label="待优化动作" value={`${result.resumeActions.length}`} note="投递前建议完成" />
+      <section className="workflow" aria-label="产品工作流">
+        <WorkflowStep index="01" title="学生画像" text="识别专业、经历、技能与求职偏好" />
+        <WorkflowStep index="02" title="岗位捕手" text="筛选高匹配岗位并解释推荐原因" />
+        <WorkflowStep index="03" title="初筛优化" text="定位关键词缺口与经历表达问题" />
+        <WorkflowStep index="04" title="投递行动" text="输出投递前可执行清单" />
       </section>
 
-      <section className="workspace">
-        <aside className="panel profile-panel">
-          <PanelTitle icon={<FileText size={18} />} title="学生画像" subtitle="基于简历与求职偏好生成" />
-          <div className="student-card">
-            <div>
-              <strong>{studentProfile.name}</strong>
-              <span>{studentProfile.grade} · {studentProfile.major}</span>
+      <section className="dashboard">
+        <aside className="profile-column">
+          <Panel eyebrow="Profile" title="学生画像" icon={<FileText size={18} />}>
+            <div className="identity-card">
+              <div>
+                <span>{studentProfile.school}</span>
+                <strong>{studentProfile.name}</strong>
+                <p>{studentProfile.grade} · {studentProfile.major}</p>
+              </div>
+              <small>{studentProfile.target}</small>
             </div>
-            <p>{studentProfile.target}</p>
-          </div>
 
-          <Block title="能力标签">
-            <TagList items={studentProfile.skills} />
-          </Block>
+            <InfoBlock title="能力标签">
+              <TagList items={studentProfile.skills} />
+            </InfoBlock>
 
-          <Block title="经历证据">
-            <div className="evidence-list">
-              {studentProfile.experiences.map((item) => (
-                <article key={item.title} className="evidence-item">
-                  <strong>{item.title}</strong>
-                  <p>{item.evidence}</p>
-                </article>
-              ))}
-            </div>
-          </Block>
+            <InfoBlock title="经历证据">
+              <div className="timeline">
+                {studentProfile.experiences.map((item) => (
+                  <article key={item.title}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.role}</span>
+                    </div>
+                    <p>{item.evidence}</p>
+                  </article>
+                ))}
+              </div>
+            </InfoBlock>
 
-          <Block title="简历文本">
-            <textarea value={resumeText} onChange={(event) => setResumeText(event.target.value)} aria-label="简历文本" />
-          </Block>
+            <InfoBlock title="简历文本">
+              <textarea value={resumeText} onChange={(event) => setResumeText(event.target.value)} aria-label="简历文本" />
+            </InfoBlock>
+          </Panel>
         </aside>
 
-        <section className="panel job-panel">
-          <PanelTitle icon={<BriefcaseBusiness size={18} />} title="岗位捕手" subtitle="选择目标岗位后实时刷新匹配解释" />
-          <div className="job-grid">
-            {jobs.map((job) => {
-              const jobResult = analyzeMatch(studentProfile, job, resumeText);
-              return (
-                <button
+        <section className="match-column">
+          <Panel eyebrow="Matching" title="岗位匹配工作台" icon={<BriefcaseBusiness size={18} />}>
+            <div className="job-board">
+              {jobs.map((job) => (
+                <JobCard
                   key={job.id}
-                  className={`job-card ${job.id === selectedJob.id ? "active" : ""}`}
-                  onClick={() => setSelectedJobId(job.id)}
-                  type="button"
-                >
-                  <span className="job-priority">优先级 {job.priority}</span>
-                  <strong>{job.title}</strong>
-                  <small>{job.city} · {job.track} · {job.level}</small>
-                  <div className="job-score">
-                    <span>{jobResult.total}</span>
-                    <div><i style={{ width: `${jobResult.total}%` }} /></div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="job-detail">
-            <div>
-              <h2>{selectedJob.title}</h2>
-              <p>{selectedJob.summary}</p>
-            </div>
-            <div className="detail-columns">
-              <Block title="岗位职责">
-                <BulletList items={selectedJob.responsibilities} />
-              </Block>
-              <Block title="岗位要求">
-                <BulletList items={selectedJob.requirements} />
-              </Block>
-              <Block title="加分项">
-                <BulletList items={selectedJob.bonus} />
-              </Block>
-            </div>
-          </div>
-
-          <div className="chart-area">
-            <h3>五维匹配评分</h3>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={result.dimensions} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                <YAxis domain={[0, 100]} tickLine={false} axisLine={false} />
-                <Tooltip cursor={{ fill: "rgba(15, 118, 110, 0.08)" }} />
-                <Bar dataKey="score" fill="#0f766e" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-        <aside className="panel insight-panel">
-          <PanelTitle icon={<Lightbulb size={18} />} title="AI 优化建议" subtitle="解释分数来源，并给出投递前动作" />
-          <div className={`verdict ${scoreColor(result.total)}`}>
-            <span>{result.total}</span>
-            <div>
-              <strong>{result.verdict}</strong>
-              <p>该分数用于求职决策参考，不代表企业筛选结果。</p>
-            </div>
-          </div>
-
-          <Block title="匹配优势">
-            <BulletList items={result.strengths} icon="check" />
-          </Block>
-
-          <Block title="风险与差距">
-            <BulletList items={result.risks} icon="warn" />
-          </Block>
-
-          <Block title="关键词覆盖">
-            <div className="keyword-groups">
-              <div>
-                <span>已覆盖</span>
-                <TagList items={result.coveredKeywords} compact />
-              </div>
-              <div>
-                <span>需补强</span>
-                <TagList items={result.missingKeywords} compact muted />
-              </div>
-            </div>
-          </Block>
-
-          <Block title="简历优化动作">
-            <div className="action-list">
-              {result.resumeActions.map((action) => (
-                <article key={action.title}>
-                  <strong>{action.title}</strong>
-                  <p>{action.detail}</p>
-                </article>
+                  job={job}
+                  active={job.id === selectedJob.id}
+                  result={analyzeMatch(studentProfile, job, resumeText)}
+                  onSelect={() => setSelectedJobId(job.id)}
+                />
               ))}
             </div>
-          </Block>
 
-          <Block title="投递前清单">
-            <ol className="ordered-list">
-              {result.actionPlan.map((item) => <li key={item}>{item}</li>)}
-            </ol>
-          </Block>
+            <div className="selected-job">
+              <div className="selected-job-head">
+                <div>
+                  <span>{selectedJob.companyScenario}</span>
+                  <h2>{selectedJob.title}</h2>
+                  <p>{selectedJob.summary}</p>
+                </div>
+                <div className={`score-badge ${toneOf(result.total)}`}>
+                  <strong>{result.total}</strong>
+                  <span>{result.verdict}</span>
+                </div>
+              </div>
+
+              <div className="job-detail-grid">
+                <InfoBlock title="岗位职责">
+                  <BulletList items={selectedJob.responsibilities} />
+                </InfoBlock>
+                <InfoBlock title="岗位要求">
+                  <BulletList items={selectedJob.requirements} />
+                </InfoBlock>
+                <InfoBlock title="加分项">
+                  <BulletList items={selectedJob.bonus} />
+                </InfoBlock>
+              </div>
+            </div>
+
+            <div className="chart-card">
+              <div className="section-head">
+                <div>
+                  <span>Match Score</span>
+                  <h3>五维匹配评分</h3>
+                </div>
+                <p>评分用于辅助求职决策，不代表企业筛选结果。</p>
+              </div>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={result.dimensions} margin={{ top: 10, right: 16, left: -14, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dbeafe" />
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: "#475569", fontSize: 12 }} />
+                  <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                  <Tooltip cursor={{ fill: "rgba(37, 99, 235, 0.08)" }} />
+                  <Bar dataKey="score" fill="#2563eb" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Panel>
+        </section>
+
+        <aside className="insight-column">
+          <Panel eyebrow="AI Insight" title="初筛命中率提升建议" icon={<Lightbulb size={18} />}>
+            <div className={`verdict-card ${toneOf(result.total)}`}>
+              <div>
+                <span>匹配结论</span>
+                <strong>{result.verdict}</strong>
+                <p>基于简历文本、学生画像和目标岗位要求生成。</p>
+              </div>
+              <b>{result.total}</b>
+            </div>
+
+            <InfoBlock title="匹配优势">
+              <BulletList items={result.strengths} icon="check" />
+            </InfoBlock>
+
+            <InfoBlock title="风险与差距">
+              <BulletList items={result.risks} icon="risk" />
+            </InfoBlock>
+
+            <InfoBlock title="关键词覆盖">
+              <div className="keyword-box">
+                <div>
+                  <span>已覆盖</span>
+                  <TagList items={result.coveredKeywords} compact />
+                </div>
+                <div>
+                  <span>需补强</span>
+                  <TagList items={result.missingKeywords} compact muted />
+                </div>
+              </div>
+            </InfoBlock>
+
+            <InfoBlock title="简历优化动作">
+              <div className="action-stack">
+                {result.resumeActions.map((action) => (
+                  <article key={action.title}>
+                    <span>{action.impact}</span>
+                    <strong>{action.title}</strong>
+                    <p>{action.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </InfoBlock>
+
+            <InfoBlock title="投递前清单">
+              <ol className="checklist">
+                {result.actionPlan.map((item) => <li key={item}>{item}</li>)}
+              </ol>
+            </InfoBlock>
+          </Panel>
         </aside>
       </section>
     </main>
   );
 }
 
-function Metric({ icon, label, value, note, tone }: { icon: React.ReactNode; label: string; value: string; note: string; tone?: string }) {
+function Hero({ result, selectedJob }: { result: MatchResult; selectedJob: Job }) {
   return (
-    <article className={`metric ${tone ?? ""}`}>
-      <div>{icon}</div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{note}</small>
+    <header className="hero">
+      <div className="hero-copy">
+        <div className="eyebrow">
+          <Sparkles size={16} />
+          学生求职匹配智能体
+        </div>
+        <h1>孔明 Offer 捕手</h1>
+        <p>面向校招与实习求职场景，把学生画像、岗位 JD 和简历文本转化为可解释的岗位推荐、差距诊断与简历优化建议。</p>
+        <div className="hero-actions">
+          <span><ShieldCheck size={16} />可解释评分</span>
+          <span><Search size={16} />岗位优先级</span>
+          <span><ClipboardCheck size={16} />初筛优化</span>
+        </div>
+      </div>
+      <div className="hero-card">
+        <span>当前分析</span>
+        <strong>{selectedJob.title}</strong>
+        <div className="hero-score">
+          <b>{result.total}</b>
+          <div>
+            <small>{result.verdict}</small>
+            <i style={{ width: `${result.total}%` }} />
+          </div>
+        </div>
+        <p>已覆盖 {result.coveredKeywords.length} 个岗位关键词，仍需补强 {result.missingKeywords.length} 个关键词。</p>
+      </div>
+    </header>
+  );
+}
+
+function WorkflowStep({ index, title, text }: { index: string; title: string; text: string }) {
+  return (
+    <article>
+      <span>{index}</span>
+      <strong>{title}</strong>
+      <p>{text}</p>
     </article>
   );
 }
 
-function PanelTitle({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
+function Panel({ eyebrow, title, icon, children }: { eyebrow: string; title: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <div className="panel-title">
-      <div>{icon}</div>
-      <section>
-        <h2>{title}</h2>
-        <p>{subtitle}</p>
-      </section>
-    </div>
+    <section className="panel">
+      <div className="panel-title">
+        <div>{icon}</div>
+        <section>
+          <span>{eyebrow}</span>
+          <h2>{title}</h2>
+        </section>
+      </div>
+      {children}
+    </section>
   );
 }
 
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
+function InfoBlock({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="block">
+    <section className="info-block">
       <h3>{title}</h3>
       {children}
     </section>
+  );
+}
+
+function JobCard({ job, active, result, onSelect }: { job: Job; active: boolean; result: MatchResult; onSelect: () => void }) {
+  return (
+    <button className={`job-card ${active ? "active" : ""}`} onClick={onSelect} type="button">
+      <div className="job-card-top">
+        <span>{job.track}</span>
+        <small>优先级 {job.priority}</small>
+      </div>
+      <strong>{job.title}</strong>
+      <p>{job.city} · {job.level} · {job.companyScenario}</p>
+      <div className="job-card-bottom">
+        <b>{result.total}</b>
+        <i style={{ width: `${result.total}%` }} />
+      </div>
+    </button>
   );
 }
 
@@ -221,12 +281,13 @@ function TagList({ items, compact = false, muted = false }: { items: string[]; c
   );
 }
 
-function BulletList({ items, icon }: { items: string[]; icon?: "check" | "warn" }) {
+function BulletList({ items, icon }: { items: string[]; icon?: "check" | "risk" }) {
   return (
     <ul className={`bullet-list ${icon ?? ""}`}>
       {items.map((item) => (
         <li key={item}>
           {icon === "check" ? <CheckCircle2 size={15} /> : null}
+          {icon === "risk" ? <ArrowUpRight size={15} /> : null}
           <span>{item}</span>
         </li>
       ))}
@@ -235,4 +296,3 @@ function BulletList({ items, icon }: { items: string[]; icon?: "check" | "warn" 
 }
 
 export default App;
-
