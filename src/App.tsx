@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
+  ArrowDownToLine,
   ArrowUpRight,
   BriefcaseBusiness,
   CheckCircle2,
@@ -12,7 +13,18 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { jobs, studentProfile, type Job } from "./data";
+import { parseCustomJob } from "./jobParser";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
+import { buildMatchReport, downloadTextFile } from "./report";
+
+const starterJd = `产品经理实习生
+工作地点：深圳
+岗位职责：
+1. 参与用户研究、需求分析、产品原型设计和数据复盘；
+2. 协同研发、设计和运营推进产品上线；
+3. 基于 SQL 或数据看板分析核心指标，输出优化建议。
+岗位要求：
+具备清晰的逻辑分析能力，熟悉原型设计工具，有校园项目或互联网产品实践经验。关注 AI 产品体验者优先。`;
 
 const toneOf = (score: number) => {
   if (score >= 82) return "strong";
@@ -23,8 +35,22 @@ const toneOf = (score: number) => {
 function App() {
   const [selectedJobId, setSelectedJobId] = useState(jobs[0].id);
   const [resumeText, setResumeText] = useState(studentProfile.resumeText);
-  const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
+  const [customTitle, setCustomTitle] = useState("");
+  const [customJdText, setCustomJdText] = useState(starterJd);
+
+  const customJob = useMemo(() => parseCustomJob(customTitle, customJdText), [customTitle, customJdText]);
+  const availableJobs = useMemo(() => (customJob ? [customJob, ...jobs] : jobs), [customJob]);
+  const selectedJob = availableJobs.find((job) => job.id === selectedJobId) ?? availableJobs[0];
   const result = useMemo(() => analyzeMatch(studentProfile, selectedJob, resumeText), [resumeText, selectedJob]);
+
+  const handleUseCustomJob = () => {
+    if (customJob) setSelectedJobId(customJob.id);
+  };
+
+  const handleDownloadReport = () => {
+    const report = buildMatchReport(studentProfile, selectedJob, result, resumeText);
+    downloadTextFile("kongming-match-report.md", report);
+  };
 
   return (
     <main className="app-shell">
@@ -75,8 +101,32 @@ function App() {
 
         <section className="match-column">
           <Panel eyebrow="Matching" title="岗位匹配工作台" icon={<BriefcaseBusiness size={18} />}>
+            <div className="jd-lab">
+              <div className="section-head compact">
+                <div>
+                  <span>JD Parser</span>
+                  <h3>粘贴目标岗位 JD</h3>
+                </div>
+                <p>系统会抽取方向、城市和关键词，并加入下方岗位列表参与匹配。</p>
+              </div>
+              <div className="field-row">
+                <label>
+                  <span>岗位名称</span>
+                  <input value={customTitle} onChange={(event) => setCustomTitle(event.target.value)} placeholder="不填时从 JD 自动识别" />
+                </label>
+              </div>
+              <textarea className="jd-textarea" value={customJdText} onChange={(event) => setCustomJdText(event.target.value)} aria-label="目标岗位 JD" />
+              <div className="jd-actions">
+                <button type="button" className="primary-action" onClick={handleUseCustomJob} disabled={!customJob}>
+                  <Search size={16} />
+                  分析该岗位
+                </button>
+                <span>{customJob ? `已识别 ${customJob.keywords.length} 个关键词` : "JD 至少需要 20 个字"}</span>
+              </div>
+            </div>
+
             <div className="job-board">
-              {jobs.map((job) => (
+              {availableJobs.map((job) => (
                 <JobCard
                   key={job.id}
                   job={job}
@@ -144,6 +194,11 @@ function App() {
               </div>
               <b>{result.total}</b>
             </div>
+
+            <button type="button" className="secondary-action" onClick={handleDownloadReport}>
+              <ArrowDownToLine size={16} />
+              下载分析报告
+            </button>
 
             <InfoBlock title="匹配优势">
               <BulletList items={result.strengths} icon="check" />
