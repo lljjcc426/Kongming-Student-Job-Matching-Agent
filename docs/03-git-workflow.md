@@ -2,9 +2,9 @@
 
 ## 仓库命名建议
 
-推荐远端仓库名：`offer-catcher-ai`
+远端仓库名：`Kongming-Student-Job-Matching-Agent`
 
-该名称与课题“Offer 捕手”保持一致，简洁、清晰，适合 GitHub 仓库和部署项目使用。
+该名称与项目定位保持一致，清晰表达学生求职匹配智能体方向，适合 GitHub 仓库和部署项目使用。
 
 ## 分支策略
 
@@ -36,7 +36,7 @@
 
 ## 远端同步流程
 
-用户在 GitHub 创建仓库 `offer-catcher-ai` 后，执行或由我协助执行：
+远端仓库已创建后，执行或由我协助执行：
 
 ```powershell
 git remote add origin <GitHub 仓库地址>
@@ -45,4 +45,3 @@ git push -u origin main
 ```
 
 后续每个阶段以小步提交方式同步，避免大批量不可回溯变更。
-

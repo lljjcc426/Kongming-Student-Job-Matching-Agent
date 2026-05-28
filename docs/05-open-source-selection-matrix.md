@@ -28,7 +28,7 @@
 | --- | --- | --- |
 | 简历输入 | OpenResume、Resume Matcher | 首版支持文本粘贴与样例简历；后续接 PDF/DOCX 解析 |
 | 学生画像 | 自研 | 抽取专业、年级、课程、项目、竞赛、实习、技能、兴趣方向 |
-| 岗位库 | 自研 + Resume Matcher 思路 | 内置典型校招/实习岗位样例，支持粘贴 JD |
+| 岗位库 | 自研 + Resume Matcher 思路 | 内置典型校园招聘/实习岗位样例，支持粘贴 JD |
 | 匹配评分 | Resume Matcher、ResumeLM | 多维评分：能力匹配、经历匹配、关键词覆盖、兴趣一致、成长潜力 |
 | 评分解释 | Resume Matcher | 输出推荐理由、风险点、证据片段、下一步动作 |
 | 简历优化 | Resume Matcher、ResumeLM | 生成项目经历 STAR 改写、关键词补齐、技能表达优化 |
@@ -66,4 +66,3 @@
 - Reactive Resume: https://github.com/AmruthPillai/Reactive-Resume
 - ResumeLM: https://github.com/olyaiy/resume-lm
 - AIHawk: https://github.com/feder-cr/Jobs_Applier_AI_Agent_AIHawk
-

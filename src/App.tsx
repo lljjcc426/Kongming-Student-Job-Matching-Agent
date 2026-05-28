@@ -198,8 +198,8 @@ function Hero({ result, selectedJob }: { result: MatchResult; selectedJob: Job }
           <Sparkles size={16} />
           学生求职匹配智能体
         </div>
-        <h1>孔明 Offer 捕手</h1>
-        <p>面向校招与实习求职场景，把学生画像、岗位 JD 和简历文本转化为可解释的岗位推荐、差距诊断与简历优化建议。</p>
+        <h1>孔明职配</h1>
+        <p>面向校园招聘与实习求职场景，把学生画像、岗位 JD 和简历文本转化为可解释的岗位推荐、差距诊断与简历优化建议。</p>
         <div className="hero-actions">
           <span><ShieldCheck size={16} />可解释评分</span>
           <span><Search size={16} />岗位优先级</span>
