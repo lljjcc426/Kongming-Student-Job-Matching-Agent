@@ -13,7 +13,7 @@ async function main() {
   await page.screenshot({ path: "artifacts/redesign-homepage.png", fullPage: true });
   await browser.close();
 
-  if (title !== "孔明 Offer 捕手") {
+  if (title !== "孔明职配") {
     throw new Error(`Unexpected title: ${title}`);
   }
   if (jobCards !== 4) {
