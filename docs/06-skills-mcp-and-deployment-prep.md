@@ -18,6 +18,7 @@
 | GitHub Connector | 仓库、PR、Issue 等结构化操作 | 当前曾出现连接器启动失败；本地 Git 命令可用 | 优先本地 Git；连接器可用时再辅助使用 |
 | 本地 Shell | Git、依赖安装、构建、测试、部署 CLI | 可用 | 作为主要工程执行入口 |
 | Browser / Playwright | 本地与公网页面验证 | 可用 | Demo 开发完成后使用 |
+| Figma Skill | Figma MCP 使用规则与设计转代码流程 | 已读取本地 skill；当前会话未暴露 Figma MCP 调用工具 | 可作为设计流程规范；待 `[mcp_servers.figma]` 与 `FIGMA_OAUTH_TOKEN` 生效后再拉取或写入 Figma 文件 |
 | LinkedIn Jobs MCP 等求职类 MCP | 搜索真实岗位 | 需要额外安装，且多涉及爬取或平台规则 | 首版不接入，避免合规和稳定性风险 |
 | Resume/Job Parser MCP | 简历或 JD 解析 | 多为第三方服务，可能涉及隐私或付费 | 首版不用；后续如需要再评估 |
 
@@ -48,3 +49,14 @@
 
 因此首版先实现可解释匹配与简历优化闭环；真实岗位搜索作为后续增强模块。
 
+## Figma 当前接入状态
+
+当前本机存在 Figma skill / plugin 记录，但在本次会话中未发现可调用的 Figma MCP 工具，例如 `get_design_context`、`get_screenshot`、`get_metadata`、`get_variable_defs` 或 `use_figma`。
+
+本地检查结果：
+
+- `C:\Users\cc\.codex\config.toml` 中存在 `[plugins."figma@openai-curated"]`。
+- 当前 shell 未设置 `FIGMA_OAUTH_TOKEN`。
+- 当前工具发现结果未返回 Figma MCP 工具。
+
+因此现阶段先按 Figma 设计规范沉淀页面结构与视觉规格，并实现前端 Demo。Figma MCP 生效后，再基于具体 Figma 文件链接拉取设计上下文或写入画板。
