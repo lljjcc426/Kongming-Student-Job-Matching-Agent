@@ -23,4 +23,5 @@
 - [技术方案与工具准备](docs/02-tech-stack-and-tools.md)
 - [Git 协作规范](docs/03-git-workflow.md)
 - [交付计划](docs/04-delivery-plan.md)
-
+- [开源项目能力选择矩阵](docs/05-open-source-selection-matrix.md)
+- [Skill、MCP 与部署准备](docs/06-skills-mcp-and-deployment-prep.md)
