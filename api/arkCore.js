@@ -1,16 +1,47 @@
 const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 const DEFAULT_MODEL = "doubao-seed-2-0-lite-260215";
+const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "interview-feedback"]);
+const MAX_RESUME_CHARS = 12000;
+const MAX_INTERVIEW_CHARS = 4000;
+const MAX_IMAGE_DATA_URL_CHARS = 4_500_000;
+const REQUEST_TIMEOUT_MS = 30000;
+
+const asText = (value, maxLength) => {
+  if (typeof value !== "string") return "";
+  return value.slice(0, maxLength);
+};
+
+const validateRequest = (body) => {
+  if (!body || typeof body !== "object") {
+    return "请求内容格式不正确。";
+  }
+
+  if (!ALLOWED_TASKS.has(body.task)) {
+    return "不支持的模型任务类型。";
+  }
+
+  if (body.task === "resume-vision") {
+    if (typeof body.imageDataUrl !== "string" || !body.imageDataUrl.startsWith("data:image/")) {
+      return "图片简历格式不正确。";
+    }
+    if (body.imageDataUrl.length > MAX_IMAGE_DATA_URL_CHARS) {
+      return "图片文件过大，请压缩后再上传。";
+    }
+  }
+
+  return "";
+};
 
 const compactJob = (job = {}) => ({
-  title: job.title,
-  track: job.track,
-  city: job.city,
-  level: job.level,
-  summary: job.summary,
-  responsibilities: job.responsibilities,
-  requirements: job.requirements,
-  bonus: job.bonus,
-  keywords: job.keywords,
+  title: asText(job.title, 80),
+  track: asText(job.track, 40),
+  city: asText(job.city, 40),
+  level: asText(job.level, 40),
+  summary: asText(job.summary, 500),
+  responsibilities: Array.isArray(job.responsibilities) ? job.responsibilities.slice(0, 8).map((item) => asText(item, 180)) : [],
+  requirements: Array.isArray(job.requirements) ? job.requirements.slice(0, 8).map((item) => asText(item, 180)) : [],
+  bonus: Array.isArray(job.bonus) ? job.bonus.slice(0, 8).map((item) => asText(item, 180)) : [],
+  keywords: Array.isArray(job.keywords) ? job.keywords.slice(0, 20).map((item) => asText(item, 40)) : [],
 });
 
 const buildTextPrompt = (body) => {
@@ -31,7 +62,7 @@ const buildTextPrompt = (body) => {
       "请基于目标岗位和候选人的回答，输出结构化、克制、可执行的反馈。",
       "输出包含：总体评分、回答亮点、主要风险、下一轮改进建议。",
       `目标岗位：${JSON.stringify(job, null, 2)}`,
-      `候选人回答：${body.interviewAnswer || ""}`,
+      `候选人回答：${asText(body.interviewAnswer, MAX_INTERVIEW_CHARS)}`,
     ].join("\n\n");
   }
 
@@ -46,7 +77,7 @@ const buildTextPrompt = (body) => {
     "5. 不承诺真实筛选结果，不使用夸张或不专业表达。",
     `目标岗位：${JSON.stringify(job, null, 2)}`,
     `本地规则评分：${JSON.stringify(match, null, 2)}`,
-    `简历文本：${body.resumeText || ""}`,
+    `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
   ].join("\n\n");
 };
 
@@ -88,6 +119,17 @@ const buildMessages = (body) => {
 };
 
 export async function runArkCompletion(body) {
+  const validationError = validateRequest(body);
+  if (validationError) {
+    return {
+      status: 400,
+      payload: {
+        ok: false,
+        error: validationError,
+      },
+    };
+  }
+
   const apiKey = process.env.ARK_API_KEY;
   if (!apiKey) {
     return {
@@ -100,9 +142,10 @@ export async function runArkCompletion(body) {
   }
 
   const baseUrl = process.env.ARK_BASE_URL || DEFAULT_BASE_URL;
-  const model = body.model || process.env.ARK_MODEL_TEXT || DEFAULT_MODEL;
+  const model = process.env.ARK_MODEL_TEXT || DEFAULT_MODEL;
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
@@ -120,7 +163,7 @@ export async function runArkCompletion(body) {
       status: response.status,
       payload: {
         ok: false,
-        error: data?.error?.message || data?.message || "模型接口调用失败。",
+        error: "模型接口调用失败，请稍后重试。",
       },
     };
   }

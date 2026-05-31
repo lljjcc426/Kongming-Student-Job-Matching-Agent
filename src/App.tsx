@@ -24,6 +24,8 @@ import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
 
+const MAX_UPLOAD_BYTES = 4_000_000;
+
 const starterJd = `产品经理实习生
 工作地点：深圳
 岗位职责：
@@ -83,6 +85,11 @@ function App() {
 
   const handleResumeUpload = async (file?: File) => {
     if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setModelStatus("error");
+      setModelMessage("文件超过 4MB，请压缩或精简后再上传。");
+      return;
+    }
     if (file.type.startsWith("image/")) {
       setModelStatus("loading");
       setModelMessage("正在识别图片简历");
