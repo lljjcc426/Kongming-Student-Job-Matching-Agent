@@ -1,6 +1,6 @@
 const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 const DEFAULT_MODEL = "doubao-seed-2-0-lite-260215";
-const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "interview-feedback"]);
+const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "jd-analysis", "interview-feedback"]);
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_IMAGE_DATA_URL_CHARS = 4_500_000;
@@ -118,6 +118,24 @@ const buildTextPrompt = (body) => {
     ].join("\n\n");
   }
 
+  if (body.task === "jd-analysis") {
+    return [
+      "你是目标岗位 JD 分析智能体。请结合学生简历、岗位名称和岗位 JD，评估该岗位对学生的投递优先级，并抽取可用于匹配的结构化岗位信息。",
+      "请输出严格 JSON，不要输出 Markdown，不要解释。结构如下：",
+      '{"title":"","priority":"中","track":"","city":"","level":"","summary":"","conclusion":"","strengths":[],"risks":[],"actions":[],"keywords":[],"responsibilities":[],"requirements":[],"bonus":[]}',
+      "字段要求：",
+      "1. priority 只能是 高、中、低，必须结合学生简历和 JD 评估，不要默认高。",
+      "2. title 优先使用用户填写的岗位名称；没有填写时从 JD 或岗位描述中识别。",
+      "3. keywords 必须是拆开的短关键词数组。",
+      "4. strengths、risks、actions 各 2-4 条，具体、可执行。",
+      "5. responsibilities、requirements、bonus 各 2-5 条。",
+      `岗位名称：${asText(body.jobTitle, 120)}`,
+      `岗位 JD：${asText(body.jdText, 5000)}`,
+      `简历结构：${JSON.stringify(body.resumeProfile || {}, null, 2)}`,
+      `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
+    ].join("\n\n");
+  }
+
   return [
     "你是一个学生求职匹配智能体中的协作监督智能体。",
     "请基于简历文本、目标岗位和本地规则评分，给出更接近真实投递场景的二次分析。",
@@ -217,7 +235,7 @@ export async function runArkCompletion(body) {
         thinking: {
           type: "disabled",
         },
-        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : 1200,
+        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : 1200,
       }),
     });
   } catch (error) {

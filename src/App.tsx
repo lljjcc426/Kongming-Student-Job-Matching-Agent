@@ -5,12 +5,15 @@ import {
   BriefcaseBusiness,
   CheckCircle2,
   ClipboardCheck,
+  ExternalLink,
   FileText,
   Lightbulb,
   Mic,
+  Plus,
   Search,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Upload,
   Video,
 } from "lucide-react";
@@ -19,12 +22,13 @@ import type { Job } from "./data";
 import { callArkAgent } from "./arkClient";
 import { parseCustomJob } from "./jobParser";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
-import { parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
+import { parseJdAnalysis, parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
 import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
 
 const MAX_UPLOAD_BYTES = 4_000_000;
 type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
+type JdPipelineStep = "idle" | "parse" | "evaluate" | "links" | "done" | "error";
 type SpeechRecognitionResultLike = {
   0?: {
     transcript?: string;
@@ -150,17 +154,47 @@ const superviseRecommendedJobs = (jobs: Job[]) => {
   });
 };
 
+const buildApplicationLinks = (title: string): NonNullable<Job["applicationLinks"]> => {
+  const query = encodeURIComponent(title || "实习");
+  return [
+    {
+      company: "字节跳动",
+      url: `https://jobs.bytedance.com/campus/position?keywords=${query}`,
+      note: "校园招聘岗位搜索",
+    },
+    {
+      company: "阿里巴巴",
+      url: `https://talent.alibaba.com/campus/position-list?keyword=${query}`,
+      note: "校园招聘岗位搜索",
+    },
+    {
+      company: "美团",
+      url: `https://campus.meituan.com/jobs?keyword=${query}`,
+      note: "校园招聘岗位搜索",
+    },
+  ];
+};
+
+const openApplicationLink = (job: Job) => {
+  const link = job.applicationLinks?.[0] ?? buildApplicationLinks(job.title)?.[0];
+  if (link?.url) window.open(link.url, "_blank", "noopener,noreferrer");
+};
+
 function App() {
   const [selectedJobId, setSelectedJobId] = useState("");
   const [resumeText, setResumeText] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [customJdText, setCustomJdText] = useState("");
+  const [customJobs, setCustomJobs] = useState<Job[]>([]);
   const [structuredResume, setStructuredResume] = useState<StructuredResume | null>(null);
   const [modelJobs, setModelJobs] = useState<Job[]>([]);
   const [modelInsight, setModelInsight] = useState("");
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [modelMessage, setModelMessage] = useState("");
   const [pipelineStep, setPipelineStep] = useState<PipelineStep>("idle");
+  const [jdStatus, setJdStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [jdStep, setJdStep] = useState<JdPipelineStep>("idle");
+  const [jdMessage, setJdMessage] = useState("等待意向岗位输入");
   const [interviewAnswer, setInterviewAnswer] = useState("");
   const [interviewFeedback, setInterviewFeedback] = useState("");
   const [interviewStatus, setInterviewStatus] = useState<"idle" | "listening" | "loading" | "ready" | "error">("idle");
@@ -171,14 +205,13 @@ function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  const customJob = useMemo(() => parseCustomJob(customTitle, customJdText), [customTitle, customJdText]);
   const activeProfile = useMemo(() => profileFromStructuredResume(structuredResume, resumeText), [structuredResume, resumeText]);
   const hasResume = resumeText.trim().length > 0;
-  const hasWorkspaceInput = hasResume || Boolean(customJob);
+  const hasWorkspaceInput = hasResume || customJobs.length > 0;
   const availableJobs = useMemo(() => {
     if (!hasWorkspaceInput) return [];
-    return customJob ? [customJob, ...modelJobs] : modelJobs;
-  }, [customJob, hasWorkspaceInput, modelJobs]);
+    return [...customJobs, ...modelJobs];
+  }, [customJobs, hasWorkspaceInput, modelJobs]);
   const rankedJobs = useMemo(
     () =>
       [...availableJobs].sort(
@@ -187,7 +220,7 @@ function App() {
       ),
     [activeProfile, availableJobs, resumeText],
   );
-  const selectedJob = rankedJobs.find((job) => job.id === selectedJobId) ?? rankedJobs[0] ?? customJob ?? emptyJob;
+  const selectedJob = rankedJobs.find((job) => job.id === selectedJobId) ?? rankedJobs[0] ?? emptyJob;
   const hasAnalysis = rankedJobs.length > 0;
   const result = useMemo(() => analyzeMatch(activeProfile, selectedJob, resumeText), [activeProfile, resumeText, selectedJob]);
   const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
@@ -266,18 +299,95 @@ function App() {
 
   const handleUseCustomJob = async () => {
     if (!resumeText.trim()) {
-      setModelStatus("error");
-      setModelMessage("请先上传或粘贴简历，再让模型结合目标 JD 推荐岗位。");
+      setJdStatus("error");
+      setJdStep("error");
+      setJdMessage("请先上传或粘贴简历，再分析意向岗位。");
       return;
     }
-    setModelStatus("loading");
-    setPipelineStep("jobs");
-    setModelMessage("正在结合目标 JD 重新生成岗位推荐");
-    if (!structuredResume) {
-      await runModelPipeline(resumeText);
+    const draftJob = parseCustomJob(customTitle, customJdText);
+    if (!draftJob) {
+      setJdStatus("error");
+      setJdStep("error");
+      setJdMessage("请填写岗位名称或目标岗位 JD。");
       return;
     }
-    await runJobRecommendations(resumeText, structuredResume);
+    setJdStatus("loading");
+    setJdStep("parse");
+    setJdMessage("正在解析意向岗位 JD");
+
+    let resumeProfile = structuredResume;
+    if (!resumeProfile) {
+      const structureResponse = await callArkAgent({ task: "resume-structure", resumeText });
+      if (!structureResponse.ok || !structureResponse.content) {
+        setJdStatus("error");
+        setJdStep("error");
+        setJdMessage(structureResponse.error || "简历画像解析失败，无法评估意向岗位。");
+        return;
+      }
+      try {
+        resumeProfile = parseStructuredResume(structureResponse.content);
+        setStructuredResume(resumeProfile);
+      } catch {
+        setJdStatus("error");
+        setJdStep("error");
+        setJdMessage("简历画像格式无法解析，无法评估意向岗位。");
+        return;
+      }
+    }
+
+    setJdStep("evaluate");
+    setJdMessage("正在评估岗位匹配优先级");
+    const response = await callArkAgent(
+      {
+        task: "jd-analysis",
+        resumeText,
+        resumeProfile,
+        jobTitle: customTitle,
+        jdText: customJdText,
+      },
+      { timeoutMs: 45000 },
+    );
+    if (!response.ok || !response.content) {
+      setJdStatus("error");
+      setJdStep("error");
+      setJdMessage(response.error || "意向岗位分析失败。");
+      return;
+    }
+
+    try {
+      const analysis = parseJdAnalysis(response.content);
+      setJdStep("links");
+      const nextJob: Job = {
+        ...draftJob,
+        id: `custom-${Date.now()}`,
+        title: analysis.title || draftJob.title,
+        track: analysis.track || draftJob.track,
+        city: analysis.city || draftJob.city,
+        level: analysis.level || draftJob.level,
+        summary: analysis.summary || draftJob.summary,
+        responsibilities: analysis.responsibilities.length ? analysis.responsibilities : draftJob.responsibilities,
+        requirements: analysis.requirements.length ? analysis.requirements : draftJob.requirements,
+        bonus: analysis.bonus.length ? analysis.bonus : draftJob.bonus,
+        keywords: analysis.keywords.length ? analysis.keywords : draftJob.keywords,
+        priority: analysis.priority,
+        applicationLinks: buildApplicationLinks(analysis.title || draftJob.title),
+        jdAnalysis: {
+          conclusion: analysis.conclusion,
+          strengths: analysis.strengths,
+          risks: analysis.risks,
+          actions: analysis.actions,
+        },
+      };
+      setCustomJobs((current) => [nextJob, ...current]);
+      setSelectedJobId(nextJob.id);
+      setJdStatus("ready");
+      setJdStep("done");
+      setJdMessage("意向岗位分析已完成");
+    } catch (error) {
+      setJdStatus("error");
+      setJdStep("error");
+      setJdMessage(error instanceof Error ? `意向岗位结果解析失败：${error.message}` : "意向岗位结果解析失败。");
+    }
   };
 
   const handleDownloadReport = () => {
@@ -310,7 +420,7 @@ function App() {
         setResumeText(response.content);
         setModelInsight(response.content);
         setModelStatus("ready");
-        setModelMessage(`已通过 ${response.model ?? "模型"} 识别图片简历`);
+        setModelMessage("已完成图片简历识别");
         setUploadMessage(`已识别 ${file.name}，画像、岗位排序和匹配结果已更新。`);
         setResumeSource("图片视觉识别");
         await runModelPipeline(response.content);
@@ -343,7 +453,7 @@ function App() {
           setResumeText(response.content);
           setModelInsight(response.content);
           setModelStatus("ready");
-          setModelMessage(`PDF 文本层质量较低，已通过 ${response.model ?? "模型"} 视觉识别`);
+          setModelMessage("PDF 文本层质量较低，已完成视觉识别");
           setUploadMessage(`已识别 ${file.name}，画像、岗位排序和匹配结果已更新。`);
           setResumeSource(`PDF 视觉识别，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
           await runModelPipeline(response.content);
@@ -391,7 +501,7 @@ function App() {
       setModelInsight(response.content);
       setModelStatus("ready");
       setPipelineStep("done");
-      setModelMessage(`已通过 ${response.model ?? "模型"} 完成增强分析`);
+      setModelMessage("已完成增强分析");
       return;
     }
 
@@ -485,7 +595,7 @@ function App() {
     if (response.ok && response.content) {
       setInterviewFeedback(response.content);
       setInterviewStatus("ready");
-      setInterviewMessage(`已通过 ${response.model ?? "模型"} 完成面试反馈`);
+      setInterviewMessage("已完成面试反馈");
       return;
     }
 
@@ -504,7 +614,16 @@ function App() {
         <WorkflowStep index="04" title="投递行动" text="输出投递前可执行清单" />
       </section>
 
-      <ProcessState hasResume={hasResume} customJob={customJob} resumeSource={resumeSource} modelStatus={modelStatus} pipelineStep={pipelineStep} />
+      <ProcessState
+        hasResume={hasResume}
+        customJobCount={customJobs.length}
+        resumeSource={resumeSource}
+        modelStatus={modelStatus}
+        pipelineStep={pipelineStep}
+        jdStatus={jdStatus}
+        jdStep={jdStep}
+        jdMessage={jdMessage}
+      />
 
       <section className="dashboard">
         <aside className="profile-column">
@@ -569,25 +688,48 @@ function App() {
               <div className="section-head compact">
                 <div>
                   <span>JD Parser</span>
-                  <h3>粘贴目标岗位 JD</h3>
+                  <h3>意向岗位 JD</h3>
                 </div>
-                <p>系统会抽取方向、城市和关键词，并加入下方岗位列表参与匹配。</p>
               </div>
               <div className="field-row">
                 <label>
                   <span>岗位名称</span>
-                  <input value={customTitle} onChange={(event) => setCustomTitle(event.target.value)} placeholder="不填时从 JD 自动识别" />
+                  <input value={customTitle} onChange={(event) => setCustomTitle(event.target.value)} />
                 </label>
               </div>
-              <textarea className="jd-textarea" value={customJdText} onChange={(event) => setCustomJdText(event.target.value)} aria-label="目标岗位 JD" />
+              <textarea className="jd-textarea" value={customJdText} onChange={(event) => setCustomJdText(event.target.value)} aria-label="目标岗位 JD" placeholder="目标岗位 JD" />
               <div className="jd-actions">
-                <button type="button" className="primary-action" onClick={() => void handleUseCustomJob()} disabled={!customJob || !hasResume || modelStatus === "loading"}>
-                  <Search size={16} />
+                <button type="button" className="primary-action" onClick={() => void handleUseCustomJob()} disabled={(!customTitle.trim() && !customJdText.trim()) || !hasResume || jdStatus === "loading"}>
+                  <Plus size={16} />
                   分析该岗位
                 </button>
-                <span>{customJob ? `已识别 ${customJob.keywords.length} 个关键词` : "JD 至少需要 20 个字"}</span>
+                <span>{jdMessage}</span>
               </div>
             </div>
+
+            {customJobs.length ? (
+              <div className="custom-job-list">
+                {customJobs.map((job) => (
+                  <article key={job.id}>
+                    <div>
+                      <span>{job.priority}优先级</span>
+                      <strong>{job.title}</strong>
+                      <p>{job.jdAnalysis?.conclusion || job.summary}</p>
+                    </div>
+                    <div className="custom-job-actions">
+                      <button type="button" className="secondary-action compact-action" onClick={() => setSelectedJobId(job.id)}>
+                        <Search size={15} />
+                        查看
+                      </button>
+                      <button type="button" className="secondary-action compact-action" onClick={() => setCustomJobs((current) => current.filter((item) => item.id !== job.id))}>
+                        <Trash2 size={15} />
+                        删除
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : null}
 
             {hasAnalysis ? (
               <>
@@ -627,6 +769,34 @@ function App() {
                       <BulletList items={selectedJob.bonus} />
                     </InfoBlock>
                   </div>
+
+                  <div className="apply-panel">
+                    <button type="button" className="primary-action" onClick={() => openApplicationLink(selectedJob)}>
+                      <ExternalLink size={16} />
+                      一键查看投递入口
+                    </button>
+                    <div className="apply-links">
+                      {(selectedJob.applicationLinks ?? buildApplicationLinks(selectedJob.title)).map((link) => (
+                        <a key={`${selectedJob.id}-${link.company}`} href={link.url} target="_blank" rel="noreferrer">
+                          {link.company} · {link.note}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedJob.jdAnalysis ? (
+                    <div className="jd-analysis-panel">
+                      <InfoBlock title="意向岗位分析">
+                        <p>{selectedJob.jdAnalysis.conclusion}</p>
+                      </InfoBlock>
+                      <InfoBlock title="匹配证据">
+                        <BulletList items={selectedJob.jdAnalysis.strengths} icon="check" />
+                      </InfoBlock>
+                      <InfoBlock title="补强建议">
+                        <BulletList items={[...selectedJob.jdAnalysis.risks, ...selectedJob.jdAnalysis.actions]} icon="risk" />
+                      </InfoBlock>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="chart-card">
@@ -741,43 +911,6 @@ function App() {
                   </div>
                 </InfoBlock>
 
-                <InfoBlock title="模拟面试">
-                  <div className="interview-studio">
-                    <div className={`video-preview ${videoMode}`}>
-                      {videoMode === "preview" ? <video ref={videoRef} autoPlay muted playsInline aria-label="视频面试预览" /> : <Video size={22} />}
-                      <span>{videoMode === "preview" ? "视频预览中" : "视频对话接口预留"}</span>
-                    </div>
-                    <p>围绕当前岗位进行问答练习；现阶段支持文本与浏览器语音转写，后续可扩展为实时音视频对话。</p>
-                    <textarea
-                      className="interview-textarea"
-                      value={interviewAnswer}
-                      onChange={(event) => setInterviewAnswer(event.target.value)}
-                      aria-label="模拟面试回答"
-                      placeholder="输入或语音转写你的回答，例如：请介绍一个与你目标岗位相关的项目经历。"
-                    />
-                    <div className="interview-actions">
-                      <button type="button" className="secondary-action compact-action" onClick={handleSpeechInput} disabled={interviewStatus === "listening" || interviewStatus === "loading"}>
-                        <Mic size={16} />
-                        {interviewStatus === "listening" ? "收听中" : "语音转写"}
-                      </button>
-                      <button type="button" className="secondary-action compact-action" onClick={() => void handleVideoPreview()}>
-                        <Video size={16} />
-                        视频预览
-                      </button>
-                      <button type="button" className="primary-action compact-action" onClick={() => void handleInterviewFeedback()} disabled={interviewStatus === "loading"}>
-                        <Sparkles size={16} />
-                        {interviewStatus === "loading" ? "评估中" : "生成反馈"}
-                      </button>
-                    </div>
-                    {(interviewMessage || interviewFeedback) && (
-                      <div className={`model-insight ${interviewStatus === "error" ? "error" : ""}`}>
-                        {interviewMessage ? <strong>{interviewMessage}</strong> : null}
-                        {interviewFeedback ? <p>{interviewFeedback}</p> : null}
-                      </div>
-                    )}
-                  </div>
-                </InfoBlock>
-
                 <InfoBlock title="投递前清单">
                   <ol className="checklist">
                     {result.actionPlan.map((item) => <li key={item}>{item}</li>)}
@@ -803,6 +936,49 @@ function App() {
           </Panel>
         </aside>
       </section>
+
+      {hasAnalysis ? (
+        <section className="interview-panel">
+          <Panel eyebrow="Interview" title="模拟面试" icon={<Video size={18} />}>
+            <div className="interview-studio">
+              <div className={`video-preview ${videoMode}`}>
+                {videoMode === "preview" ? <video ref={videoRef} autoPlay muted playsInline aria-label="视频面试预览" /> : <Video size={22} />}
+                <span>{videoMode === "preview" ? "视频预览中" : "视频对话接口预留"}</span>
+              </div>
+              <div className="interview-main">
+                <p>围绕当前岗位进行问答练习；现阶段支持文本与浏览器语音转写，后续可扩展为实时音视频对话。</p>
+                <textarea
+                  className="interview-textarea"
+                  value={interviewAnswer}
+                  onChange={(event) => setInterviewAnswer(event.target.value)}
+                  aria-label="模拟面试回答"
+                  placeholder="输入或语音转写你的回答，例如：请介绍一个与你目标岗位相关的项目经历。"
+                />
+                <div className="interview-actions">
+                  <button type="button" className="secondary-action compact-action" onClick={handleSpeechInput} disabled={interviewStatus === "listening" || interviewStatus === "loading"}>
+                    <Mic size={16} />
+                    {interviewStatus === "listening" ? "收听中" : "语音转写"}
+                  </button>
+                  <button type="button" className="secondary-action compact-action" onClick={() => void handleVideoPreview()}>
+                    <Video size={16} />
+                    视频预览
+                  </button>
+                  <button type="button" className="primary-action compact-action" onClick={() => void handleInterviewFeedback()} disabled={interviewStatus === "loading"}>
+                    <Sparkles size={16} />
+                    {interviewStatus === "loading" ? "评估中" : "生成反馈"}
+                  </button>
+                </div>
+                {(interviewMessage || interviewFeedback) && (
+                  <div className={`model-insight ${interviewStatus === "error" ? "error" : ""}`}>
+                    {interviewMessage ? <strong>{interviewMessage}</strong> : null}
+                    {interviewFeedback ? <p>{interviewFeedback}</p> : null}
+                  </div>
+                )}
+              </div>
+            </div>
+          </Panel>
+        </section>
+      ) : null}
     </main>
   );
 }
@@ -914,16 +1090,22 @@ function WorkflowStep({ index, title, text }: { index: string; title: string; te
 
 function ProcessState({
   hasResume,
-  customJob,
+  customJobCount,
   resumeSource,
   modelStatus,
   pipelineStep,
+  jdStatus,
+  jdStep,
+  jdMessage,
 }: {
   hasResume: boolean;
-  customJob: Job | null;
+  customJobCount: number;
   resumeSource: string;
   modelStatus: "idle" | "loading" | "ready" | "error";
   pipelineStep: PipelineStep;
+  jdStatus: "idle" | "loading" | "ready" | "error";
+  jdStep: JdPipelineStep;
+  jdMessage: string;
 }) {
   const steps = [
     { id: "intake", label: "接收简历" },
@@ -933,9 +1115,16 @@ function ProcessState({
   ];
   const progressIndex = pipelineStep === "done" ? steps.length : pipelineStep === "error" ? Math.max(1, steps.findIndex((step) => step.id === pipelineStep) + 1) : steps.findIndex((step) => step.id === pipelineStep) + 1;
   const progress = !hasResume && pipelineStep === "idle" ? 0 : Math.max(0, Math.min(100, Math.round((progressIndex / steps.length) * 100)));
+  const jdSteps = [
+    { id: "parse", label: "解析 JD" },
+    { id: "evaluate", label: "评估优先级" },
+    { id: "links", label: "生成入口" },
+  ];
+  const jdProgressIndex = jdStep === "done" ? jdSteps.length : jdStep === "error" ? Math.max(1, jdSteps.findIndex((step) => step.id === jdStep) + 1) : jdSteps.findIndex((step) => step.id === jdStep) + 1;
+  const jdProgress = jdStep === "idle" ? 0 : Math.max(0, Math.min(100, Math.round((jdProgressIndex / jdSteps.length) * 100)));
   const items = [
     { label: "简历识别", value: hasResume ? resumeSource : "等待上传" },
-    { label: "岗位输入", value: customJob ? "已识别目标 JD" : "使用画像推荐岗位" },
+    { label: "意向岗位", value: customJobCount ? `已添加 ${customJobCount} 个` : "可继续添加" },
     { label: "模型状态", value: modelStatus === "loading" ? "处理中" : modelStatus === "ready" ? "已完成" : modelStatus === "error" ? "需处理" : "待调用" },
   ];
   return (
@@ -955,6 +1144,26 @@ function ProcessState({
           {steps.map((step, index) => {
             const active = step.id === pipelineStep;
             const done = pipelineStep === "done" || index < progressIndex - 1;
+            return (
+              <span key={step.id} className={active ? "active" : done ? "done" : ""}>
+                {step.label}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+      <div className={`pipeline-progress ${jdStatus}`}>
+        <div className="pipeline-title">
+          <strong>意向岗位分析</strong>
+          <span>{jdMessage}</span>
+        </div>
+        <div className="pipeline-bar" aria-label="意向岗位分析进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={jdProgress} role="progressbar">
+          <i style={{ width: `${jdProgress}%` }} />
+        </div>
+        <div className="pipeline-steps three">
+          {jdSteps.map((step, index) => {
+            const active = step.id === jdStep;
+            const done = jdStep === "done" || index < jdProgressIndex - 1;
             return (
               <span key={step.id} className={active ? "active" : done ? "done" : ""}>
                 {step.label}
