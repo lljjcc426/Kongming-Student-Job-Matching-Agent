@@ -105,43 +105,25 @@ const buildJobDiscoveryAgents = (resume: StructuredResume) => {
   const education = resume.education.slice(0, 2).join("、") || "专业背景";
   return [
     { focus: `高相关岗位：优先围绕 ${targets} 和 ${education} 推荐，偏专业核心岗位`, jobCount: 3 },
-    { focus: "相邻可迁移岗位：根据项目、校园经历、数据能力和可迁移能力推荐，避开高相关岗位名称变体", jobCount: 3 },
-    { focus: "成长型岗位：适合学生补强后投递或作为实习起点，避开前两类岗位名称变体", jobCount: 3 },
+    { focus: "相邻可迁移岗位：根据项目、校园经历、数据能力和可迁移能力推荐", jobCount: 3 },
+    { focus: "成长型岗位：适合学生补强后投递或作为实习起点", jobCount: 3 },
   ];
 };
-
-const roleFamilies = [
-  "用户研究",
-  "心理测评",
-  "市场调研",
-  "行为研究",
-  "内容运营",
-  "新媒体编辑",
-  "新闻采编",
-  "品牌公关",
-  "社群运营",
-  "产品运营",
-  "数据分析",
-  "教育产品",
-];
 
 const normalizeRoleText = (text: string) =>
   text
     .toLowerCase()
-    .replace(/实习生|实习|助理|专员|分析师|研究员|顾问|管培生|应届生|初级|高级|中级/g, "")
     .replace(/[^\u4e00-\u9fa5a-z0-9]/g, "")
     .trim();
 
-const normalizeJobKey = (job: Job) => {
-  const searchable = `${job.title} ${job.track} ${job.summary}`;
-  const family = roleFamilies.find((item) => searchable.includes(item));
-  if (family) return family;
-  return normalizeRoleText(job.title) || normalizeRoleText(job.track) || job.id;
-};
+const normalizeJobLevel = (job: Job) => (/实习|助理/.test(`${job.title} ${job.level}`) ? "intern" : "regular");
+
+const normalizeJobKey = (job: Job) => `${normalizeRoleText(job.title)}-${normalizeJobLevel(job)}`;
 
 const superviseRecommendedJobs = (jobs: Job[]) => {
   const usedKeys = new Set<string>();
-  return jobs
+  const usedIds = new Set<string>();
+  const normalizedJobs = jobs
     .filter((job) => {
       const key = normalizeJobKey(job);
       if (key.length < 2) return false;
@@ -151,13 +133,21 @@ const superviseRecommendedJobs = (jobs: Job[]) => {
     })
     .map((job, index) => ({
       ...job,
-      id: job.id || `agent-job-${index + 1}`,
+      id: `${normalizeRoleText(job.id || job.title || "agent-job") || "agent-job"}-${index + 1}`,
       responsibilities: job.responsibilities.slice(0, 5),
       requirements: job.requirements.slice(0, 5),
       bonus: job.bonus.slice(0, 5),
       keywords: job.keywords.slice(0, 8),
     }))
     .slice(0, 6);
+  return normalizedJobs.map((job, index) => {
+    let nextId = job.id;
+    while (usedIds.has(nextId)) {
+      nextId = `${job.id}-${index + 1}`;
+    }
+    usedIds.add(nextId);
+    return { ...job, id: nextId };
+  });
 };
 
 function App() {

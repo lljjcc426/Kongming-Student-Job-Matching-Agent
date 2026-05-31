@@ -111,7 +111,7 @@ const buildTextPrompt = (body) => {
       "5. city 不确定可写 不限。",
       "6. 每个文本字段保持简洁，避免长段解释。",
       "7. keywords 必须是拆开的短关键词数组，不要把多个关键词合并在一个字符串里。",
-      "8. 不要返回同一核心岗位的名称变体，例如 用户研究员 和 用户研究实习生 只能保留一个。",
+      "8. 不要返回完全相同的岗位标题；实习岗位和正式岗位可以分别保留。",
       `简历结构：${JSON.stringify(body.resumeProfile || {}, null, 2)}`,
       `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
       `目标 JD：${asText(body.jdText, 5000)}`,
