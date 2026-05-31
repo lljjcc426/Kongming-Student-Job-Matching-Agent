@@ -13,6 +13,9 @@ async function main() {
   const reportButtonText = await page.getByRole("button", { name: "下载分析报告" }).innerText();
   const copyButtonText = await page.getByRole("button", { name: "复制优化稿" }).innerText();
   const optimizedDraft = await page.getByText("优化后简历片段").count();
+  const agentCards = await page.locator(".agent-card").count();
+  const interviewInput = await page.getByLabel("模拟面试回答").count();
+  const uploadControl = await page.getByText("上传简历文本文件").count();
 
   await page.screenshot({ path: "artifacts/redesign-homepage.png", fullPage: true });
   await browser.close();
@@ -38,8 +41,17 @@ async function main() {
   if (optimizedDraft !== 1) {
     throw new Error(`Expected optimized draft section, found ${optimizedDraft}`);
   }
+  if (agentCards !== 4) {
+    throw new Error(`Expected 4 agent cards, found ${agentCards}`);
+  }
+  if (interviewInput !== 1) {
+    throw new Error(`Expected interview answer input, found ${interviewInput}`);
+  }
+  if (uploadControl !== 1) {
+    throw new Error(`Expected resume upload control, found ${uploadControl}`);
+  }
 
-  console.log(JSON.stringify({ title, jobCards, workflowSteps, jdButtonText, reportButtonText, copyButtonText, optimizedDraft, screenshot: "artifacts/redesign-homepage.png" }, null, 2));
+  console.log(JSON.stringify({ title, jobCards, workflowSteps, jdButtonText, reportButtonText, copyButtonText, optimizedDraft, agentCards, interviewInput, uploadControl, screenshot: "artifacts/redesign-homepage.png" }, null, 2));
 }
 
 main().catch((error) => {

@@ -2,17 +2,22 @@ import { useMemo, useState, type ReactNode } from "react";
 import {
   ArrowDownToLine,
   ArrowUpRight,
+  Bot,
   BriefcaseBusiness,
   CheckCircle2,
   ClipboardCheck,
   FileText,
   Lightbulb,
+  MessageCircleQuestion,
+  Network,
   Search,
   ShieldCheck,
   Sparkles,
+  Upload,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { jobs, studentProfile, type Job } from "./data";
+import { evaluateInterviewAnswer, getSearchLinks, runAgentTeam, type AgentTeamResult } from "./agents";
 import { parseCustomJob } from "./jobParser";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { buildMatchReport, downloadTextFile } from "./report";
@@ -38,12 +43,15 @@ function App() {
   const [resumeText, setResumeText] = useState(studentProfile.resumeText);
   const [customTitle, setCustomTitle] = useState("");
   const [customJdText, setCustomJdText] = useState(starterJd);
+  const [interviewAnswer, setInterviewAnswer] = useState("");
 
   const customJob = useMemo(() => parseCustomJob(customTitle, customJdText), [customTitle, customJdText]);
   const availableJobs = useMemo(() => (customJob ? [customJob, ...jobs] : jobs), [customJob]);
   const selectedJob = availableJobs.find((job) => job.id === selectedJobId) ?? availableJobs[0];
   const result = useMemo(() => analyzeMatch(studentProfile, selectedJob, resumeText), [resumeText, selectedJob]);
   const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(studentProfile, selectedJob, result), [selectedJob, result]);
+  const agentTeam = useMemo(() => runAgentTeam(studentProfile, availableJobs, selectedJob, result, resumeText), [availableJobs, selectedJob, result, resumeText]);
+  const interviewFeedback = useMemo(() => evaluateInterviewAnswer(interviewAnswer, selectedJob, result), [interviewAnswer, selectedJob, result]);
   const [copyStatus, setCopyStatus] = useState("复制优化稿");
 
   const handleUseCustomJob = () => {
@@ -61,6 +69,12 @@ function App() {
     window.setTimeout(() => setCopyStatus("复制优化稿"), 1600);
   };
 
+  const handleResumeUpload = async (file?: File) => {
+    if (!file) return;
+    const text = await file.text();
+    setResumeText(text);
+  };
+
   return (
     <main className="app-shell">
       <Hero result={result} selectedJob={selectedJob} />
@@ -71,6 +85,13 @@ function App() {
         <WorkflowStep index="03" title="初筛优化" text="定位关键词缺口与经历表达问题" />
         <WorkflowStep index="04" title="投递行动" text="输出投递前可执行清单" />
       </section>
+
+      <AgentTeamSection
+        agentTeam={agentTeam}
+        interviewAnswer={interviewAnswer}
+        setInterviewAnswer={setInterviewAnswer}
+        interviewFeedback={interviewFeedback}
+      />
 
       <section className="dashboard">
         <aside className="profile-column">
@@ -103,6 +124,11 @@ function App() {
             </InfoBlock>
 
             <InfoBlock title="简历文本">
+              <label className="upload-control">
+                <Upload size={15} />
+                上传简历文本文件
+                <input type="file" accept=".txt,.md,.text" onChange={(event) => void handleResumeUpload(event.target.files?.[0])} />
+              </label>
               <textarea value={resumeText} onChange={(event) => setResumeText(event.target.value)} aria-label="简历文本" />
             </InfoBlock>
           </Panel>
@@ -314,6 +340,92 @@ function WorkflowStep({ index, title, text }: { index: string; title: string; te
       <span>{index}</span>
       <strong>{title}</strong>
       <p>{text}</p>
+    </article>
+  );
+}
+
+function AgentTeamSection({
+  agentTeam,
+  interviewAnswer,
+  setInterviewAnswer,
+  interviewFeedback,
+}: {
+  agentTeam: AgentTeamResult;
+  interviewAnswer: string;
+  setInterviewAnswer: (value: string) => void;
+  interviewFeedback: ReturnType<typeof evaluateInterviewAnswer>;
+}) {
+  const searchLinks = getSearchLinks(agentTeam.jobSearchAgent.searchQueries);
+
+  return (
+    <section className="agent-team" aria-label="多智能体协作台">
+      <div className="section-head">
+        <div>
+          <span>Agent Team</span>
+          <h2>多智能体协作台</h2>
+        </div>
+        <p>四个智能体围绕同一份简历和目标岗位协作：解析简历、搜索岗位、给出策略、模拟面试。</p>
+      </div>
+
+      <div className="agent-grid">
+        <AgentCard icon={<Bot size={18} />} title="简历解析智能体" subtitle={agentTeam.resumeAgent.summary}>
+          <TagList items={agentTeam.resumeAgent.signals.slice(0, 8)} compact />
+          <BulletList items={agentTeam.resumeAgent.missingInfo} />
+        </AgentCard>
+
+        <AgentCard icon={<Network size={18} />} title="岗位搜索智能体" subtitle="生成联网检索关键词与候选岗位排序">
+          <div className="search-links">
+            {searchLinks.map((item) => (
+              <a key={item.query} href={item.url} target="_blank" rel="noreferrer">{item.query}</a>
+            ))}
+          </div>
+          <div className="candidate-list">
+            {agentTeam.jobSearchAgent.candidates.map((item) => (
+              <article key={item.title}>
+                <strong>{item.title}</strong>
+                <span>{item.score}</span>
+                <p>{item.reason}</p>
+              </article>
+            ))}
+          </div>
+        </AgentCard>
+
+        <AgentCard icon={<Lightbulb size={18} />} title="策略建议智能体" subtitle={`当前建议：${agentTeam.advisorAgent.decision}`}>
+          <BulletList items={agentTeam.advisorAgent.reasons} icon="check" />
+          <BulletList items={agentTeam.advisorAgent.nextActions} />
+        </AgentCard>
+
+        <AgentCard icon={<MessageCircleQuestion size={18} />} title="模拟面试智能体" subtitle={agentTeam.interviewAgent.focus}>
+          <BulletList items={agentTeam.interviewAgent.questions} />
+          <textarea
+            className="interview-answer"
+            value={interviewAnswer}
+            onChange={(event) => setInterviewAnswer(event.target.value)}
+            placeholder="输入一段模拟回答，系统会给出结构化反馈。"
+            aria-label="模拟面试回答"
+          />
+          <div className="interview-feedback">
+            <strong>{interviewFeedback.score ? `回答评分 ${interviewFeedback.score}` : "等待回答"}</strong>
+            <p>{interviewFeedback.summary}</p>
+            <BulletList items={interviewFeedback.suggestions} />
+          </div>
+        </AgentCard>
+      </div>
+    </section>
+  );
+}
+
+function AgentCard({ icon, title, subtitle, children }: { icon: ReactNode; title: string; subtitle: string; children: ReactNode }) {
+  return (
+    <article className="agent-card">
+      <div className="agent-card-head">
+        <div>{icon}</div>
+        <section>
+          <h3>{title}</h3>
+          <p>{subtitle}</p>
+        </section>
+      </div>
+      {children}
     </article>
   );
 }
