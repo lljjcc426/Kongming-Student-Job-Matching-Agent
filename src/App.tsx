@@ -22,6 +22,7 @@ import { callArkAgent } from "./arkClient";
 import { parseCustomJob } from "./jobParser";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { buildMatchReport, downloadTextFile } from "./report";
+import { buildProfileFromResume, summarizeResumeProfile } from "./resumeProfile";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
 
 const MAX_UPLOAD_BYTES = 4_000_000;
@@ -58,13 +59,24 @@ function App() {
   const [modelInsight, setModelInsight] = useState("");
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [modelMessage, setModelMessage] = useState("");
+  const [uploadMessage, setUploadMessage] = useState("当前使用内置样例，可上传或粘贴自己的简历覆盖分析。");
 
   const customJob = useMemo(() => parseCustomJob(customTitle, customJdText), [customTitle, customJdText]);
+  const activeProfile = useMemo(() => buildProfileFromResume(resumeText), [resumeText]);
+  const profileSummary = useMemo(() => summarizeResumeProfile(activeProfile), [activeProfile]);
   const availableJobs = useMemo(() => (customJob ? [customJob, ...jobs] : jobs), [customJob]);
-  const selectedJob = availableJobs.find((job) => job.id === selectedJobId) ?? availableJobs[0];
-  const result = useMemo(() => analyzeMatch(studentProfile, selectedJob, resumeText), [resumeText, selectedJob]);
-  const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(studentProfile, selectedJob, result), [selectedJob, result]);
-  const agentTeam = useMemo(() => runAgentTeam(studentProfile, availableJobs, selectedJob, result, resumeText), [availableJobs, selectedJob, result, resumeText]);
+  const rankedJobs = useMemo(
+    () =>
+      [...availableJobs].sort(
+        (left, right) =>
+          analyzeMatch(activeProfile, right, resumeText).total - analyzeMatch(activeProfile, left, resumeText).total,
+      ),
+    [activeProfile, availableJobs, resumeText],
+  );
+  const selectedJob = rankedJobs.find((job) => job.id === selectedJobId) ?? rankedJobs[0];
+  const result = useMemo(() => analyzeMatch(activeProfile, selectedJob, resumeText), [activeProfile, resumeText, selectedJob]);
+  const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
+  const agentTeam = useMemo(() => runAgentTeam(activeProfile, rankedJobs, selectedJob, result, resumeText), [activeProfile, rankedJobs, selectedJob, result, resumeText]);
   const interviewFeedback = useMemo(() => evaluateInterviewAnswer(interviewAnswer, selectedJob, result), [interviewAnswer, selectedJob, result]);
   const [copyStatus, setCopyStatus] = useState("复制优化稿");
 
@@ -73,7 +85,7 @@ function App() {
   };
 
   const handleDownloadReport = () => {
-    const report = buildMatchReport(studentProfile, selectedJob, result, resumeText, optimizedDraft);
+    const report = buildMatchReport(activeProfile, selectedJob, result, resumeText, optimizedDraft);
     downloadTextFile("kongming-match-report.md", report);
   };
 
@@ -100,6 +112,7 @@ function App() {
         setModelInsight(response.content);
         setModelStatus("ready");
         setModelMessage(`已通过 ${response.model ?? "模型"} 识别图片简历`);
+        setUploadMessage(`已识别 ${file.name}，画像、岗位排序和匹配结果已更新。`);
         return;
       }
       setModelStatus("error");
@@ -108,6 +121,7 @@ function App() {
     }
     const text = await file.text();
     setResumeText(text);
+    setUploadMessage(`已读取 ${file.name}，共 ${text.trim().length} 字，画像、岗位排序和匹配结果已更新。`);
   };
 
   const handleModelAnalysis = async () => {
@@ -154,20 +168,24 @@ function App() {
           <Panel eyebrow="Profile" title="学生画像" icon={<FileText size={18} />}>
             <div className="identity-card">
               <div>
-                <span>{studentProfile.school}</span>
-                <strong>{studentProfile.name}</strong>
-                <p>{studentProfile.grade} · {studentProfile.major}</p>
+                <span>{activeProfile.school}</span>
+                <strong>{activeProfile.name}</strong>
+                <p>{activeProfile.grade} · {activeProfile.major}</p>
               </div>
-              <small>{studentProfile.target}</small>
+              <small>{activeProfile.target}</small>
+            </div>
+
+            <div className="profile-snapshot">
+              {profileSummary.map((item) => <span key={item}>{item}</span>)}
             </div>
 
             <InfoBlock title="能力标签">
-              <TagList items={studentProfile.skills} />
+              <TagList items={activeProfile.skills} />
             </InfoBlock>
 
             <InfoBlock title="经历证据">
               <div className="timeline">
-                {studentProfile.experiences.map((item) => (
+                {activeProfile.experiences.map((item) => (
                   <article key={item.title}>
                     <div>
                       <strong>{item.title}</strong>
@@ -183,9 +201,24 @@ function App() {
               <label className="upload-control">
                 <Upload size={15} />
                 上传简历文本或图片
-                <input type="file" accept=".txt,.md,.text,image/*" onChange={(event) => void handleResumeUpload(event.target.files?.[0])} />
+                <input
+                  type="file"
+                  accept=".txt,.md,.text,image/*"
+                  onChange={(event) => {
+                    void handleResumeUpload(event.target.files?.[0]);
+                    event.currentTarget.value = "";
+                  }}
+                />
               </label>
-              <textarea value={resumeText} onChange={(event) => setResumeText(event.target.value)} aria-label="简历文本" />
+              <p className="upload-message">{uploadMessage}</p>
+              <textarea
+                value={resumeText}
+                onChange={(event) => {
+                  setResumeText(event.target.value);
+                  setUploadMessage(`已根据当前文本实时更新画像和岗位排序，当前 ${event.target.value.trim().length} 字。`);
+                }}
+                aria-label="简历文本"
+              />
             </InfoBlock>
           </Panel>
         </aside>
@@ -217,12 +250,12 @@ function App() {
             </div>
 
             <div className="job-board">
-              {availableJobs.map((job) => (
+              {rankedJobs.map((job) => (
                 <JobCard
                   key={job.id}
                   job={job}
                   active={job.id === selectedJob.id}
-                  result={analyzeMatch(studentProfile, job, resumeText)}
+                  result={analyzeMatch(activeProfile, job, resumeText)}
                   onSelect={() => setSelectedJobId(job.id)}
                 />
               ))}
