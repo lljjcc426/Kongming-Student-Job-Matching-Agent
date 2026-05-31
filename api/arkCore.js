@@ -5,7 +5,7 @@ const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_IMAGE_DATA_URL_CHARS = 4_500_000;
 const MAX_IMAGE_COUNT = 2;
-const REQUEST_TIMEOUT_MS = 30000;
+const REQUEST_TIMEOUT_MS = 60000;
 
 const asText = (value, maxLength) => {
   if (typeof value !== "string") return "";
@@ -190,19 +190,30 @@ export async function runArkCompletion(body) {
 
   const baseUrl = process.env.ARK_BASE_URL || DEFAULT_BASE_URL;
   const model = DEFAULT_MODEL;
-  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST",
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: buildMessages(body),
-      temperature: 0.25,
-    }),
-  });
+  let response;
+  try {
+    response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: buildMessages(body),
+        temperature: 0.25,
+      }),
+    });
+  } catch (error) {
+    return {
+      status: 504,
+      payload: {
+        ok: false,
+        error: error instanceof Error && error.name === "TimeoutError" ? "模型接口响应超时，请稍后重试或上传更清晰、更小的文件。" : "模型接口网络连接失败，请检查本机网络或服务配置。",
+      },
+    };
+  }
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {

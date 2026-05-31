@@ -72,12 +72,31 @@ const toneOf = (score: number) => {
   return "weak";
 };
 
-const readFileAsDataUrl = (file: File) =>
+const readImageAsCompressedDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const maxSide = 1600;
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      if (!context) {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("IMAGE_CANVAS_UNAVAILABLE"));
+        return;
+      }
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL("image/jpeg", 0.78));
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("IMAGE_LOAD_FAILED"));
+    };
+    image.src = objectUrl;
   });
 
 function App() {
@@ -203,7 +222,7 @@ function App() {
     if (file.type.startsWith("image/")) {
       setModelStatus("loading");
       setModelMessage("正在识别图片简历");
-      const imageDataUrl = await readFileAsDataUrl(file);
+      const imageDataUrl = await readImageAsCompressedDataUrl(file);
       const response = await callArkAgent({ task: "resume-vision", imageDataUrl });
       if (response.ok && response.content) {
         setResumeText(response.content);
