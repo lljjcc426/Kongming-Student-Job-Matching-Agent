@@ -10,6 +10,7 @@ export type ArkRequest = {
   matchResult?: MatchResult;
   interviewAnswer?: string;
   imageDataUrl?: string;
+  imageDataUrls?: string[];
 };
 
 export type ArkResponse = {
