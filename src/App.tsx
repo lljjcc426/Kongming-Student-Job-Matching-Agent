@@ -18,6 +18,7 @@ import {
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { jobs, studentProfile, type Job } from "./data";
 import { evaluateInterviewAnswer, getSearchLinks, runAgentTeam, type AgentTeamResult } from "./agents";
+import { callArkAgent } from "./arkClient";
 import { parseCustomJob } from "./jobParser";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { buildMatchReport, downloadTextFile } from "./report";
@@ -38,12 +39,23 @@ const toneOf = (score: number) => {
   return "weak";
 };
 
+const readFileAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
 function App() {
   const [selectedJobId, setSelectedJobId] = useState(jobs[0].id);
   const [resumeText, setResumeText] = useState(studentProfile.resumeText);
   const [customTitle, setCustomTitle] = useState("");
   const [customJdText, setCustomJdText] = useState(starterJd);
   const [interviewAnswer, setInterviewAnswer] = useState("");
+  const [modelInsight, setModelInsight] = useState("");
+  const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [modelMessage, setModelMessage] = useState("");
 
   const customJob = useMemo(() => parseCustomJob(customTitle, customJdText), [customTitle, customJdText]);
   const availableJobs = useMemo(() => (customJob ? [customJob, ...jobs] : jobs), [customJob]);
@@ -71,8 +83,45 @@ function App() {
 
   const handleResumeUpload = async (file?: File) => {
     if (!file) return;
+    if (file.type.startsWith("image/")) {
+      setModelStatus("loading");
+      setModelMessage("正在识别图片简历");
+      const imageDataUrl = await readFileAsDataUrl(file);
+      const response = await callArkAgent({ task: "resume-vision", imageDataUrl });
+      if (response.ok && response.content) {
+        setResumeText(response.content);
+        setModelInsight(response.content);
+        setModelStatus("ready");
+        setModelMessage(`已通过 ${response.model ?? "模型"} 识别图片简历`);
+        return;
+      }
+      setModelStatus("error");
+      setModelMessage(response.error || "图片简历识别失败，请检查模型环境变量。");
+      return;
+    }
     const text = await file.text();
     setResumeText(text);
+  };
+
+  const handleModelAnalysis = async () => {
+    setModelStatus("loading");
+    setModelMessage("正在调用模型生成增强分析");
+    const response = await callArkAgent({
+      task: "match-analysis",
+      resumeText,
+      selectedJob,
+      matchResult: result,
+    });
+
+    if (response.ok && response.content) {
+      setModelInsight(response.content);
+      setModelStatus("ready");
+      setModelMessage(`已通过 ${response.model ?? "模型"} 完成增强分析`);
+      return;
+    }
+
+    setModelStatus("error");
+    setModelMessage(response.error || "模型增强分析失败，请检查运行环境。");
   };
 
   return (
@@ -126,8 +175,8 @@ function App() {
             <InfoBlock title="简历文本">
               <label className="upload-control">
                 <Upload size={15} />
-                上传简历文本文件
-                <input type="file" accept=".txt,.md,.text" onChange={(event) => void handleResumeUpload(event.target.files?.[0])} />
+                上传简历文本或图片
+                <input type="file" accept=".txt,.md,.text,image/*" onChange={(event) => void handleResumeUpload(event.target.files?.[0])} />
               </label>
               <textarea value={resumeText} onChange={(event) => setResumeText(event.target.value)} aria-label="简历文本" />
             </InfoBlock>
@@ -234,6 +283,20 @@ function App() {
               <ArrowDownToLine size={16} />
               下载分析报告
             </button>
+
+            <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()} disabled={modelStatus === "loading"}>
+              <Sparkles size={16} />
+              {modelStatus === "loading" ? "模型分析中" : "模型增强分析"}
+            </button>
+
+            {(modelMessage || modelInsight) && (
+              <InfoBlock title="模型增强结果">
+                <div className={`model-insight ${modelStatus}`}>
+                  {modelMessage ? <strong>{modelMessage}</strong> : null}
+                  {modelInsight ? <p>{modelInsight}</p> : null}
+                </div>
+              </InfoBlock>
+            )}
 
             <InfoBlock title="匹配优势">
               <BulletList items={result.strengths} icon="check" />

@@ -10,12 +10,13 @@ async function main() {
   const jobCards = await page.locator(".job-card").count();
   const workflowSteps = await page.locator(".workflow article").count();
   const jdButtonText = await page.locator(".primary-action").innerText();
-  const reportButtonText = await page.getByRole("button", { name: "下载分析报告" }).innerText();
-  const copyButtonText = await page.getByRole("button", { name: "复制优化稿" }).innerText();
+  const reportButtons = await page.locator("button.secondary-action").filter({ hasText: "下载分析报告" }).count();
+  const copyButtons = await page.locator("button.secondary-action").filter({ hasText: "复制优化稿" }).count();
+  const modelButtons = await page.locator("button.secondary-action").filter({ hasText: "模型增强分析" }).count();
   const optimizedDraft = await page.getByText("优化后简历片段").count();
   const agentCards = await page.locator(".agent-card").count();
   const interviewInput = await page.getByLabel("模拟面试回答").count();
-  const uploadControl = await page.getByText("上传简历文本文件").count();
+  const uploadControl = await page.locator(".upload-control").count();
 
   await page.screenshot({ path: "artifacts/redesign-homepage.png", fullPage: true });
   await browser.close();
@@ -32,11 +33,14 @@ async function main() {
   if (!jdButtonText.includes("分析该岗位")) {
     throw new Error(`JD action not found: ${jdButtonText}`);
   }
-  if (!reportButtonText.includes("下载分析报告")) {
-    throw new Error(`Report action not found: ${reportButtonText}`);
+  if (reportButtons !== 1) {
+    throw new Error(`Expected report action, found ${reportButtons}`);
   }
-  if (!copyButtonText.includes("复制优化稿")) {
-    throw new Error(`Copy action not found: ${copyButtonText}`);
+  if (copyButtons !== 1) {
+    throw new Error(`Expected copy action, found ${copyButtons}`);
+  }
+  if (modelButtons !== 1) {
+    throw new Error(`Expected model analysis action, found ${modelButtons}`);
   }
   if (optimizedDraft !== 1) {
     throw new Error(`Expected optimized draft section, found ${optimizedDraft}`);
@@ -51,7 +55,20 @@ async function main() {
     throw new Error(`Expected resume upload control, found ${uploadControl}`);
   }
 
-  console.log(JSON.stringify({ title, jobCards, workflowSteps, jdButtonText, reportButtonText, copyButtonText, optimizedDraft, agentCards, interviewInput, uploadControl, screenshot: "artifacts/redesign-homepage.png" }, null, 2));
+  console.log(JSON.stringify({
+    title,
+    jobCards,
+    workflowSteps,
+    jdButtonText,
+    reportButtons,
+    copyButtons,
+    modelButtons,
+    optimizedDraft,
+    agentCards,
+    interviewInput,
+    uploadControl,
+    screenshot: "artifacts/redesign-homepage.png",
+  }, null, 2));
 }
 
 main().catch((error) => {
