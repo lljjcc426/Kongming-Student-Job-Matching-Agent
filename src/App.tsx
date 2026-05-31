@@ -410,6 +410,11 @@ function AgentTeamSection({
             <BulletList items={interviewFeedback.suggestions} />
           </div>
         </AgentCard>
+
+        <AgentCard icon={<ShieldCheck size={18} />} title="协作监督智能体" subtitle={agentTeam.supervisorAgent.priority}>
+          <p>{agentTeam.supervisorAgent.summary}</p>
+          <BulletList items={agentTeam.supervisorAgent.handoff} />
+        </AgentCard>
       </div>
     </section>
   );

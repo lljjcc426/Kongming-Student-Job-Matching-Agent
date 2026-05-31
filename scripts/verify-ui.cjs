@@ -41,8 +41,8 @@ async function main() {
   if (optimizedDraft !== 1) {
     throw new Error(`Expected optimized draft section, found ${optimizedDraft}`);
   }
-  if (agentCards !== 4) {
-    throw new Error(`Expected 4 agent cards, found ${agentCards}`);
+  if (agentCards !== 5) {
+    throw new Error(`Expected 5 agent cards, found ${agentCards}`);
   }
   if (interviewInput !== 1) {
     throw new Error(`Expected interview answer input, found ${interviewInput}`);

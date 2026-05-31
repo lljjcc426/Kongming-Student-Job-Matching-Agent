@@ -21,3 +21,4 @@
 - [交付计划](docs/04-delivery-plan.md)
 - [开源项目能力选择矩阵](docs/05-open-source-selection-matrix.md)
 - [Skill、MCP 与部署准备](docs/06-skills-mcp-and-deployment-prep.md)
+- [多智能体与多模态架构设计](docs/08-multi-agent-multimodal-architecture.md)
