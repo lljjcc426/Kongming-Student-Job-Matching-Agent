@@ -29,4 +29,15 @@ export type Job = {
   bonus: string[];
   keywords: string[];
   priority: "高" | "中" | "低";
+  applicationLinks?: Array<{
+    company: string;
+    url: string;
+    note: string;
+  }>;
+  jdAnalysis?: {
+    conclusion: string;
+    strengths: string[];
+    risks: string[];
+    actions: string[];
+  };
 };

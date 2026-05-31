@@ -267,7 +267,26 @@ input {
   background: #f8fbff;
 }
 
+.pipeline-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.pipeline-title strong {
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.pipeline-title span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .pipeline-bar {
+  position: relative;
   height: 10px;
   border-radius: 999px;
   background: #dbeafe;
@@ -280,6 +299,26 @@ input {
   border-radius: inherit;
   background: #2563eb;
   transition: width 260ms ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.pipeline-progress.loading .pipeline-bar i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 44px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  animation: progress-shine 1.1s linear infinite;
+}
+
+@keyframes progress-shine {
+  from {
+    transform: translateX(-48px);
+  }
+  to {
+    transform: translateX(220px);
+  }
 }
 
 .pipeline-progress.ready .pipeline-bar i {
@@ -294,6 +333,10 @@ input {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+}
+
+.pipeline-steps.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .pipeline-steps span {
@@ -609,11 +652,21 @@ textarea {
 
 .interview-studio {
   display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
   border: 1px solid #bfdbfe;
   border-radius: 8px;
   background: #f8fbff;
+}
+
+.interview-panel {
+  margin-top: 16px;
+}
+
+.interview-main {
+  display: grid;
+  gap: 12px;
 }
 
 .interview-studio p {
@@ -789,6 +842,48 @@ input {
 .jd-actions > span {
   color: #64748b;
   font-size: 13px;
+}
+
+.custom-job-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.custom-job-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.custom-job-list strong {
+  display: block;
+  margin: 4px 0;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.custom-job-list span {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.custom-job-list p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.custom-job-actions {
+  display: grid;
+  gap: 8px;
 }
 
 .primary-action,
@@ -996,6 +1091,45 @@ input {
   margin-top: 8px;
 }
 
+.apply-panel {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.apply-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.apply-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #fff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.jd-analysis-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 4px;
+}
+
 .bullet-list {
   display: grid;
   gap: 8px;
@@ -1201,7 +1335,11 @@ input {
   .process-grid,
   .dashboard,
   .job-detail-grid,
-  .selected-job-head {
+  .selected-job-head,
+  .apply-panel,
+  .jd-analysis-panel,
+  .interview-studio,
+  .custom-job-list article {
     grid-template-columns: 1fr;
   }
 

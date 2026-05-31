@@ -59,24 +59,24 @@ const extractLines = (text: string, fallback: string[]) => {
 
 export function parseCustomJob(title: string, jdText: string): Job | null {
   const text = jdText.trim();
-  if (text.length < 20) return null;
+  const titleText = title.trim();
+  if (!text && !titleText) return null;
 
   const keywords = keywordBank.filter((keyword) => text.toLowerCase().includes(keyword.toLowerCase()));
   const track = inferTrack(text);
 
   return {
-    id: "custom-jd",
+    id: "custom-jd-draft",
     title: inferTitle(title, text),
     track,
     city: inferCity(text),
     level: /实习/.test(text) ? "实习" : "岗位",
     companyScenario: "自定义岗位 JD",
-    summary: text.slice(0, 86) + (text.length > 86 ? "..." : ""),
+    summary: text ? text.slice(0, 86) + (text.length > 86 ? "..." : "") : titleText,
     responsibilities: extractLines(text, ["理解岗位职责并拆解核心任务", "结合简历经历寻找可证明的能力证据", "准备与岗位要求相关的项目表达"]),
     requirements: extractLines(text, ["补齐岗位关键词", "突出项目经历中的行动与结果", "说明求职动机与岗位方向的关联"]),
     bonus: keywords.slice(0, 3).length ? keywords.slice(0, 3).map((keyword) => `简历中能清晰呈现 ${keyword}`) : ["有相关项目经历", "能提供量化结果", "表达清晰且结构完整"],
     keywords: keywords.length ? keywords : ["需求分析", "数据分析", "沟通协调", "项目复盘", "AI 工具"],
-    priority: "高",
+    priority: "中",
   };
 }
-

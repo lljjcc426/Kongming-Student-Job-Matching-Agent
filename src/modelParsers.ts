@@ -12,6 +12,23 @@ export type StructuredResume = {
   summary: string;
 };
 
+export type JdAnalysis = {
+  title: string;
+  priority: "高" | "中" | "低";
+  track: string;
+  city: string;
+  level: string;
+  summary: string;
+  conclusion: string;
+  strengths: string[];
+  risks: string[];
+  actions: string[];
+  keywords: string[];
+  responsibilities: string[];
+  requirements: string[];
+  bonus: string[];
+};
+
 const emptyStructuredResume: StructuredResume = {
   name: "",
   education: [],
@@ -103,6 +120,26 @@ export function parseModelJobs(content: string): Job[] {
       priority: item.priority === "高" || item.priority === "中" || item.priority === "低" ? item.priority : "中",
     }))
     .filter((item) => item.title && item.keywords.length > 0);
+}
+
+export function parseJdAnalysis(content: string): JdAnalysis {
+  const data = JSON.parse(extractJsonText(content)) as Partial<JdAnalysis>;
+  return {
+    title: typeof data.title === "string" && data.title.trim() ? data.title.trim() : "意向岗位",
+    priority: data.priority === "高" || data.priority === "中" || data.priority === "低" ? data.priority : "中",
+    track: typeof data.track === "string" && data.track.trim() ? data.track.trim() : "待确认",
+    city: typeof data.city === "string" && data.city.trim() ? data.city.trim() : "不限",
+    level: typeof data.level === "string" && data.level.trim() ? data.level.trim() : "岗位",
+    summary: typeof data.summary === "string" ? data.summary.trim() : "",
+    conclusion: typeof data.conclusion === "string" ? data.conclusion.trim() : "",
+    strengths: asStringArray(data.strengths),
+    risks: asStringArray(data.risks),
+    actions: asStringArray(data.actions),
+    keywords: asKeywordArray(data.keywords),
+    responsibilities: asStringArray(data.responsibilities),
+    requirements: asStringArray(data.requirements),
+    bonus: asStringArray(data.bonus),
+  };
 }
 
 export function profileFromStructuredResume(structured: StructuredResume | null, resumeText: string): StudentProfile {

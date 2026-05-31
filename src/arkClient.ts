@@ -1,7 +1,7 @@
 import type { Job } from "./data";
 import type { MatchResult } from "./matchEngine";
 
-export type ArkTask = "match-analysis" | "resume-vision" | "resume-structure" | "job-recommendations" | "interview-feedback";
+export type ArkTask = "match-analysis" | "resume-vision" | "resume-structure" | "job-recommendations" | "jd-analysis" | "interview-feedback";
 
 export type ArkRequest = {
   task: ArkTask;
@@ -13,6 +13,7 @@ export type ArkRequest = {
   imageDataUrls?: string[];
   resumeProfile?: unknown;
   jdText?: string;
+  jobTitle?: string;
   agentFocus?: string;
   jobCount?: number;
 };
