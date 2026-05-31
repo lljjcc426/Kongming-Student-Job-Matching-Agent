@@ -257,6 +257,57 @@ input {
   font-size: 22px;
 }
 
+.pipeline-progress {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.pipeline-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  overflow: hidden;
+}
+
+.pipeline-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2563eb;
+  transition: width 260ms ease;
+}
+
+.pipeline-progress.ready .pipeline-bar i {
+  background: #0f766e;
+}
+
+.pipeline-progress.error .pipeline-bar i {
+  background: #be123c;
+}
+
+.pipeline-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pipeline-steps span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.pipeline-steps span.active,
+.pipeline-steps span.done {
+  color: #1d4ed8;
+}
+
 .process-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
