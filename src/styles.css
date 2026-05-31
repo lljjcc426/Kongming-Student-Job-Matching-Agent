@@ -353,6 +353,7 @@ input {
 
 .timeline p,
 .action-stack p,
+.draft-card p,
 .selected-job p,
 .verdict-card p,
 .section-head p {
@@ -470,6 +471,10 @@ input {
   border: 1px solid #bfdbfe;
   background: #fff;
   color: #1d4ed8;
+}
+
+.compact-action {
+  margin-top: 4px;
 }
 
 .job-board {
@@ -738,6 +743,33 @@ input {
 .action-stack strong {
   display: block;
   margin-bottom: 6px;
+}
+
+.draft-card {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.draft-card span {
+  display: block;
+  margin-bottom: 6px;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.draft-card ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 18px;
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .checklist {
