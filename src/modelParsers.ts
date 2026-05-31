@@ -25,6 +25,11 @@ const emptyStructuredResume: StructuredResume = {
 };
 
 const asStringArray = (value: unknown) => Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+const asKeywordArray = (value: unknown) =>
+  asStringArray(value)
+    .flatMap((item) => item.split(/[，,、/]/g))
+    .map((item) => item.trim())
+    .filter(Boolean);
 
 const extractJsonText = (content: string) => {
   const trimmed = content.trim();
@@ -68,7 +73,7 @@ export function parseModelJobs(content: string): Job[] {
       responsibilities: asStringArray(item.responsibilities),
       requirements: asStringArray(item.requirements),
       bonus: asStringArray(item.bonus),
-      keywords: asStringArray(item.keywords),
+      keywords: asKeywordArray(item.keywords),
       priority: item.priority === "高" || item.priority === "中" || item.priority === "低" ? item.priority : "中",
     }))
     .filter((item) => item.title && item.keywords.length > 0);

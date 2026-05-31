@@ -100,6 +100,38 @@ const readImageAsCompressedDataUrl = (file: File) =>
     image.src = objectUrl;
   });
 
+const buildJobDiscoveryAgents = (resume: StructuredResume) => {
+  const targets = resume.targetRoles.slice(0, 3).join("、") || "学生简历中最匹配的岗位";
+  const education = resume.education.slice(0, 2).join("、") || "专业背景";
+  return [
+    { focus: `高相关岗位：优先围绕 ${targets} 和 ${education} 推荐`, jobCount: 2 },
+    { focus: "相邻可迁移岗位：根据项目、校园经历和可迁移能力推荐", jobCount: 2 },
+    { focus: "成长型岗位：适合学生补强后投递或作为实习起点", jobCount: 2 },
+  ];
+};
+
+const normalizeJobKey = (job: Job) => `${job.title.trim().toLowerCase()}-${job.track.trim().toLowerCase()}`;
+
+const superviseRecommendedJobs = (jobs: Job[]) => {
+  const usedKeys = new Set<string>();
+  return jobs
+    .filter((job) => {
+      const key = normalizeJobKey(job);
+      if (usedKeys.has(key)) return false;
+      usedKeys.add(key);
+      return true;
+    })
+    .map((job, index) => ({
+      ...job,
+      id: job.id || `agent-job-${index + 1}`,
+      responsibilities: job.responsibilities.slice(0, 5),
+      requirements: job.requirements.slice(0, 5),
+      bonus: job.bonus.slice(0, 5),
+      keywords: job.keywords.slice(0, 8),
+    }))
+    .slice(0, 6);
+};
+
 function App() {
   const [selectedJobId, setSelectedJobId] = useState("");
   const [resumeText, setResumeText] = useState("");
@@ -145,20 +177,41 @@ function App() {
 
   const runJobRecommendations = async (nextResumeText: string, nextResume: StructuredResume) => {
     setPipelineStep("jobs");
-    const jobsResponse = await callArkAgent({
-      task: "job-recommendations",
-      resumeText: nextResumeText,
-      resumeProfile: nextResume,
-      jdText: customJdText,
-    });
-    if (!jobsResponse.ok || !jobsResponse.content) {
+    setModelMessage("岗位发现智能体正在并行生成推荐岗位");
+    const agents = buildJobDiscoveryAgents(nextResume);
+    const responses = await Promise.allSettled(
+      agents.map((agent) =>
+        callArkAgent(
+          {
+            task: "job-recommendations",
+            resumeText: nextResumeText,
+            resumeProfile: nextResume,
+            jdText: customJdText,
+            agentFocus: agent.focus,
+            jobCount: agent.jobCount,
+          },
+          { timeoutMs: 38000 },
+        ),
+      ),
+    );
+    const parsedJobs = superviseRecommendedJobs(
+      responses.flatMap((response) => {
+        if (response.status !== "fulfilled" || !response.value.ok || !response.value.content) return [];
+        try {
+          return parseModelJobs(response.value.content);
+        } catch {
+          return [];
+        }
+      }),
+    );
+
+    if (!parsedJobs.length) {
       setModelStatus("error");
       setPipelineStep("error");
-      setModelMessage(jobsResponse.error || "模型岗位推荐失败。");
+      setModelMessage("岗位推荐子任务均未返回有效结果，请补充简历信息后重试。");
       return;
     }
 
-    const parsedJobs = parseModelJobs(jobsResponse.content);
     setModelJobs(parsedJobs);
     setSelectedJobId(parsedJobs[0]?.id ?? "");
     setModelStatus("ready");
