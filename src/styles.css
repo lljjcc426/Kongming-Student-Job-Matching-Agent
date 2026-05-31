@@ -556,6 +556,77 @@ textarea {
   line-height: 1.65;
 }
 
+.interview-studio {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.interview-studio p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.video-preview {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 150px;
+  border: 1px dashed #93c5fd;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 900;
+  overflow: hidden;
+}
+
+.video-preview video {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  background: #0f172a;
+}
+
+.video-preview.preview {
+  display: block;
+  border-style: solid;
+  background: #0f172a;
+}
+
+.video-preview.preview span {
+  display: block;
+  padding: 8px 10px;
+  background: #eff6ff;
+}
+
+.video-preview.blocked {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.interview-textarea {
+  min-height: 132px;
+}
+
+.interview-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.interview-actions .secondary-action,
+.interview-actions .primary-action {
+  width: 100%;
+  margin-top: 0;
+}
+
 .upload-control {
   position: relative;
   display: inline-flex;

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowDownToLine,
   ArrowUpRight,
@@ -7,10 +7,12 @@ import {
   ClipboardCheck,
   FileText,
   Lightbulb,
+  Mic,
   Search,
   ShieldCheck,
   Sparkles,
   Upload,
+  Video,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Job } from "./data";
@@ -22,6 +24,32 @@ import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
 
 const MAX_UPLOAD_BYTES = 4_000_000;
+type SpeechRecognitionResultLike = {
+  0?: {
+    transcript?: string;
+  };
+};
+type SpeechRecognitionEventLike = {
+  results: ArrayLike<SpeechRecognitionResultLike>;
+};
+type BrowserSpeechRecognition = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+};
+type SpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+const getSpeechRecognition = () => {
+  const browserWindow = window as typeof window & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+  return browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition;
+};
 
 const emptyJob: Job = {
   id: "empty",
@@ -62,8 +90,15 @@ function App() {
   const [modelInsight, setModelInsight] = useState("");
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [modelMessage, setModelMessage] = useState("");
+  const [interviewAnswer, setInterviewAnswer] = useState("");
+  const [interviewFeedback, setInterviewFeedback] = useState("");
+  const [interviewStatus, setInterviewStatus] = useState<"idle" | "listening" | "loading" | "ready" | "error">("idle");
+  const [interviewMessage, setInterviewMessage] = useState("");
+  const [videoMode, setVideoMode] = useState<"idle" | "preview" | "blocked">("idle");
   const [uploadMessage, setUploadMessage] = useState("请上传简历文本/图片，或直接粘贴简历内容开始分析。");
   const [resumeSource, setResumeSource] = useState("等待上传");
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const customJob = useMemo(() => parseCustomJob(customTitle, customJdText), [customTitle, customJdText]);
   const activeProfile = useMemo(() => profileFromStructuredResume(structuredResume, resumeText), [structuredResume, resumeText]);
@@ -255,6 +290,99 @@ function App() {
 
     setModelStatus("error");
     setModelMessage(response.error || "模型增强分析失败，请检查运行环境。");
+  };
+
+  const handleSpeechInput = () => {
+    const Recognition = getSpeechRecognition();
+    if (!Recognition) {
+      setInterviewStatus("error");
+      setInterviewMessage("当前浏览器不支持语音转写，请先使用文本回答。");
+      return;
+    }
+
+    const recognition = new Recognition();
+    recognition.lang = "zh-CN";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => {
+      setInterviewStatus("listening");
+      setInterviewMessage("正在收听回答，结束后会自动写入文本框。");
+    };
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0]?.transcript ?? "")
+        .join("")
+        .trim();
+      if (transcript) {
+        setInterviewAnswer((current) => [current, transcript].filter(Boolean).join("\n"));
+      }
+      setInterviewStatus("idle");
+      setInterviewMessage(transcript ? "已完成语音转写，可继续补充后提交反馈。" : "未识别到有效语音，请重试或直接输入文本。");
+    };
+    recognition.onerror = () => {
+      setInterviewStatus("error");
+      setInterviewMessage("语音转写未完成，请检查浏览器麦克风权限。");
+    };
+    recognition.onend = () => {
+      setInterviewStatus((current) => (current === "listening" ? "idle" : current));
+    };
+    recognition.start();
+  };
+
+  const handleVideoPreview = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setVideoMode("blocked");
+      setInterviewMessage("当前浏览器不支持摄像头预览。");
+      return;
+    }
+
+    try {
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      mediaStreamRef.current = stream;
+      setVideoMode("preview");
+      setInterviewMessage("视频面试预览已开启；后续可接入实时对话或数字人渲染。");
+      window.setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 0);
+    } catch {
+      setVideoMode("blocked");
+      setInterviewMessage("未获得摄像头或麦克风权限，仍可使用文本模拟面试。");
+    }
+  };
+
+  const handleInterviewFeedback = async () => {
+    if (!hasResume || !hasAnalysis) {
+      setInterviewStatus("error");
+      setInterviewMessage("请先完成简历解析和岗位匹配，再进行模拟面试。");
+      return;
+    }
+    if (!interviewAnswer.trim()) {
+      setInterviewStatus("error");
+      setInterviewMessage("请先输入或转写一段面试回答。");
+      return;
+    }
+
+    setInterviewStatus("loading");
+    setInterviewMessage("正在调用模型评估面试回答");
+    const response = await callArkAgent({
+      task: "interview-feedback",
+      selectedJob,
+      matchResult: result,
+      interviewAnswer,
+    });
+
+    if (response.ok && response.content) {
+      setInterviewFeedback(response.content);
+      setInterviewStatus("ready");
+      setInterviewMessage(`已通过 ${response.model ?? "模型"} 完成面试反馈`);
+      return;
+    }
+
+    setInterviewStatus("error");
+    setInterviewMessage(response.error || "模拟面试反馈生成失败，请检查模型服务。");
   };
 
   return (
@@ -496,6 +624,43 @@ function App() {
                     <button type="button" className="secondary-action compact-action" onClick={handleCopyDraft}>
                       {copyStatus}
                     </button>
+                  </div>
+                </InfoBlock>
+
+                <InfoBlock title="模拟面试">
+                  <div className="interview-studio">
+                    <div className={`video-preview ${videoMode}`}>
+                      {videoMode === "preview" ? <video ref={videoRef} autoPlay muted playsInline aria-label="视频面试预览" /> : <Video size={22} />}
+                      <span>{videoMode === "preview" ? "视频预览中" : "视频对话接口预留"}</span>
+                    </div>
+                    <p>围绕当前岗位进行问答练习；现阶段支持文本与浏览器语音转写，后续可扩展为实时音视频对话。</p>
+                    <textarea
+                      className="interview-textarea"
+                      value={interviewAnswer}
+                      onChange={(event) => setInterviewAnswer(event.target.value)}
+                      aria-label="模拟面试回答"
+                      placeholder="输入或语音转写你的回答，例如：请介绍一个与你目标岗位相关的项目经历。"
+                    />
+                    <div className="interview-actions">
+                      <button type="button" className="secondary-action compact-action" onClick={handleSpeechInput} disabled={interviewStatus === "listening" || interviewStatus === "loading"}>
+                        <Mic size={16} />
+                        {interviewStatus === "listening" ? "收听中" : "语音转写"}
+                      </button>
+                      <button type="button" className="secondary-action compact-action" onClick={() => void handleVideoPreview()}>
+                        <Video size={16} />
+                        视频预览
+                      </button>
+                      <button type="button" className="primary-action compact-action" onClick={() => void handleInterviewFeedback()} disabled={interviewStatus === "loading"}>
+                        <Sparkles size={16} />
+                        {interviewStatus === "loading" ? "评估中" : "生成反馈"}
+                      </button>
+                    </div>
+                    {(interviewMessage || interviewFeedback) && (
+                      <div className={`model-insight ${interviewStatus === "error" ? "error" : ""}`}>
+                        {interviewMessage ? <strong>{interviewMessage}</strong> : null}
+                        {interviewFeedback ? <p>{interviewFeedback}</p> : null}
+                      </div>
+                    )}
                   </div>
                 </InfoBlock>
 

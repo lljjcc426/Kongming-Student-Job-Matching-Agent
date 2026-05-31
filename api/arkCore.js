@@ -74,6 +74,7 @@ const buildTextPrompt = (body) => {
   if (body.task === "resume-structure") {
     return [
       "你是简历结构化解析智能体。请只基于用户上传的简历文本提取事实，不要编造。",
+      "即使简历文本较短，也必须提取其中明确出现的信息；不要因为内容不完整就返回全空结构。",
       "请输出严格 JSON，不要输出 Markdown，不要解释。",
       "JSON 结构如下：",
       '{"name":"","education":[],"internships":[],"projects":[],"campus":[],"honors":[],"skills":[],"targetRoles":[],"summary":""}',
@@ -82,6 +83,7 @@ const buildTextPrompt = (body) => {
       "2. education/internships/projects/campus/honors 每项为字符串数组。",
       "3. targetRoles 优先读取求职意向、目标岗位、应聘方向；没有就根据简历谨慎推断 1-3 个方向。",
       "4. skills 只提取简历中明确出现的能力、工具、语言、证书或方法。",
+      "5. 如果文本中出现学校、专业、学历、项目、求职意向等字样，应放入对应字段。",
       `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
     ].join("\n\n");
   }
@@ -139,6 +141,11 @@ const buildMessages = (body) => {
             type: "image_url",
             image_url: {
               url: imageDataUrl,
+              detail: "high",
+              image_pixel_limit: {
+                max_pixels: 3014080,
+                min_pixels: 3136,
+              },
             },
           })),
         ],
@@ -182,7 +189,7 @@ export async function runArkCompletion(body) {
   }
 
   const baseUrl = process.env.ARK_BASE_URL || DEFAULT_BASE_URL;
-  const model = process.env.ARK_MODEL_TEXT || DEFAULT_MODEL;
+  const model = DEFAULT_MODEL;
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
