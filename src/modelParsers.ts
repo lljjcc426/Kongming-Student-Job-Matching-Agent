@@ -34,13 +34,39 @@ const asKeywordArray = (value: unknown) =>
 const extractJsonText = (content: string) => {
   const trimmed = content.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) return fenced[1].trim();
-  const firstArray = trimmed.indexOf("[");
-  const firstObject = trimmed.indexOf("{");
+  const source = fenced?.[1]?.trim() || trimmed;
+  const firstArray = source.indexOf("[");
+  const firstObject = source.indexOf("{");
   const start = firstArray >= 0 && (firstObject < 0 || firstArray < firstObject) ? firstArray : firstObject;
-  if (start < 0) return trimmed;
-  const end = trimmed[start] === "[" ? trimmed.lastIndexOf("]") : trimmed.lastIndexOf("}");
-  return end > start ? trimmed.slice(start, end + 1) : trimmed;
+  if (start < 0) return source;
+
+  const opener = source[start];
+  const closer = opener === "[" ? "]" : "}";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < source.length; index += 1) {
+    const char = source[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (char === opener) depth += 1;
+    if (char === closer) depth -= 1;
+    if (depth === 0) return source.slice(start, index + 1);
+  }
+
+  return source.slice(start);
 };
 
 export function parseStructuredResume(content: string): StructuredResume {
