@@ -10,7 +10,9 @@ async function main() {
   const jobCards = await page.locator(".job-card").count();
   const workflowSteps = await page.locator(".workflow article").count();
   const jdButtonText = await page.locator(".primary-action").innerText();
-  const reportButtonText = await page.locator(".secondary-action").innerText();
+  const reportButtonText = await page.getByRole("button", { name: "下载分析报告" }).innerText();
+  const copyButtonText = await page.getByRole("button", { name: "复制优化稿" }).innerText();
+  const optimizedDraft = await page.getByText("优化后简历片段").count();
 
   await page.screenshot({ path: "artifacts/redesign-homepage.png", fullPage: true });
   await browser.close();
@@ -30,8 +32,14 @@ async function main() {
   if (!reportButtonText.includes("下载分析报告")) {
     throw new Error(`Report action not found: ${reportButtonText}`);
   }
+  if (!copyButtonText.includes("复制优化稿")) {
+    throw new Error(`Copy action not found: ${copyButtonText}`);
+  }
+  if (optimizedDraft !== 1) {
+    throw new Error(`Expected optimized draft section, found ${optimizedDraft}`);
+  }
 
-  console.log(JSON.stringify({ title, jobCards, workflowSteps, jdButtonText, reportButtonText, screenshot: "artifacts/redesign-homepage.png" }, null, 2));
+  console.log(JSON.stringify({ title, jobCards, workflowSteps, jdButtonText, reportButtonText, copyButtonText, optimizedDraft, screenshot: "artifacts/redesign-homepage.png" }, null, 2));
 }
 
 main().catch((error) => {

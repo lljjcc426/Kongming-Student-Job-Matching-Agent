@@ -1,7 +1,8 @@
 import type { Job, StudentProfile } from "./data";
 import type { MatchResult } from "./matchEngine";
+import type { OptimizedResumeDraft } from "./resumeOptimizer";
 
-export function buildMatchReport(profile: StudentProfile, job: Job, result: MatchResult, resumeText: string) {
+export function buildMatchReport(profile: StudentProfile, job: Job, result: MatchResult, resumeText: string, optimizedDraft: OptimizedResumeDraft) {
   return `# 孔明职配分析报告
 
 ## 目标岗位
@@ -36,6 +37,20 @@ ${result.risks.map((item) => `- ${item}`).join("\n")}
 
 ${result.resumeActions.map((item) => `- ${item.title}：${item.detail}`).join("\n")}
 
+## 优化后简历片段
+
+### 个人总结
+
+${optimizedDraft.summary}
+
+### 项目经历改写
+
+${optimizedDraft.projectBullets.map((item) => `- ${item}`).join("\n")}
+
+### 技能关键词
+
+${optimizedDraft.skillLine}
+
 ## 投递前清单
 
 ${result.actionPlan.map((item, index) => `${index + 1}. ${item}`).join("\n")}
@@ -55,4 +70,3 @@ export function downloadTextFile(filename: string, content: string) {
   anchor.click();
   URL.revokeObjectURL(url);
 }
-

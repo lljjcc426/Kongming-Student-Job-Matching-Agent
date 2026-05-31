@@ -16,6 +16,7 @@ import { jobs, studentProfile, type Job } from "./data";
 import { parseCustomJob } from "./jobParser";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { buildMatchReport, downloadTextFile } from "./report";
+import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
 
 const starterJd = `产品经理实习生
 工作地点：深圳
@@ -42,14 +43,22 @@ function App() {
   const availableJobs = useMemo(() => (customJob ? [customJob, ...jobs] : jobs), [customJob]);
   const selectedJob = availableJobs.find((job) => job.id === selectedJobId) ?? availableJobs[0];
   const result = useMemo(() => analyzeMatch(studentProfile, selectedJob, resumeText), [resumeText, selectedJob]);
+  const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(studentProfile, selectedJob, result), [selectedJob, result]);
+  const [copyStatus, setCopyStatus] = useState("复制优化稿");
 
   const handleUseCustomJob = () => {
     if (customJob) setSelectedJobId(customJob.id);
   };
 
   const handleDownloadReport = () => {
-    const report = buildMatchReport(studentProfile, selectedJob, result, resumeText);
+    const report = buildMatchReport(studentProfile, selectedJob, result, resumeText, optimizedDraft);
     downloadTextFile("kongming-match-report.md", report);
+  };
+
+  const handleCopyDraft = async () => {
+    await navigator.clipboard.writeText(formatOptimizedResumeDraft(optimizedDraft));
+    setCopyStatus("已复制");
+    window.setTimeout(() => setCopyStatus("复制优化稿"), 1600);
   };
 
   return (
@@ -230,6 +239,28 @@ function App() {
                     <p>{action.detail}</p>
                   </article>
                 ))}
+              </div>
+            </InfoBlock>
+
+            <InfoBlock title="优化后简历片段">
+              <div className="draft-card">
+                <div>
+                  <span>个人总结</span>
+                  <p>{optimizedDraft.summary}</p>
+                </div>
+                <div>
+                  <span>项目经历改写</span>
+                  <ul>
+                    {optimizedDraft.projectBullets.map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                </div>
+                <div>
+                  <span>技能关键词</span>
+                  <p>{optimizedDraft.skillLine}</p>
+                </div>
+                <button type="button" className="secondary-action compact-action" onClick={handleCopyDraft}>
+                  {copyStatus}
+                </button>
               </div>
             </InfoBlock>
 
