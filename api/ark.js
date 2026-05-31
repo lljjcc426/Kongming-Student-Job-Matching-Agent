@@ -1,7 +1,14 @@
 import { runArkCompletion } from "./arkCore.js";
 
+const setSecurityHeaders = (response) => {
+  response.setHeader("Cache-Control", "no-store, private");
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  response.setHeader("Referrer-Policy", "no-referrer");
+  response.setHeader("X-Robots-Tag", "noindex, nofollow");
+};
+
 export default async function handler(request, response) {
-  response.setHeader("Cache-Control", "no-store");
+  setSecurityHeaders(response);
 
   if (request.method !== "POST") {
     response.status(405).json({ ok: false, error: "只支持 POST 请求。" });
@@ -14,7 +21,7 @@ export default async function handler(request, response) {
   } catch (error) {
     response.status(500).json({
       ok: false,
-      error: error instanceof Error ? error.message : "模型代理服务异常。",
+      error: "模型代理服务异常，请稍后重试。",
     });
   }
 }
