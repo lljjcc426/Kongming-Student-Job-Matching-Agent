@@ -12,7 +12,7 @@ const pick = (items: string[], count: number) => items.slice(0, count).filter(Bo
 export function buildOptimizedResumeDraft(profile: StudentProfile, job: Job, result: MatchResult): OptimizedResumeDraft {
   const primaryExperience = profile.experiences[0] ?? {
     title: "最相关经历",
-    role: "候选人",
+    role: "学生",
     evidence: "",
     tags: [],
   };
