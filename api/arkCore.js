@@ -12,6 +12,12 @@ const asText = (value, maxLength) => {
   return value.slice(0, maxLength);
 };
 
+const asCount = (value, fallback = 6) => {
+  const count = Number(value);
+  if (!Number.isFinite(count)) return fallback;
+  return Math.max(1, Math.min(6, Math.round(count)));
+};
+
 const validateRequest = (body) => {
   if (!body || typeof body !== "object") {
     return "请求内容格式不正确。";
@@ -89,18 +95,22 @@ const buildTextPrompt = (body) => {
   }
 
   if (body.task === "job-recommendations") {
+    const jobCount = asCount(body.jobCount);
+    const focus = asText(body.agentFocus, 120) || "综合匹配";
     return [
-      "你是学生求职岗位匹配智能体。请根据简历和学生意愿生成适合投递或准备的岗位方向。",
+      `你是学生求职岗位匹配智能体，当前子任务方向：${focus}。请根据简历和学生意愿生成适合投递或准备的岗位方向。`,
       "必须覆盖学生简历中的专业背景、技能、经历和求职意愿；如果简历里写了目标岗位，以学生意愿为最高优先级。",
       "不要套用固定岗位模板，不要局限于互联网通用岗位。心理学、艺术类、新闻传播、法学、财务、医学、教育等专业都要给出相应岗位。",
       "请输出严格 JSON 数组，不要输出 Markdown，不要解释。数组每项结构如下：",
       '{"id":"","title":"","track":"","city":"","level":"","companyScenario":"","summary":"","responsibilities":[],"requirements":[],"bonus":[],"keywords":[],"priority":"高"}',
       "要求：",
-      "1. 返回 6-10 个岗位。",
+      `1. 返回 ${jobCount} 个岗位。`,
       "2. id 使用英文短横线小写。",
       "3. priority 只能是 高、中、低。",
-      "4. responsibilities、requirements、bonus、keywords 每项 3-8 条。",
+      "4. responsibilities、requirements、bonus、keywords 每项 3-5 条。",
       "5. city 不确定可写 不限。",
+      "6. 每个文本字段保持简洁，避免长段解释。",
+      "7. keywords 必须是拆开的短关键词数组，不要把多个关键词合并在一个字符串里。",
       `简历结构：${JSON.stringify(body.resumeProfile || {}, null, 2)}`,
       `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
       `目标 JD：${asText(body.jdText, 5000)}`,
@@ -203,6 +213,10 @@ export async function runArkCompletion(body) {
         model,
         messages: buildMessages(body),
         temperature: 0.25,
+        thinking: {
+          type: "disabled",
+        },
+        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : 1200,
       }),
     });
   } catch (error) {

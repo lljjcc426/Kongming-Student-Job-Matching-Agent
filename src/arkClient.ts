@@ -13,6 +13,8 @@ export type ArkRequest = {
   imageDataUrls?: string[];
   resumeProfile?: unknown;
   jdText?: string;
+  agentFocus?: string;
+  jobCount?: number;
 };
 
 export type ArkResponse = {
@@ -22,14 +24,28 @@ export type ArkResponse = {
   error?: string;
 };
 
-export async function callArkAgent(payload: ArkRequest): Promise<ArkResponse> {
-  const response = await fetch("/api/ark", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+export async function callArkAgent(payload: ArkRequest, options: { timeoutMs?: number } = {}): Promise<ArkResponse> {
+  const controller = new AbortController();
+  const timeoutId = options.timeoutMs ? window.setTimeout(() => controller.abort(), options.timeoutMs) : 0;
+  let response: Response;
+
+  try {
+    response = await fetch("/api/ark", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error && error.name === "AbortError" ? "模型请求超时，已跳过该子任务。" : "模型服务暂不可用。",
+    };
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
 
   const data = (await response.json().catch(() => ({}))) as ArkResponse;
   if (!response.ok || !data.ok) {
