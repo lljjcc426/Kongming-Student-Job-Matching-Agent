@@ -27,15 +27,6 @@ import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeO
 
 const MAX_UPLOAD_BYTES = 4_000_000;
 
-const starterJd = `产品经理实习生
-工作地点：深圳
-岗位职责：
-1. 参与用户研究、需求分析、产品原型设计和数据复盘；
-2. 协同研发、设计和运营推进产品上线；
-3. 基于 SQL 或数据看板分析核心指标，输出优化建议。
-岗位要求：
-具备清晰的逻辑分析能力，熟悉原型设计工具，有校园项目或互联网产品实践经验。关注 AI 产品体验者优先。`;
-
 const toneOf = (score: number) => {
   if (score >= 82) return "strong";
   if (score >= 68) return "medium";
@@ -52,19 +43,24 @@ const readFileAsDataUrl = (file: File) =>
 
 function App() {
   const [selectedJobId, setSelectedJobId] = useState(jobs[0].id);
-  const [resumeText, setResumeText] = useState(studentProfile.resumeText);
+  const [resumeText, setResumeText] = useState("");
   const [customTitle, setCustomTitle] = useState("");
-  const [customJdText, setCustomJdText] = useState(starterJd);
+  const [customJdText, setCustomJdText] = useState("");
   const [interviewAnswer, setInterviewAnswer] = useState("");
   const [modelInsight, setModelInsight] = useState("");
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [modelMessage, setModelMessage] = useState("");
-  const [uploadMessage, setUploadMessage] = useState("当前使用内置样例，可上传或粘贴自己的简历覆盖分析。");
+  const [uploadMessage, setUploadMessage] = useState("请上传简历文本/图片，或直接粘贴简历内容开始分析。");
 
   const customJob = useMemo(() => parseCustomJob(customTitle, customJdText), [customTitle, customJdText]);
   const activeProfile = useMemo(() => buildProfileFromResume(resumeText), [resumeText]);
   const profileSummary = useMemo(() => summarizeResumeProfile(activeProfile), [activeProfile]);
-  const availableJobs = useMemo(() => (customJob ? [customJob, ...jobs] : jobs), [customJob]);
+  const hasResume = resumeText.trim().length > 0;
+  const hasWorkspaceInput = hasResume || Boolean(customJob);
+  const availableJobs = useMemo(() => {
+    if (!hasWorkspaceInput) return [];
+    return customJob ? [customJob, ...jobs] : jobs;
+  }, [customJob, hasWorkspaceInput]);
   const rankedJobs = useMemo(
     () =>
       [...availableJobs].sort(
@@ -73,7 +69,7 @@ function App() {
       ),
     [activeProfile, availableJobs, resumeText],
   );
-  const selectedJob = rankedJobs.find((job) => job.id === selectedJobId) ?? rankedJobs[0];
+  const selectedJob = rankedJobs.find((job) => job.id === selectedJobId) ?? rankedJobs[0] ?? customJob ?? jobs[0];
   const result = useMemo(() => analyzeMatch(activeProfile, selectedJob, resumeText), [activeProfile, resumeText, selectedJob]);
   const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
   const agentTeam = useMemo(() => runAgentTeam(activeProfile, rankedJobs, selectedJob, result, resumeText), [activeProfile, rankedJobs, selectedJob, result, resumeText]);
@@ -85,6 +81,7 @@ function App() {
   };
 
   const handleDownloadReport = () => {
+    if (!hasResume) return;
     const report = buildMatchReport(activeProfile, selectedJob, result, resumeText, optimizedDraft);
     downloadTextFile("kongming-match-report.md", report);
   };
@@ -125,6 +122,11 @@ function App() {
   };
 
   const handleModelAnalysis = async () => {
+    if (!hasResume) {
+      setModelStatus("error");
+      setModelMessage("请先上传或粘贴简历内容，再进行模型增强分析。");
+      return;
+    }
     setModelStatus("loading");
     setModelMessage("正在调用模型生成增强分析");
     const response = await callArkAgent({
@@ -147,7 +149,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      <Hero result={result} selectedJob={selectedJob} />
+      <Hero result={result} selectedJob={selectedJob} isReady={hasWorkspaceInput} />
 
       <section className="workflow" aria-label="产品工作流">
         <WorkflowStep index="01" title="学生画像" text="识别专业、经历、技能与求职偏好" />
@@ -156,12 +158,16 @@ function App() {
         <WorkflowStep index="04" title="投递行动" text="输出投递前可执行清单" />
       </section>
 
-      <AgentTeamSection
-        agentTeam={agentTeam}
-        interviewAnswer={interviewAnswer}
-        setInterviewAnswer={setInterviewAnswer}
-        interviewFeedback={interviewFeedback}
-      />
+      {hasWorkspaceInput ? (
+        <AgentTeamSection
+          agentTeam={agentTeam}
+          interviewAnswer={interviewAnswer}
+          setInterviewAnswer={setInterviewAnswer}
+          interviewFeedback={interviewFeedback}
+        />
+      ) : (
+        <EmptyState title="等待输入" text="上传简历或粘贴目标岗位后，多智能体协作台会生成简历解析、岗位搜索、匹配推理和模拟面试内容。" />
+      )}
 
       <section className="dashboard">
         <aside className="profile-column">
@@ -249,155 +255,180 @@ function App() {
               </div>
             </div>
 
-            <div className="job-board">
-              {rankedJobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  active={job.id === selectedJob.id}
-                  result={analyzeMatch(activeProfile, job, resumeText)}
-                  onSelect={() => setSelectedJobId(job.id)}
-                />
-              ))}
-            </div>
-
-            <div className="selected-job">
-              <div className="selected-job-head">
-                <div>
-                  <span>{selectedJob.companyScenario}</span>
-                  <h2>{selectedJob.title}</h2>
-                  <p>{selectedJob.summary}</p>
+            {hasWorkspaceInput ? (
+              <>
+                <div className="job-board">
+                  {rankedJobs.map((job) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      active={job.id === selectedJob.id}
+                      result={analyzeMatch(activeProfile, job, resumeText)}
+                      onSelect={() => setSelectedJobId(job.id)}
+                    />
+                  ))}
                 </div>
-                <div className={`score-badge ${toneOf(result.total)}`}>
-                  <strong>{result.total}</strong>
-                  <span>{result.verdict}</span>
-                </div>
-              </div>
 
-              <div className="job-detail-grid">
-                <InfoBlock title="岗位职责">
-                  <BulletList items={selectedJob.responsibilities} />
-                </InfoBlock>
-                <InfoBlock title="岗位要求">
-                  <BulletList items={selectedJob.requirements} />
-                </InfoBlock>
-                <InfoBlock title="加分项">
-                  <BulletList items={selectedJob.bonus} />
-                </InfoBlock>
-              </div>
-            </div>
+                <div className="selected-job">
+                  <div className="selected-job-head">
+                    <div>
+                      <span>{selectedJob.companyScenario}</span>
+                      <h2>{selectedJob.title}</h2>
+                      <p>{selectedJob.summary}</p>
+                    </div>
+                    <div className={`score-badge ${toneOf(result.total)}`}>
+                      <strong>{result.total}</strong>
+                      <span>{result.verdict}</span>
+                    </div>
+                  </div>
 
-            <div className="chart-card">
-              <div className="section-head">
-                <div>
-                  <span>Match Score</span>
-                  <h3>五维匹配评分</h3>
+                  <div className="job-detail-grid">
+                    <InfoBlock title="岗位职责">
+                      <BulletList items={selectedJob.responsibilities} />
+                    </InfoBlock>
+                    <InfoBlock title="岗位要求">
+                      <BulletList items={selectedJob.requirements} />
+                    </InfoBlock>
+                    <InfoBlock title="加分项">
+                      <BulletList items={selectedJob.bonus} />
+                    </InfoBlock>
+                  </div>
                 </div>
-                <p>评分用于辅助求职决策，不代表企业筛选结果。</p>
-              </div>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={result.dimensions} margin={{ top: 10, right: 16, left: -14, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dbeafe" />
-                  <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: "#475569", fontSize: 12 }} />
-                  <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-                  <Tooltip cursor={{ fill: "rgba(37, 99, 235, 0.08)" }} />
-                  <Bar dataKey="score" fill="#2563eb" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+
+                <div className="chart-card">
+                  <div className="section-head">
+                    <div>
+                      <span>Match Score</span>
+                      <h3>五维匹配评分</h3>
+                    </div>
+                    <p>评分用于辅助求职决策，不代表企业筛选结果。</p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={result.dimensions} margin={{ top: 10, right: 16, left: -14, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dbeafe" />
+                      <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: "#475569", fontSize: 12 }} />
+                      <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                      <Tooltip cursor={{ fill: "rgba(37, 99, 235, 0.08)" }} />
+                      <Bar dataKey="score" fill="#2563eb" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            ) : (
+              <EmptyState title="暂无匹配结果" text="上传简历后会生成岗位推荐；粘贴 JD 后会优先分析目标岗位。" />
+            )}
           </Panel>
         </section>
 
         <aside className="insight-column">
           <Panel eyebrow="AI Insight" title="初筛命中率提升建议" icon={<Lightbulb size={18} />}>
-            <div className={`verdict-card ${toneOf(result.total)}`}>
-              <div>
-                <span>匹配结论</span>
-                <strong>{result.verdict}</strong>
-                <p>基于简历文本、学生画像和目标岗位要求生成。</p>
-              </div>
-              <b>{result.total}</b>
-            </div>
-
-            <button type="button" className="secondary-action" onClick={handleDownloadReport}>
-              <ArrowDownToLine size={16} />
-              下载分析报告
-            </button>
-
-            <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()} disabled={modelStatus === "loading"}>
-              <Sparkles size={16} />
-              {modelStatus === "loading" ? "模型分析中" : "模型增强分析"}
-            </button>
-
-            {(modelMessage || modelInsight) && (
-              <InfoBlock title="模型增强结果">
-                <div className={`model-insight ${modelStatus}`}>
-                  {modelMessage ? <strong>{modelMessage}</strong> : null}
-                  {modelInsight ? <p>{modelInsight}</p> : null}
+            {hasWorkspaceInput ? (
+              <>
+                <div className={`verdict-card ${toneOf(result.total)}`}>
+                  <div>
+                    <span>匹配结论</span>
+                    <strong>{result.verdict}</strong>
+                    <p>基于简历文本、学生画像和目标岗位要求生成。</p>
+                  </div>
+                  <b>{result.total}</b>
                 </div>
-              </InfoBlock>
-            )}
 
-            <InfoBlock title="匹配优势">
-              <BulletList items={result.strengths} icon="check" />
-            </InfoBlock>
-
-            <InfoBlock title="风险与差距">
-              <BulletList items={result.risks} icon="risk" />
-            </InfoBlock>
-
-            <InfoBlock title="关键词覆盖">
-              <div className="keyword-box">
-                <div>
-                  <span>已覆盖</span>
-                  <TagList items={result.coveredKeywords} compact />
-                </div>
-                <div>
-                  <span>需补强</span>
-                  <TagList items={result.missingKeywords} compact muted />
-                </div>
-              </div>
-            </InfoBlock>
-
-            <InfoBlock title="简历优化动作">
-              <div className="action-stack">
-                {result.resumeActions.map((action) => (
-                  <article key={action.title}>
-                    <span>{action.impact}</span>
-                    <strong>{action.title}</strong>
-                    <p>{action.detail}</p>
-                  </article>
-                ))}
-              </div>
-            </InfoBlock>
-
-            <InfoBlock title="优化后简历片段">
-              <div className="draft-card">
-                <div>
-                  <span>个人总结</span>
-                  <p>{optimizedDraft.summary}</p>
-                </div>
-                <div>
-                  <span>项目经历改写</span>
-                  <ul>
-                    {optimizedDraft.projectBullets.map((item) => <li key={item}>{item}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <span>技能关键词</span>
-                  <p>{optimizedDraft.skillLine}</p>
-                </div>
-                <button type="button" className="secondary-action compact-action" onClick={handleCopyDraft}>
-                  {copyStatus}
+                <button type="button" className="secondary-action" onClick={handleDownloadReport} disabled={!hasResume}>
+                  <ArrowDownToLine size={16} />
+                  下载分析报告
                 </button>
-              </div>
-            </InfoBlock>
 
-            <InfoBlock title="投递前清单">
-              <ol className="checklist">
-                {result.actionPlan.map((item) => <li key={item}>{item}</li>)}
-              </ol>
-            </InfoBlock>
+                <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()} disabled={modelStatus === "loading" || !hasResume}>
+                  <Sparkles size={16} />
+                  {modelStatus === "loading" ? "模型分析中" : "模型增强分析"}
+                </button>
+
+                {(modelMessage || modelInsight) && (
+                  <InfoBlock title="模型增强结果">
+                    <div className={`model-insight ${modelStatus}`}>
+                      {modelMessage ? <strong>{modelMessage}</strong> : null}
+                      {modelInsight ? <p>{modelInsight}</p> : null}
+                    </div>
+                  </InfoBlock>
+                )}
+
+                <InfoBlock title="匹配优势">
+                  <BulletList items={result.strengths} icon="check" />
+                </InfoBlock>
+
+                <InfoBlock title="风险与差距">
+                  <BulletList items={result.risks} icon="risk" />
+                </InfoBlock>
+
+                <InfoBlock title="关键词覆盖">
+                  <div className="keyword-box">
+                    <div>
+                      <span>已覆盖</span>
+                      <TagList items={result.coveredKeywords} compact />
+                    </div>
+                    <div>
+                      <span>需补强</span>
+                      <TagList items={result.missingKeywords} compact muted />
+                    </div>
+                  </div>
+                </InfoBlock>
+
+                <InfoBlock title="简历优化动作">
+                  <div className="action-stack">
+                    {result.resumeActions.map((action) => (
+                      <article key={action.title}>
+                        <span>{action.impact}</span>
+                        <strong>{action.title}</strong>
+                        <p>{action.detail}</p>
+                      </article>
+                    ))}
+                  </div>
+                </InfoBlock>
+
+                <InfoBlock title="优化后简历片段">
+                  <div className="draft-card">
+                    <div>
+                      <span>个人总结</span>
+                      <p>{optimizedDraft.summary}</p>
+                    </div>
+                    <div>
+                      <span>项目经历改写</span>
+                      <ul>
+                        {optimizedDraft.projectBullets.map((item) => <li key={item}>{item}</li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <span>技能关键词</span>
+                      <p>{optimizedDraft.skillLine}</p>
+                    </div>
+                    <button type="button" className="secondary-action compact-action" onClick={handleCopyDraft}>
+                      {copyStatus}
+                    </button>
+                  </div>
+                </InfoBlock>
+
+                <InfoBlock title="投递前清单">
+                  <ol className="checklist">
+                    {result.actionPlan.map((item) => <li key={item}>{item}</li>)}
+                  </ol>
+                </InfoBlock>
+              </>
+            ) : (
+              <div>
+                <EmptyState title="等待分析" text="当前没有简历或岗位输入。上传简历后，这里会生成匹配结论、关键词覆盖、优化动作和投递清单。" />
+                <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()}>
+                  <Sparkles size={16} />
+                  模型增强分析
+                </button>
+                {modelMessage ? (
+                  <InfoBlock title="模型增强结果">
+                    <div className={`model-insight ${modelStatus}`}>
+                      <strong>{modelMessage}</strong>
+                    </div>
+                  </InfoBlock>
+                ) : null}
+              </div>
+            )}
           </Panel>
         </aside>
       </section>
@@ -405,7 +436,7 @@ function App() {
   );
 }
 
-function Hero({ result, selectedJob }: { result: MatchResult; selectedJob: Job }) {
+function Hero({ result, selectedJob, isReady }: { result: MatchResult; selectedJob: Job; isReady: boolean }) {
   return (
     <header className="hero">
       <div className="hero-copy">
@@ -422,18 +453,37 @@ function Hero({ result, selectedJob }: { result: MatchResult; selectedJob: Job }
         </div>
       </div>
       <div className="hero-card">
-        <span>当前分析</span>
-        <strong>{selectedJob.title}</strong>
-        <div className="hero-score">
-          <b>{result.total}</b>
-          <div>
-            <small>{result.verdict}</small>
-            <i style={{ width: `${result.total}%` }} />
+        {isReady ? (
+          <>
+            <span>当前分析</span>
+            <strong>{selectedJob.title}</strong>
+            <div className="hero-score">
+              <b>{result.total}</b>
+              <div>
+                <small>{result.verdict}</small>
+                <i style={{ width: `${result.total}%` }} />
+              </div>
+            </div>
+            <p>已覆盖 {result.coveredKeywords.length} 个岗位关键词，仍需补强 {result.missingKeywords.length} 个关键词。</p>
+          </>
+        ) : (
+          <div className="hero-empty">
+            <span>初始化状态</span>
+            <strong>等待简历与岗位输入</strong>
+            <p>页面不会预置分析结果。上传简历、粘贴 JD 或点击模型增强分析后，可以直接观察系统响应。</p>
           </div>
-        </div>
-        <p>已覆盖 {result.coveredKeywords.length} 个岗位关键词，仍需补强 {result.missingKeywords.length} 个关键词。</p>
+        )}
       </div>
     </header>
+  );
+}
+
+function EmptyState({ title, text }: { title: string; text: string }) {
+  return (
+    <section className="empty-state">
+      <strong>{title}</strong>
+      <p>{text}</p>
+    </section>
   );
 }
 

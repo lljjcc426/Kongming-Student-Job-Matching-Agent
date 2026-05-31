@@ -7,15 +7,15 @@ async function main() {
   await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
 
   const title = await page.locator("h1").innerText();
-  const jobCards = await page.locator(".job-card").count();
+  const initialJobCards = await page.locator(".job-card").count();
   const workflowSteps = await page.locator(".workflow article").count();
   const jdButtonText = await page.locator(".primary-action").innerText();
-  const reportButtons = await page.locator("button.secondary-action").filter({ hasText: "下载分析报告" }).count();
-  const copyButtons = await page.locator("button.secondary-action").filter({ hasText: "复制优化稿" }).count();
+  const initialReportButtons = await page.locator("button.secondary-action").filter({ hasText: "下载分析报告" }).count();
+  const initialCopyButtons = await page.locator("button.secondary-action").filter({ hasText: "复制优化稿" }).count();
   const modelButtons = await page.locator("button.secondary-action").filter({ hasText: "模型增强分析" }).count();
-  const optimizedDraft = await page.getByText("优化后简历片段").count();
-  const agentCards = await page.locator(".agent-card").count();
-  const interviewInput = await page.getByLabel("模拟面试回答").count();
+  const initialOptimizedDraft = await page.getByText("优化后简历片段").count();
+  const initialAgentCards = await page.locator(".agent-card").count();
+  const initialInterviewInput = await page.getByLabel("模拟面试回答").count();
   const uploadControl = await page.locator(".upload-control").count();
   const uploadedResume = [
     "华南理工大学 软件工程专业 大三",
@@ -31,6 +31,12 @@ async function main() {
     buffer: Buffer.from(uploadedResume, "utf8"),
   });
   await page.waitForFunction(() => document.body.innerText.includes("frontend-resume.txt"));
+  const jobCards = await page.locator(".job-card").count();
+  const reportButtons = await page.locator("button.secondary-action").filter({ hasText: "下载分析报告" }).count();
+  const copyButtons = await page.locator("button.secondary-action").filter({ hasText: "复制优化稿" }).count();
+  const optimizedDraft = await page.getByText("优化后简历片段").count();
+  const agentCards = await page.locator(".agent-card").count();
+  const interviewInput = await page.getByLabel("模拟面试回答").count();
   const uploadMessage = await page.locator(".upload-message").innerText();
   const profileSnapshot = await page.locator(".profile-snapshot").innerText();
   const dynamicSkillVisible = await page.getByText("TypeScript", { exact: true }).count();
@@ -41,8 +47,11 @@ async function main() {
   if (title !== "孔明职配") {
     throw new Error(`Unexpected title: ${title}`);
   }
-  if (jobCards !== 5) {
-    throw new Error(`Expected 5 job cards, found ${jobCards}`);
+  if (initialJobCards !== 0) {
+    throw new Error(`Expected empty initial job cards, found ${initialJobCards}`);
+  }
+  if (initialReportButtons !== 0 || initialCopyButtons !== 0 || initialOptimizedDraft !== 0 || initialAgentCards !== 0 || initialInterviewInput !== 0) {
+    throw new Error("Initial page should not show completed analysis sections");
   }
   if (workflowSteps !== 4) {
     throw new Error(`Expected 4 workflow steps, found ${workflowSteps}`);
@@ -83,6 +92,12 @@ async function main() {
 
   console.log(JSON.stringify({
     title,
+    initialJobCards,
+    initialReportButtons,
+    initialCopyButtons,
+    initialOptimizedDraft,
+    initialAgentCards,
+    initialInterviewInput,
     jobCards,
     workflowSteps,
     jdButtonText,
