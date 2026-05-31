@@ -417,6 +417,48 @@ input {
   font-weight: 800;
 }
 
+.resume-section-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.resume-section-card {
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.resume-section-card summary {
+  padding: 12px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.resume-section-card ul {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px 28px;
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.resume-section-card p {
+  margin: 0;
+  padding: 0 12px 12px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.resume-section-card .tag-list {
+  padding: 0 12px 12px;
+}
+
 .info-block {
   margin-top: 18px;
 }

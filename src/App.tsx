@@ -13,16 +13,30 @@ import {
   Upload,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { jobs, studentProfile, type Job } from "./data";
+import type { Job } from "./data";
 import { callArkAgent } from "./arkClient";
-import { recommendJobs } from "./jobRecommender";
 import { parseCustomJob } from "./jobParser";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
+import { parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
 import { buildMatchReport, downloadTextFile } from "./report";
-import { buildProfileFromResume, summarizeResumeProfile } from "./resumeProfile";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
 
 const MAX_UPLOAD_BYTES = 4_000_000;
+
+const emptyJob: Job = {
+  id: "empty",
+  title: "等待模型推荐岗位",
+  track: "待识别",
+  city: "不限",
+  level: "岗位",
+  companyScenario: "等待模型输出",
+  summary: "",
+  responsibilities: [],
+  requirements: [],
+  bonus: [],
+  keywords: [],
+  priority: "低",
+};
 
 const toneOf = (score: number) => {
   if (score >= 82) return "strong";
@@ -39,10 +53,12 @@ const readFileAsDataUrl = (file: File) =>
   });
 
 function App() {
-  const [selectedJobId, setSelectedJobId] = useState(jobs[0].id);
+  const [selectedJobId, setSelectedJobId] = useState("");
   const [resumeText, setResumeText] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [customJdText, setCustomJdText] = useState("");
+  const [structuredResume, setStructuredResume] = useState<StructuredResume | null>(null);
+  const [modelJobs, setModelJobs] = useState<Job[]>([]);
   const [modelInsight, setModelInsight] = useState("");
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [modelMessage, setModelMessage] = useState("");
@@ -50,14 +66,13 @@ function App() {
   const [resumeSource, setResumeSource] = useState("等待上传");
 
   const customJob = useMemo(() => parseCustomJob(customTitle, customJdText), [customTitle, customJdText]);
-  const activeProfile = useMemo(() => buildProfileFromResume(resumeText), [resumeText]);
-  const profileSummary = useMemo(() => summarizeResumeProfile(activeProfile), [activeProfile]);
+  const activeProfile = useMemo(() => profileFromStructuredResume(structuredResume, resumeText), [structuredResume, resumeText]);
   const hasResume = resumeText.trim().length > 0;
   const hasWorkspaceInput = hasResume || Boolean(customJob);
   const availableJobs = useMemo(() => {
     if (!hasWorkspaceInput) return [];
-    return recommendJobs(activeProfile, resumeText, customJob);
-  }, [activeProfile, customJob, hasWorkspaceInput, resumeText]);
+    return customJob ? [customJob, ...modelJobs] : modelJobs;
+  }, [customJob, hasWorkspaceInput, modelJobs]);
   const rankedJobs = useMemo(
     () =>
       [...availableJobs].sort(
@@ -66,13 +81,69 @@ function App() {
       ),
     [activeProfile, availableJobs, resumeText],
   );
-  const selectedJob = rankedJobs.find((job) => job.id === selectedJobId) ?? rankedJobs[0] ?? customJob ?? jobs[0];
+  const selectedJob = rankedJobs.find((job) => job.id === selectedJobId) ?? rankedJobs[0] ?? customJob ?? emptyJob;
+  const hasAnalysis = rankedJobs.length > 0;
   const result = useMemo(() => analyzeMatch(activeProfile, selectedJob, resumeText), [activeProfile, resumeText, selectedJob]);
   const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
   const [copyStatus, setCopyStatus] = useState("复制优化稿");
 
-  const handleUseCustomJob = () => {
-    if (customJob) setSelectedJobId(customJob.id);
+  const runJobRecommendations = async (nextResumeText: string, nextResume: StructuredResume) => {
+    const jobsResponse = await callArkAgent({
+      task: "job-recommendations",
+      resumeText: nextResumeText,
+      resumeProfile: nextResume,
+      jdText: customJdText,
+    });
+    if (!jobsResponse.ok || !jobsResponse.content) {
+      setModelStatus("error");
+      setModelMessage(jobsResponse.error || "模型岗位推荐失败。");
+      return;
+    }
+
+    const parsedJobs = parseModelJobs(jobsResponse.content);
+    setModelJobs(parsedJobs);
+    setSelectedJobId(parsedJobs[0]?.id ?? "");
+    setModelStatus("ready");
+    setModelMessage(`已完成简历解析并生成 ${parsedJobs.length} 个模型推荐岗位`);
+  };
+
+  const runModelPipeline = async (nextResumeText: string) => {
+    if (!nextResumeText.trim()) return;
+    setModelStatus("loading");
+    setModelMessage("正在调用模型解析简历并生成岗位推荐");
+    setStructuredResume(null);
+    setModelJobs([]);
+
+    const structureResponse = await callArkAgent({ task: "resume-structure", resumeText: nextResumeText });
+    if (!structureResponse.ok || !structureResponse.content) {
+      setModelStatus("error");
+      setModelMessage(structureResponse.error || "模型简历解析失败。");
+      return;
+    }
+
+    try {
+      const parsedResume = parseStructuredResume(structureResponse.content);
+      setStructuredResume(parsedResume);
+      await runJobRecommendations(nextResumeText, parsedResume);
+    } catch (error) {
+      setModelStatus("error");
+      setModelMessage(error instanceof Error ? `模型返回格式无法解析：${error.message}` : "模型返回格式无法解析。");
+    }
+  };
+
+  const handleUseCustomJob = async () => {
+    if (!resumeText.trim()) {
+      setModelStatus("error");
+      setModelMessage("请先上传或粘贴简历，再让模型结合目标 JD 推荐岗位。");
+      return;
+    }
+    setModelStatus("loading");
+    setModelMessage("正在结合目标 JD 重新生成岗位推荐");
+    if (!structuredResume) {
+      await runModelPipeline(resumeText);
+      return;
+    }
+    await runJobRecommendations(resumeText, structuredResume);
   };
 
   const handleDownloadReport = () => {
@@ -106,6 +177,7 @@ function App() {
         setModelMessage(`已通过 ${response.model ?? "模型"} 识别图片简历`);
         setUploadMessage(`已识别 ${file.name}，画像、岗位排序和匹配结果已更新。`);
         setResumeSource("图片视觉识别");
+        await runModelPipeline(response.content);
         return;
       }
       setModelStatus("error");
@@ -123,6 +195,7 @@ function App() {
         setModelMessage(`已从 PDF 文本层提取 ${pdfResult.text.length} 字`);
         setUploadMessage(`已解析 ${file.name}，共 ${pdfResult.pageCount} 页，画像、岗位排序和匹配结果已更新。`);
         setResumeSource(`PDF 文本层识别，质量 ${Math.round(pdfResult.quality * 100)}%`);
+        await runModelPipeline(pdfResult.text);
         return;
       }
 
@@ -135,6 +208,7 @@ function App() {
           setModelMessage(`PDF 文本层质量较低，已通过 ${response.model ?? "模型"} 视觉识别`);
           setUploadMessage(`已识别 ${file.name}，画像、岗位排序和匹配结果已更新。`);
           setResumeSource(`PDF 视觉识别，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
+          await runModelPipeline(response.content);
           return;
         }
         setModelStatus("error");
@@ -154,12 +228,13 @@ function App() {
     setResumeText(text);
     setUploadMessage(`已读取 ${file.name}，共 ${text.trim().length} 字，画像、岗位排序和匹配结果已更新。`);
     setResumeSource("文本文件读取");
+    await runModelPipeline(text);
   };
 
   const handleModelAnalysis = async () => {
-    if (!hasResume) {
+    if (!hasResume || !hasAnalysis) {
       setModelStatus("error");
-      setModelMessage("请先上传或粘贴简历内容，再进行模型增强分析。");
+      setModelMessage("请先完成模型简历解析和岗位推荐，再进行模型增强分析。");
       return;
     }
     setModelStatus("loading");
@@ -184,7 +259,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      <Hero result={result} selectedJob={selectedJob} isReady={hasWorkspaceInput} />
+      <Hero result={result} selectedJob={selectedJob} isReady={hasAnalysis} />
 
       <section className="workflow" aria-label="产品工作流">
         <WorkflowStep index="01" title="学生画像" text="识别专业、经历、技能与求职偏好" />
@@ -200,34 +275,14 @@ function App() {
           <Panel eyebrow="Profile" title="学生画像" icon={<FileText size={18} />}>
             <div className="identity-card">
               <div>
-                <span>{activeProfile.school}</span>
+                <span>{structuredResume?.education[0] || "等待模型解析"}</span>
                 <strong>{activeProfile.name}</strong>
-                <p>{activeProfile.grade} · {activeProfile.major}</p>
+                <p>{activeProfile.target}</p>
               </div>
-              <small>{activeProfile.target}</small>
+              <small>{structuredResume?.summary || "上传简历后由模型提取学生画像。"}</small>
             </div>
 
-            <div className="profile-snapshot">
-              {profileSummary.map((item) => <span key={item}>{item}</span>)}
-            </div>
-
-            <InfoBlock title="能力标签">
-              <TagList items={activeProfile.skills} />
-            </InfoBlock>
-
-            <InfoBlock title="经历证据">
-              <div className="timeline">
-                {activeProfile.experiences.map((item) => (
-                  <article key={item.title}>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <span>{item.role}</span>
-                    </div>
-                    <p>{item.evidence}</p>
-                  </article>
-                ))}
-              </div>
-            </InfoBlock>
+            <ResumeSections structuredResume={structuredResume} />
 
             <InfoBlock title="简历文本">
               <label className="upload-control">
@@ -247,10 +302,21 @@ function App() {
                 value={resumeText}
                 onChange={(event) => {
                   setResumeText(event.target.value);
-                  setUploadMessage(`已根据当前文本实时更新画像和岗位排序，当前 ${event.target.value.trim().length} 字。`);
+                  setStructuredResume(null);
+                  setModelJobs([]);
+                  setUploadMessage(`已读取当前文本 ${event.target.value.trim().length} 字。点击下方按钮后由模型解析画像和岗位。`);
                 }}
                 aria-label="简历文本"
               />
+              <button
+                type="button"
+                className="secondary-action compact-action"
+                onClick={() => void runModelPipeline(resumeText)}
+                disabled={!resumeText.trim() || modelStatus === "loading"}
+              >
+                <Sparkles size={16} />
+                解析简历并推荐岗位
+              </button>
             </InfoBlock>
           </Panel>
         </aside>
@@ -273,7 +339,7 @@ function App() {
               </div>
               <textarea className="jd-textarea" value={customJdText} onChange={(event) => setCustomJdText(event.target.value)} aria-label="目标岗位 JD" />
               <div className="jd-actions">
-                <button type="button" className="primary-action" onClick={handleUseCustomJob} disabled={!customJob}>
+                <button type="button" className="primary-action" onClick={() => void handleUseCustomJob()} disabled={!customJob || !hasResume || modelStatus === "loading"}>
                   <Search size={16} />
                   分析该岗位
                 </button>
@@ -281,7 +347,7 @@ function App() {
               </div>
             </div>
 
-            {hasWorkspaceInput ? (
+            {hasAnalysis ? (
               <>
                 <div className="job-board">
                   {rankedJobs.map((job) => (
@@ -348,7 +414,7 @@ function App() {
 
         <aside className="insight-column">
           <Panel eyebrow="AI Insight" title="初筛命中率提升建议" icon={<Lightbulb size={18} />}>
-            {hasWorkspaceInput ? (
+            {hasAnalysis ? (
               <>
                 <div className={`verdict-card ${toneOf(result.total)}`}>
                   <div>
@@ -359,12 +425,12 @@ function App() {
                   <b>{result.total}</b>
                 </div>
 
-                <button type="button" className="secondary-action" onClick={handleDownloadReport} disabled={!hasResume}>
+                <button type="button" className="secondary-action" onClick={handleDownloadReport} disabled={!hasResume || !hasAnalysis}>
                   <ArrowDownToLine size={16} />
                   下载分析报告
                 </button>
 
-                <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()} disabled={modelStatus === "loading" || !hasResume}>
+                <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()} disabled={modelStatus === "loading" || !hasResume || !hasAnalysis}>
                   <Sparkles size={16} />
                   {modelStatus === "loading" ? "模型分析中" : "模型增强分析"}
                 </button>
@@ -510,6 +576,50 @@ function EmptyState({ title, text }: { title: string; text: string }) {
       <strong>{title}</strong>
       <p>{text}</p>
     </section>
+  );
+}
+
+function ResumeSections({ structuredResume }: { structuredResume: StructuredResume | null }) {
+  const sections = [
+    { title: "学历", items: structuredResume?.education ?? [] },
+    { title: "实习经历", items: structuredResume?.internships ?? [] },
+    { title: "项目经历", items: structuredResume?.projects ?? [] },
+    { title: "校园经历", items: structuredResume?.campus ?? [] },
+    { title: "荣誉证书", items: structuredResume?.honors ?? [] },
+  ];
+
+  if (!structuredResume) {
+    return (
+      <div className="resume-section-stack">
+        {sections.map((section) => (
+          <details key={section.title} className="resume-section-card" open={section.title === "学历"}>
+            <summary>{section.title}</summary>
+            <p>等待模型解析。</p>
+          </details>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="resume-section-stack">
+      {sections.map((section, index) => (
+        <details key={section.title} className="resume-section-card" open={index < 2}>
+          <summary>{section.title}</summary>
+          {section.items.length ? (
+            <ul>
+              {section.items.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          ) : (
+            <p>简历中未识别到明确内容。</p>
+          )}
+        </details>
+      ))}
+      <details className="resume-section-card">
+        <summary>技能与求职方向</summary>
+        <TagList items={[...structuredResume.skills, ...structuredResume.targetRoles]} compact />
+      </details>
+    </div>
   );
 }
 

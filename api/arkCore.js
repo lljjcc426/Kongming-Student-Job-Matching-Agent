@@ -1,6 +1,6 @@
 const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 const DEFAULT_MODEL = "doubao-seed-2-0-lite-260215";
-const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "interview-feedback"]);
+const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "interview-feedback"]);
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_IMAGE_DATA_URL_CHARS = 4_500_000;
@@ -68,6 +68,40 @@ const buildTextPrompt = (body) => {
       "输出包含：总体评分、回答亮点、主要风险、下一轮改进建议。",
       `目标岗位：${JSON.stringify(job, null, 2)}`,
       `候选人回答：${asText(body.interviewAnswer, MAX_INTERVIEW_CHARS)}`,
+    ].join("\n\n");
+  }
+
+  if (body.task === "resume-structure") {
+    return [
+      "你是简历结构化解析智能体。请只基于用户上传的简历文本提取事实，不要编造。",
+      "请输出严格 JSON，不要输出 Markdown，不要解释。",
+      "JSON 结构如下：",
+      '{"name":"","education":[],"internships":[],"projects":[],"campus":[],"honors":[],"skills":[],"targetRoles":[],"summary":""}',
+      "字段要求：",
+      "1. name 提取学生姓名；没有明确姓名时填空字符串，不要写候选人。",
+      "2. education/internships/projects/campus/honors 每项为字符串数组。",
+      "3. targetRoles 优先读取求职意向、目标岗位、应聘方向；没有就根据简历谨慎推断 1-3 个方向。",
+      "4. skills 只提取简历中明确出现的能力、工具、语言、证书或方法。",
+      `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
+    ].join("\n\n");
+  }
+
+  if (body.task === "job-recommendations") {
+    return [
+      "你是学生求职岗位匹配智能体。请根据简历和学生意愿生成适合投递或准备的岗位方向。",
+      "必须覆盖学生简历中的专业背景、技能、经历和求职意愿；如果简历里写了目标岗位，以学生意愿为最高优先级。",
+      "不要套用固定岗位模板，不要局限于互联网通用岗位。心理学、艺术类、新闻传播、法学、财务、医学、教育等专业都要给出相应岗位。",
+      "请输出严格 JSON 数组，不要输出 Markdown，不要解释。数组每项结构如下：",
+      '{"id":"","title":"","track":"","city":"","level":"","companyScenario":"","summary":"","responsibilities":[],"requirements":[],"bonus":[],"keywords":[],"priority":"高"}',
+      "要求：",
+      "1. 返回 6-10 个岗位。",
+      "2. id 使用英文短横线小写。",
+      "3. priority 只能是 高、中、低。",
+      "4. responsibilities、requirements、bonus、keywords 每项 3-8 条。",
+      "5. city 不确定可写 不限。",
+      `简历结构：${JSON.stringify(body.resumeProfile || {}, null, 2)}`,
+      `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
+      `目标 JD：${asText(body.jdText, 5000)}`,
     ].join("\n\n");
   }
 
@@ -142,7 +176,7 @@ export async function runArkCompletion(body) {
       status: 503,
       payload: {
         ok: false,
-        error: "当前运行环境未配置模型密钥，已保留本地规则分析结果。",
+        error: "当前运行环境未配置 ARK_API_KEY，模型能力不可用。请配置环境变量并重启服务。",
       },
     };
   }
