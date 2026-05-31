@@ -16,6 +16,7 @@ async function main() {
   const initialOptimizedDraft = await page.getByText("优化后简历片段").count();
   const initialAgentCards = await page.locator(".agent-card").count();
   const initialInterviewInput = await page.getByLabel("模拟面试回答").count();
+  const initialProcessCards = await page.locator(".process-grid article").count();
   const uploadControl = await page.locator(".upload-control").count();
   const uploadedResume = [
     "华南理工大学 软件工程专业 大三",
@@ -37,6 +38,7 @@ async function main() {
   const optimizedDraft = await page.getByText("优化后简历片段").count();
   const agentCards = await page.locator(".agent-card").count();
   const interviewInput = await page.getByLabel("模拟面试回答").count();
+  const processCards = await page.locator(".process-grid article").count();
   const uploadMessage = await page.locator(".upload-message").innerText();
   const profileSnapshot = await page.locator(".profile-snapshot").innerText();
   const dynamicSkillVisible = await page.getByText("TypeScript", { exact: true }).count();
@@ -52,6 +54,9 @@ async function main() {
   }
   if (initialReportButtons !== 0 || initialCopyButtons !== 0 || initialOptimizedDraft !== 0 || initialAgentCards !== 0 || initialInterviewInput !== 0) {
     throw new Error("Initial page should not show completed analysis sections");
+  }
+  if (initialProcessCards !== 3) {
+    throw new Error(`Expected 3 initial process cards, found ${initialProcessCards}`);
   }
   if (workflowSteps !== 4) {
     throw new Error(`Expected 4 workflow steps, found ${workflowSteps}`);
@@ -71,11 +76,17 @@ async function main() {
   if (optimizedDraft !== 1) {
     throw new Error(`Expected optimized draft section, found ${optimizedDraft}`);
   }
-  if (agentCards !== 5) {
-    throw new Error(`Expected 5 agent cards, found ${agentCards}`);
+  if (jobCards < 6) {
+    throw new Error(`Expected at least 6 recommended job cards, found ${jobCards}`);
   }
-  if (interviewInput !== 1) {
-    throw new Error(`Expected interview answer input, found ${interviewInput}`);
+  if (agentCards !== 0) {
+    throw new Error(`Agent architecture cards should not be visible, found ${agentCards}`);
+  }
+  if (interviewInput !== 0) {
+    throw new Error(`Interview architecture input should not be visible, found ${interviewInput}`);
+  }
+  if (processCards !== 3) {
+    throw new Error(`Expected 3 process cards, found ${processCards}`);
   }
   if (uploadControl !== 1) {
     throw new Error(`Expected resume upload control, found ${uploadControl}`);
@@ -98,6 +109,7 @@ async function main() {
     initialOptimizedDraft,
     initialAgentCards,
     initialInterviewInput,
+    initialProcessCards,
     jobCards,
     workflowSteps,
     jdButtonText,
@@ -107,6 +119,7 @@ async function main() {
     optimizedDraft,
     agentCards,
     interviewInput,
+    processCards,
     uploadControl,
     uploadMessage,
     profileSnapshot,

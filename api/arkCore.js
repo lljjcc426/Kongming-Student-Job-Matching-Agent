@@ -4,6 +4,7 @@ const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "interview-fee
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_IMAGE_DATA_URL_CHARS = 4_500_000;
+const MAX_IMAGE_COUNT = 2;
 const REQUEST_TIMEOUT_MS = 30000;
 
 const asText = (value, maxLength) => {
@@ -21,10 +22,14 @@ const validateRequest = (body) => {
   }
 
   if (body.task === "resume-vision") {
-    if (typeof body.imageDataUrl !== "string" || !body.imageDataUrl.startsWith("data:image/")) {
+    const images = Array.isArray(body.imageDataUrls) ? body.imageDataUrls : [body.imageDataUrl];
+    if (!images.length || images.length > MAX_IMAGE_COUNT) {
+      return "图片数量不符合要求。";
+    }
+    if (images.some((image) => typeof image !== "string" || !image.startsWith("data:image/"))) {
       return "图片简历格式不正确。";
     }
-    if (body.imageDataUrl.length > MAX_IMAGE_DATA_URL_CHARS) {
+    if (images.join("").length > MAX_IMAGE_DATA_URL_CHARS) {
       return "图片文件过大，请压缩后再上传。";
     }
   }
@@ -83,6 +88,7 @@ const buildTextPrompt = (body) => {
 
 const buildMessages = (body) => {
   if (body.task === "resume-vision") {
+    const images = Array.isArray(body.imageDataUrls) ? body.imageDataUrls : [body.imageDataUrl];
     return [
       {
         role: "system",
@@ -95,12 +101,12 @@ const buildMessages = (body) => {
             type: "text",
             text: "请识别这份简历图片，保留姓名可写为候选人，重点提取教育背景、项目经历、实习经历、技能、求职方向和可量化成果。",
           },
-          {
+          ...images.map((imageDataUrl) => ({
             type: "image_url",
             image_url: {
-              url: body.imageDataUrl,
+              url: imageDataUrl,
             },
-          },
+          })),
         ],
       },
     ];

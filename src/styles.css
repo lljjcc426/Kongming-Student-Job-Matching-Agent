@@ -217,7 +217,7 @@ input {
   line-height: 1.5;
 }
 
-.agent-team {
+.process-state {
   margin: 16px 0;
   padding: 18px;
   border: 1px solid rgba(37, 99, 235, 0.12);
@@ -251,48 +251,34 @@ input {
   line-height: 1.7;
 }
 
-.agent-team .section-head h2 {
+.process-state .section-head h2 {
   margin: 3px 0 0;
   color: #0f172a;
   font-size: 22px;
 }
 
-.agent-grid {
+.process-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
-.agent-card {
+.process-grid article {
   display: grid;
-  align-content: start;
-  gap: 12px;
-  min-height: 320px;
+  gap: 6px;
   padding: 14px;
   border: 1px solid #dbeafe;
   border-radius: 8px;
   background: #f8fbff;
 }
 
-.agent-card-head {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-}
-
-.agent-card-head > div {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: #dbeafe;
+.process-grid span {
   color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
 }
 
-.agent-card h3 {
-  margin: 0 0 4px;
+.process-grid strong {
   color: #0f172a;
   font-size: 15px;
 }
@@ -504,7 +490,6 @@ input {
 
 .timeline p,
 .action-stack p,
-.agent-card p,
 .candidate-list p,
 .interview-feedback p,
 .draft-card p,
@@ -1036,8 +1021,8 @@ input {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .agent-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .process-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -1049,7 +1034,7 @@ input {
 
   .hero,
   .workflow,
-  .agent-grid,
+  .process-grid,
   .dashboard,
   .job-detail-grid,
   .selected-job-head {

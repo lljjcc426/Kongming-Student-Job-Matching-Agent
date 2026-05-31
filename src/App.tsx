@@ -2,14 +2,11 @@ import { useMemo, useState, type ReactNode } from "react";
 import {
   ArrowDownToLine,
   ArrowUpRight,
-  Bot,
   BriefcaseBusiness,
   CheckCircle2,
   ClipboardCheck,
   FileText,
   Lightbulb,
-  MessageCircleQuestion,
-  Network,
   Search,
   ShieldCheck,
   Sparkles,
@@ -17,8 +14,8 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { jobs, studentProfile, type Job } from "./data";
-import { evaluateInterviewAnswer, getSearchLinks, runAgentTeam, type AgentTeamResult } from "./agents";
 import { callArkAgent } from "./arkClient";
+import { recommendJobs } from "./jobRecommender";
 import { parseCustomJob } from "./jobParser";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { buildMatchReport, downloadTextFile } from "./report";
@@ -46,11 +43,11 @@ function App() {
   const [resumeText, setResumeText] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [customJdText, setCustomJdText] = useState("");
-  const [interviewAnswer, setInterviewAnswer] = useState("");
   const [modelInsight, setModelInsight] = useState("");
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [modelMessage, setModelMessage] = useState("");
   const [uploadMessage, setUploadMessage] = useState("请上传简历文本/图片，或直接粘贴简历内容开始分析。");
+  const [resumeSource, setResumeSource] = useState("等待上传");
 
   const customJob = useMemo(() => parseCustomJob(customTitle, customJdText), [customTitle, customJdText]);
   const activeProfile = useMemo(() => buildProfileFromResume(resumeText), [resumeText]);
@@ -59,8 +56,8 @@ function App() {
   const hasWorkspaceInput = hasResume || Boolean(customJob);
   const availableJobs = useMemo(() => {
     if (!hasWorkspaceInput) return [];
-    return customJob ? [customJob, ...jobs] : jobs;
-  }, [customJob, hasWorkspaceInput]);
+    return recommendJobs(activeProfile, resumeText, customJob);
+  }, [activeProfile, customJob, hasWorkspaceInput, resumeText]);
   const rankedJobs = useMemo(
     () =>
       [...availableJobs].sort(
@@ -72,8 +69,6 @@ function App() {
   const selectedJob = rankedJobs.find((job) => job.id === selectedJobId) ?? rankedJobs[0] ?? customJob ?? jobs[0];
   const result = useMemo(() => analyzeMatch(activeProfile, selectedJob, resumeText), [activeProfile, resumeText, selectedJob]);
   const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
-  const agentTeam = useMemo(() => runAgentTeam(activeProfile, rankedJobs, selectedJob, result, resumeText), [activeProfile, rankedJobs, selectedJob, result, resumeText]);
-  const interviewFeedback = useMemo(() => evaluateInterviewAnswer(interviewAnswer, selectedJob, result), [interviewAnswer, selectedJob, result]);
   const [copyStatus, setCopyStatus] = useState("复制优化稿");
 
   const handleUseCustomJob = () => {
@@ -110,15 +105,55 @@ function App() {
         setModelStatus("ready");
         setModelMessage(`已通过 ${response.model ?? "模型"} 识别图片简历`);
         setUploadMessage(`已识别 ${file.name}，画像、岗位排序和匹配结果已更新。`);
+        setResumeSource("图片视觉识别");
         return;
       }
       setModelStatus("error");
       setModelMessage(response.error || "图片简历识别失败，请检查模型环境变量。");
       return;
     }
+    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+      setModelStatus("loading");
+      setModelMessage("正在解析 PDF 简历");
+      const { readPdfResume } = await import("./pdfResumeReader");
+      const pdfResult = await readPdfResume(file);
+      if (pdfResult.method === "text-layer") {
+        setResumeText(pdfResult.text);
+        setModelStatus("ready");
+        setModelMessage(`已从 PDF 文本层提取 ${pdfResult.text.length} 字`);
+        setUploadMessage(`已解析 ${file.name}，共 ${pdfResult.pageCount} 页，画像、岗位排序和匹配结果已更新。`);
+        setResumeSource(`PDF 文本层识别，质量 ${Math.round(pdfResult.quality * 100)}%`);
+        return;
+      }
+
+      if (pdfResult.imageDataUrls.length > 0) {
+        const response = await callArkAgent({ task: "resume-vision", imageDataUrls: pdfResult.imageDataUrls });
+        if (response.ok && response.content) {
+          setResumeText(response.content);
+          setModelInsight(response.content);
+          setModelStatus("ready");
+          setModelMessage(`PDF 文本层质量较低，已通过 ${response.model ?? "模型"} 视觉识别`);
+          setUploadMessage(`已识别 ${file.name}，画像、岗位排序和匹配结果已更新。`);
+          setResumeSource(`PDF 视觉识别，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
+          return;
+        }
+        setModelStatus("error");
+        setModelMessage(response.error || "PDF 文本层质量较低，视觉识别未完成。");
+        setUploadMessage(`未能稳定识别 ${file.name}，请尝试上传清晰图片或可复制文字的 PDF。`);
+        setResumeSource(`PDF 识别失败，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
+        return;
+      }
+
+      setModelStatus("error");
+      setModelMessage("PDF 文本层为空，且无法渲染页面用于视觉识别。");
+      setUploadMessage(`未能识别 ${file.name}，请上传清晰图片或文本版简历。`);
+      setResumeSource("PDF 识别失败");
+      return;
+    }
     const text = await file.text();
     setResumeText(text);
     setUploadMessage(`已读取 ${file.name}，共 ${text.trim().length} 字，画像、岗位排序和匹配结果已更新。`);
+    setResumeSource("文本文件读取");
   };
 
   const handleModelAnalysis = async () => {
@@ -158,16 +193,7 @@ function App() {
         <WorkflowStep index="04" title="投递行动" text="输出投递前可执行清单" />
       </section>
 
-      {hasWorkspaceInput ? (
-        <AgentTeamSection
-          agentTeam={agentTeam}
-          interviewAnswer={interviewAnswer}
-          setInterviewAnswer={setInterviewAnswer}
-          interviewFeedback={interviewFeedback}
-        />
-      ) : (
-        <EmptyState title="等待输入" text="上传简历或粘贴目标岗位后，多智能体协作台会生成简历解析、岗位搜索、匹配推理和模拟面试内容。" />
-      )}
+      <ProcessState hasResume={hasResume} customJob={customJob} resumeSource={resumeSource} modelStatus={modelStatus} />
 
       <section className="dashboard">
         <aside className="profile-column">
@@ -209,7 +235,7 @@ function App() {
                 上传简历文本或图片
                 <input
                   type="file"
-                  accept=".txt,.md,.text,image/*"
+                  accept=".txt,.md,.text,.pdf,application/pdf,image/*"
                   onChange={(event) => {
                     void handleResumeUpload(event.target.files?.[0]);
                     event.currentTarget.value = "";
@@ -497,94 +523,40 @@ function WorkflowStep({ index, title, text }: { index: string; title: string; te
   );
 }
 
-function AgentTeamSection({
-  agentTeam,
-  interviewAnswer,
-  setInterviewAnswer,
-  interviewFeedback,
+function ProcessState({
+  hasResume,
+  customJob,
+  resumeSource,
+  modelStatus,
 }: {
-  agentTeam: AgentTeamResult;
-  interviewAnswer: string;
-  setInterviewAnswer: (value: string) => void;
-  interviewFeedback: ReturnType<typeof evaluateInterviewAnswer>;
+  hasResume: boolean;
+  customJob: Job | null;
+  resumeSource: string;
+  modelStatus: "idle" | "loading" | "ready" | "error";
 }) {
-  const searchLinks = getSearchLinks(agentTeam.jobSearchAgent.searchQueries);
-
+  const items = [
+    { label: "简历识别", value: hasResume ? resumeSource : "等待上传" },
+    { label: "岗位输入", value: customJob ? "已识别目标 JD" : "使用画像推荐岗位" },
+    { label: "模型状态", value: modelStatus === "loading" ? "处理中" : modelStatus === "ready" ? "已完成" : modelStatus === "error" ? "需处理" : "待调用" },
+  ];
   return (
-    <section className="agent-team" aria-label="多智能体协作台">
+    <section className="process-state" aria-label="分析状态">
       <div className="section-head">
         <div>
-          <span>Agent Team</span>
-          <h2>多智能体协作台</h2>
+          <span>Process</span>
+          <h2>识别与分析状态</h2>
         </div>
-        <p>四个智能体围绕同一份简历和目标岗位协作：解析简历、搜索岗位、给出策略、模拟面试。</p>
+        <p>这里只展示用户需要知道的处理状态，底层编排留在系统内部完成。</p>
       </div>
-
-      <div className="agent-grid">
-        <AgentCard icon={<Bot size={18} />} title="简历解析智能体" subtitle={agentTeam.resumeAgent.summary}>
-          <TagList items={agentTeam.resumeAgent.signals.slice(0, 8)} compact />
-          <BulletList items={agentTeam.resumeAgent.missingInfo} />
-        </AgentCard>
-
-        <AgentCard icon={<Network size={18} />} title="岗位搜索智能体" subtitle="生成联网检索关键词与候选岗位排序">
-          <div className="search-links">
-            {searchLinks.map((item) => (
-              <a key={item.query} href={item.url} target="_blank" rel="noreferrer">{item.query}</a>
-            ))}
-          </div>
-          <div className="candidate-list">
-            {agentTeam.jobSearchAgent.candidates.map((item) => (
-              <article key={item.title}>
-                <strong>{item.title}</strong>
-                <span>{item.score}</span>
-                <p>{item.reason}</p>
-              </article>
-            ))}
-          </div>
-        </AgentCard>
-
-        <AgentCard icon={<Lightbulb size={18} />} title="策略建议智能体" subtitle={`当前建议：${agentTeam.advisorAgent.decision}`}>
-          <BulletList items={agentTeam.advisorAgent.reasons} icon="check" />
-          <BulletList items={agentTeam.advisorAgent.nextActions} />
-        </AgentCard>
-
-        <AgentCard icon={<MessageCircleQuestion size={18} />} title="模拟面试智能体" subtitle={agentTeam.interviewAgent.focus}>
-          <BulletList items={agentTeam.interviewAgent.questions} />
-          <textarea
-            className="interview-answer"
-            value={interviewAnswer}
-            onChange={(event) => setInterviewAnswer(event.target.value)}
-            placeholder="输入一段模拟回答，系统会给出结构化反馈。"
-            aria-label="模拟面试回答"
-          />
-          <div className="interview-feedback">
-            <strong>{interviewFeedback.score ? `回答评分 ${interviewFeedback.score}` : "等待回答"}</strong>
-            <p>{interviewFeedback.summary}</p>
-            <BulletList items={interviewFeedback.suggestions} />
-          </div>
-        </AgentCard>
-
-        <AgentCard icon={<ShieldCheck size={18} />} title="协作监督智能体" subtitle={agentTeam.supervisorAgent.priority}>
-          <p>{agentTeam.supervisorAgent.summary}</p>
-          <BulletList items={agentTeam.supervisorAgent.handoff} />
-        </AgentCard>
+      <div className="process-grid">
+        {items.map((item) => (
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </article>
+        ))}
       </div>
     </section>
-  );
-}
-
-function AgentCard({ icon, title, subtitle, children }: { icon: ReactNode; title: string; subtitle: string; children: ReactNode }) {
-  return (
-    <article className="agent-card">
-      <div className="agent-card-head">
-        <div>{icon}</div>
-        <section>
-          <h3>{title}</h3>
-          <p>{subtitle}</p>
-        </section>
-      </div>
-      {children}
-    </article>
   );
 }
 
