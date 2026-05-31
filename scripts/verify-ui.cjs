@@ -210,8 +210,8 @@ async function main() {
   if (agentCards !== 0) {
     throw new Error(`Agent architecture cards should not be visible, found ${agentCards}`);
   }
-  if (interviewInput !== 0) {
-    throw new Error(`Interview architecture input should not be visible, found ${interviewInput}`);
+  if (interviewInput !== 1) {
+    throw new Error(`Expected interview practice input after analysis, found ${interviewInput}`);
   }
   if (processCards !== 3) {
     throw new Error(`Expected 3 process cards, found ${processCards}`);
