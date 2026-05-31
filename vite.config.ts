@@ -2,7 +2,7 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { runArkCompletion } from "./api/arkCore.js";
 
-const MAX_DEV_BODY_BYTES = 5_000_000;
+const MAX_DEV_BODY_BYTES = 8_000_000;
 
 const readJsonBody = (request: import("node:http").IncomingMessage) =>
   new Promise<unknown>((resolve, reject) => {
@@ -47,6 +47,7 @@ const arkDevProxy = (): Plugin => ({
         response.end(JSON.stringify(result.payload));
       } catch (error) {
         response.statusCode = error instanceof Error && error.message === "REQUEST_TOO_LARGE" ? 413 : 500;
+        console.error("[ark-dev-proxy]", error);
         response.end(JSON.stringify({
           ok: false,
           error: response.statusCode === 413 ? "请求内容过大，请压缩后再上传。" : "模型代理服务异常，请稍后重试。",

@@ -29,7 +29,10 @@ const getTextQuality = (text: string) => {
 };
 
 const renderPageToImage = async (page: PDFPageProxy) => {
-  const viewport = page.getViewport({ scale: 1.7 });
+  const baseViewport = page.getViewport({ scale: 1 });
+  const maxSide = 1600;
+  const scale = Math.min(1.35, maxSide / Math.max(baseViewport.width, baseViewport.height));
+  const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   if (!context) return "";
@@ -37,7 +40,7 @@ const renderPageToImage = async (page: PDFPageProxy) => {
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);
   await page.render({ canvas, canvasContext: context, viewport }).promise;
-  return canvas.toDataURL("image/jpeg", 0.82);
+  return canvas.toDataURL("image/jpeg", 0.72);
 };
 
 export async function readPdfResume(file: File): Promise<PdfReadResult> {
