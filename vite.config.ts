@@ -58,4 +58,15 @@ const arkDevProxy = (): Plugin => ({
 
 export default defineConfig({
   plugins: [react(), arkDevProxy()],
+  build: {
+    sourcemap: false,
+    minify: "esbuild",
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/[hash].js",
+        chunkFileNames: "assets/[hash].js",
+        assetFileNames: "assets/[hash][extname]",
+      },
+    },
+  },
 });
