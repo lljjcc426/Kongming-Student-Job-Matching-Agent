@@ -24,6 +24,7 @@ import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
 
 const MAX_UPLOAD_BYTES = 4_000_000;
+type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
 type SpeechRecognitionResultLike = {
   0?: {
     transcript?: string;
@@ -109,6 +110,7 @@ function App() {
   const [modelInsight, setModelInsight] = useState("");
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [modelMessage, setModelMessage] = useState("");
+  const [pipelineStep, setPipelineStep] = useState<PipelineStep>("idle");
   const [interviewAnswer, setInterviewAnswer] = useState("");
   const [interviewFeedback, setInterviewFeedback] = useState("");
   const [interviewStatus, setInterviewStatus] = useState<"idle" | "listening" | "loading" | "ready" | "error">("idle");
@@ -142,6 +144,7 @@ function App() {
   const [copyStatus, setCopyStatus] = useState("复制优化稿");
 
   const runJobRecommendations = async (nextResumeText: string, nextResume: StructuredResume) => {
+    setPipelineStep("jobs");
     const jobsResponse = await callArkAgent({
       task: "job-recommendations",
       resumeText: nextResumeText,
@@ -150,6 +153,7 @@ function App() {
     });
     if (!jobsResponse.ok || !jobsResponse.content) {
       setModelStatus("error");
+      setPipelineStep("error");
       setModelMessage(jobsResponse.error || "模型岗位推荐失败。");
       return;
     }
@@ -158,12 +162,14 @@ function App() {
     setModelJobs(parsedJobs);
     setSelectedJobId(parsedJobs[0]?.id ?? "");
     setModelStatus("ready");
+    setPipelineStep("done");
     setModelMessage(`已完成简历解析并生成 ${parsedJobs.length} 个模型推荐岗位`);
   };
 
   const runModelPipeline = async (nextResumeText: string) => {
     if (!nextResumeText.trim()) return;
     setModelStatus("loading");
+    setPipelineStep("structure");
     setModelMessage("正在调用模型解析简历并生成岗位推荐");
     setStructuredResume(null);
     setModelJobs([]);
@@ -171,6 +177,7 @@ function App() {
     const structureResponse = await callArkAgent({ task: "resume-structure", resumeText: nextResumeText });
     if (!structureResponse.ok || !structureResponse.content) {
       setModelStatus("error");
+      setPipelineStep("error");
       setModelMessage(structureResponse.error || "模型简历解析失败。");
       return;
     }
@@ -181,6 +188,7 @@ function App() {
       await runJobRecommendations(nextResumeText, parsedResume);
     } catch (error) {
       setModelStatus("error");
+      setPipelineStep("error");
       setModelMessage(error instanceof Error ? `模型返回格式无法解析：${error.message}` : "模型返回格式无法解析。");
     }
   };
@@ -192,6 +200,7 @@ function App() {
       return;
     }
     setModelStatus("loading");
+    setPipelineStep("jobs");
     setModelMessage("正在结合目标 JD 重新生成岗位推荐");
     if (!structuredResume) {
       await runModelPipeline(resumeText);
@@ -216,11 +225,13 @@ function App() {
     if (!file) return;
     if (file.size > MAX_UPLOAD_BYTES) {
       setModelStatus("error");
+      setPipelineStep("error");
       setModelMessage("文件超过 4MB，请压缩或精简后再上传。");
       return;
     }
     if (file.type.startsWith("image/")) {
       setModelStatus("loading");
+      setPipelineStep("intake");
       setModelMessage("正在识别图片简历");
       const imageDataUrl = await readImageAsCompressedDataUrl(file);
       const response = await callArkAgent({ task: "resume-vision", imageDataUrl });
@@ -235,11 +246,13 @@ function App() {
         return;
       }
       setModelStatus("error");
+      setPipelineStep("error");
       setModelMessage(response.error || "图片简历识别失败，请检查模型环境变量。");
       return;
     }
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
       setModelStatus("loading");
+      setPipelineStep("intake");
       setModelMessage("正在解析 PDF 简历");
       const { readPdfResume } = await import("./pdfResumeReader");
       const pdfResult = await readPdfResume(file);
@@ -266,6 +279,7 @@ function App() {
           return;
         }
         setModelStatus("error");
+        setPipelineStep("error");
         setModelMessage(response.error || "PDF 文本层质量较低，视觉识别未完成。");
         setUploadMessage(`未能稳定识别 ${file.name}，请尝试上传清晰图片或可复制文字的 PDF。`);
         setResumeSource(`PDF 识别失败，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
@@ -273,6 +287,7 @@ function App() {
       }
 
       setModelStatus("error");
+      setPipelineStep("error");
       setModelMessage("PDF 文本层为空，且无法渲染页面用于视觉识别。");
       setUploadMessage(`未能识别 ${file.name}，请上传清晰图片或文本版简历。`);
       setResumeSource("PDF 识别失败");
@@ -292,6 +307,7 @@ function App() {
       return;
     }
     setModelStatus("loading");
+    setPipelineStep("analysis");
     setModelMessage("正在调用模型生成增强分析");
     const response = await callArkAgent({
       task: "match-analysis",
@@ -303,11 +319,13 @@ function App() {
     if (response.ok && response.content) {
       setModelInsight(response.content);
       setModelStatus("ready");
+      setPipelineStep("done");
       setModelMessage(`已通过 ${response.model ?? "模型"} 完成增强分析`);
       return;
     }
 
     setModelStatus("error");
+    setPipelineStep("error");
     setModelMessage(response.error || "模型增强分析失败，请检查运行环境。");
   };
 
@@ -415,7 +433,7 @@ function App() {
         <WorkflowStep index="04" title="投递行动" text="输出投递前可执行清单" />
       </section>
 
-      <ProcessState hasResume={hasResume} customJob={customJob} resumeSource={resumeSource} modelStatus={modelStatus} />
+      <ProcessState hasResume={hasResume} customJob={customJob} resumeSource={resumeSource} modelStatus={modelStatus} pipelineStep={pipelineStep} />
 
       <section className="dashboard">
         <aside className="profile-column">
@@ -451,6 +469,12 @@ function App() {
                   setResumeText(event.target.value);
                   setStructuredResume(null);
                   setModelJobs([]);
+                  setSelectedJobId("");
+                  setModelInsight("");
+                  setModelStatus("idle");
+                  setModelMessage("");
+                  setPipelineStep(event.target.value.trim() ? "intake" : "idle");
+                  setResumeSource(event.target.value.trim() ? "手动文本输入" : "等待上传");
                   setUploadMessage(`已读取当前文本 ${event.target.value.trim().length} 字。点击下方按钮后由模型解析画像和岗位。`);
                 }}
                 aria-label="简历文本"
@@ -746,7 +770,7 @@ function Hero({ result, selectedJob, isReady }: { result: MatchResult; selectedJ
           <div className="hero-empty">
             <span>初始化状态</span>
             <strong>等待简历与岗位输入</strong>
-            <p>页面不会预置分析结果。上传简历、粘贴 JD 或点击模型增强分析后，可以直接观察系统响应。</p>
+            <p>上传或粘贴简历后，将生成学生画像、岗位推荐与优化建议。</p>
           </div>
         )}
       </div>
@@ -822,12 +846,22 @@ function ProcessState({
   customJob,
   resumeSource,
   modelStatus,
+  pipelineStep,
 }: {
   hasResume: boolean;
   customJob: Job | null;
   resumeSource: string;
   modelStatus: "idle" | "loading" | "ready" | "error";
+  pipelineStep: PipelineStep;
 }) {
+  const steps = [
+    { id: "intake", label: "接收简历" },
+    { id: "structure", label: "解析画像" },
+    { id: "jobs", label: "生成岗位" },
+    { id: "analysis", label: "匹配建议" },
+  ];
+  const progressIndex = pipelineStep === "done" ? steps.length : pipelineStep === "error" ? Math.max(1, steps.findIndex((step) => step.id === pipelineStep) + 1) : steps.findIndex((step) => step.id === pipelineStep) + 1;
+  const progress = !hasResume && pipelineStep === "idle" ? 0 : Math.max(0, Math.min(100, Math.round((progressIndex / steps.length) * 100)));
   const items = [
     { label: "简历识别", value: hasResume ? resumeSource : "等待上传" },
     { label: "岗位输入", value: customJob ? "已识别目标 JD" : "使用画像推荐岗位" },
@@ -840,7 +874,23 @@ function ProcessState({
           <span>Process</span>
           <h2>识别与分析状态</h2>
         </div>
-        <p>这里只展示用户需要知道的处理状态，底层编排留在系统内部完成。</p>
+        <p>{modelStatus === "loading" ? "正在处理当前简历。" : modelStatus === "ready" ? "当前分析已完成。" : modelStatus === "error" ? "处理未完成，请查看提示。" : "等待输入简历。"}</p>
+      </div>
+      <div className={`pipeline-progress ${modelStatus}`}>
+        <div className="pipeline-bar" aria-label="模型解析进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} role="progressbar">
+          <i style={{ width: `${progress}%` }} />
+        </div>
+        <div className="pipeline-steps">
+          {steps.map((step, index) => {
+            const active = step.id === pipelineStep;
+            const done = pipelineStep === "done" || index < progressIndex - 1;
+            return (
+              <span key={step.id} className={active ? "active" : done ? "done" : ""}>
+                {step.label}
+              </span>
+            );
+          })}
+        </div>
       </div>
       <div className="process-grid">
         {items.map((item) => (
