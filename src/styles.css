@@ -379,6 +379,26 @@ input {
   display: block;
 }
 
+.profile-snapshot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.profile-snapshot span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .info-block {
   margin-top: 18px;
 }
@@ -499,6 +519,13 @@ textarea {
   inset: 0;
   opacity: 0;
   cursor: pointer;
+}
+
+.upload-message {
+  margin: 0 0 10px;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 textarea:focus,

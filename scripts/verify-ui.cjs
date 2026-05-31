@@ -17,6 +17,23 @@ async function main() {
   const agentCards = await page.locator(".agent-card").count();
   const interviewInput = await page.getByLabel("模拟面试回答").count();
   const uploadControl = await page.locator(".upload-control").count();
+  const uploadedResume = [
+    "华南理工大学 软件工程专业 大三",
+    "求职意向：前端开发实习生 / Web 工具平台",
+    "项目经历：负责校园课程评价系统前端开发，使用 React、TypeScript、CSS 完成组件拆分、表单校验和可视化看板。",
+    "实习经历：参与运营后台性能优化，首屏加载时间下降 32%，沉淀组件文档。",
+    "技能：JavaScript、TypeScript、React、CSS、Figma、数据分析。",
+  ].join("\n");
+
+  await page.locator(".upload-control input").setInputFiles({
+    name: "frontend-resume.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(uploadedResume, "utf8"),
+  });
+  await page.waitForFunction(() => document.body.innerText.includes("frontend-resume.txt"));
+  const uploadMessage = await page.locator(".upload-message").innerText();
+  const profileSnapshot = await page.locator(".profile-snapshot").innerText();
+  const dynamicSkillVisible = await page.getByText("TypeScript", { exact: true }).count();
 
   await page.screenshot({ path: "artifacts/redesign-homepage.png", fullPage: true });
   await browser.close();
@@ -54,6 +71,15 @@ async function main() {
   if (uploadControl !== 1) {
     throw new Error(`Expected resume upload control, found ${uploadControl}`);
   }
+  if (!uploadMessage.includes("frontend-resume.txt")) {
+    throw new Error(`Upload did not update message: ${uploadMessage}`);
+  }
+  if (!profileSnapshot.includes("软件工程专业")) {
+    throw new Error(`Profile snapshot did not update from resume: ${profileSnapshot}`);
+  }
+  if (dynamicSkillVisible < 1) {
+    throw new Error("Expected uploaded resume skill TypeScript to be visible");
+  }
 
   console.log(JSON.stringify({
     title,
@@ -67,6 +93,9 @@ async function main() {
     agentCards,
     interviewInput,
     uploadControl,
+    uploadMessage,
+    profileSnapshot,
+    dynamicSkillVisible,
     screenshot: "artifacts/redesign-homepage.png",
   }, null, 2));
 }
