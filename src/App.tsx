@@ -713,19 +713,6 @@ function App() {
         </>
       ) : null}
 
-      {activePage === "resume" || activePage === "jobs" ? (
-        <ProcessState
-          hasResume={hasResume}
-          customJobCount={customJobs.length}
-          resumeSource={resumeSource}
-          modelStatus={modelStatus}
-          pipelineStep={pipelineStep}
-          jdStatus={jdStatus}
-          jdStep={jdStep}
-          jdMessage={jdMessage}
-        />
-      ) : null}
-
       <section className={`dashboard dashboard-${activePage}`} hidden={activePage !== "resume" && activePage !== "jobs"}>
         <aside className="profile-column">
           <Panel eyebrow="Profile" title="学生画像" icon={<FileText size={18} />}>
@@ -1036,6 +1023,19 @@ function App() {
           </Panel>
         </aside>
       </section>
+
+      {activePage === "resume" || activePage === "jobs" ? (
+        <ProcessState
+          hasResume={hasResume}
+          customJobCount={customJobs.length}
+          resumeSource={resumeSource}
+          modelStatus={modelStatus}
+          pipelineStep={pipelineStep}
+          jdStatus={jdStatus}
+          jdStep={jdStep}
+          jdMessage={jdMessage}
+        />
+      ) : null}
 
       <section className="assistant-panel" hidden={activePage !== "assistant"}>
         <Panel eyebrow="AI Assistant" title="求职 AI 助手" icon={<Bot size={18} />}>
