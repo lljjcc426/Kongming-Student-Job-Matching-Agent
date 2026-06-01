@@ -20,6 +20,7 @@ import {
   Video,
   Volume2,
 } from "lucide-react";
+import { gsap } from "gsap";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Job } from "./data";
 import { callArkAgent } from "./arkClient";
@@ -716,6 +717,8 @@ function App() {
       <section className={`dashboard dashboard-${activePage}`} hidden={activePage !== "resume" && activePage !== "jobs"}>
         <aside className="profile-column">
           <Panel eyebrow="Profile" title="学生画像" icon={<FileText size={18} />}>
+            <ResumePipelineStatus hasResume={hasResume} resumeSource={resumeSource} modelStatus={modelStatus} pipelineStep={pipelineStep} />
+
             <div className="identity-card">
               <div>
                 <span>{structuredResume?.education[0] || "等待模型解析"}</span>
@@ -724,8 +727,6 @@ function App() {
               </div>
               <small>{structuredResume?.summary || "上传简历后由模型提取学生画像。"}</small>
             </div>
-
-            <ResumePipelineStatus hasResume={hasResume} resumeSource={resumeSource} modelStatus={modelStatus} pipelineStep={pipelineStep} />
 
             <ResumeSections structuredResume={structuredResume} />
 
@@ -1088,14 +1089,13 @@ function App() {
       {activePage === "interview" ? (
         <section className="interview-panel">
           <Panel eyebrow="Interview" title="模拟面试" icon={<Video size={18} />}>
-            {hasAnalysis ? (
-              <div className="interview-studio">
+            <div className="interview-studio">
               <div className={`video-preview ${videoMode}`}>
                 {videoMode === "preview" ? <video ref={videoRef} autoPlay muted playsInline aria-label="视频面试预览" /> : <Video size={22} />}
                 <span>{videoMode === "preview" ? "视频预览中" : "视频对话接口预留"}</span>
               </div>
               <div className="interview-main">
-                <p>围绕当前岗位进行问答练习；现阶段支持文本与浏览器语音转写，后续可扩展为实时音视频对话。</p>
+                <p>{hasAnalysis ? "围绕当前岗位进行问答练习；现阶段支持文本与浏览器语音转写，后续可扩展为实时音视频对话。" : "完成简历解析和岗位推荐后，可围绕目标岗位进行文本、语音或视频面试练习。"}</p>
                 <textarea
                   className="interview-textarea"
                   value={interviewAnswer}
@@ -1125,9 +1125,6 @@ function App() {
                 )}
               </div>
             </div>
-            ) : (
-              <EmptyState title="等待岗位上下文" text="完成简历解析和岗位推荐后，可以在这里围绕目标岗位进行文本、语音或视频面试练习。" />
-            )}
           </Panel>
         </section>
       ) : null}
@@ -1185,6 +1182,47 @@ function HomeOverview({ onNavigate, hasResume, hasAnalysis, chatCount }: { onNav
 }
 
 function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; selectedJob: Job; isReady: boolean; onStart: () => void }) {
+  const visualRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const visual = visualRef.current;
+    if (!visual) return;
+    const context = gsap.context(() => {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      gsap.fromTo(".hero-copy > *", { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: reduceMotion ? 0 : 0.7, stagger: 0.08, ease: "power2.out" });
+      gsap.to(".orbit-node", {
+        y: reduceMotion ? 0 : -12,
+        rotation: reduceMotion ? 0 : 6,
+        duration: 2.8,
+        repeat: reduceMotion ? 0 : -1,
+        yoyo: true,
+        stagger: { amount: 0.8, from: "center" },
+        ease: "sine.inOut",
+      });
+      gsap.to(".scene-ring", {
+        rotation: reduceMotion ? 0 : 360,
+        duration: 28,
+        repeat: reduceMotion ? 0 : -1,
+        ease: "none",
+        transformOrigin: "50% 50%",
+      });
+    }, visualRef);
+
+    const xTo = gsap.quickTo(visual, "--mx", { duration: 0.45, ease: "power3.out" });
+    const yTo = gsap.quickTo(visual, "--my", { duration: 0.45, ease: "power3.out" });
+    const handleMove = (event: MouseEvent) => {
+      const rect = visual.getBoundingClientRect();
+      xTo(((event.clientX - rect.left) / rect.width - 0.5) * 28);
+      yTo(((event.clientY - rect.top) / rect.height - 0.5) * 28);
+    };
+    visual.addEventListener("mousemove", handleMove);
+
+    return () => {
+      visual.removeEventListener("mousemove", handleMove);
+      context.revert();
+    };
+  }, []);
+
   return (
     <header className="hero">
       <div className="hero-copy">
@@ -1193,7 +1231,7 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
           学生求职匹配智能体
         </div>
         <h1>孔明职配</h1>
-        <p>面向校园招聘与实习求职场景，把学生画像、岗位 JD 和简历文本转化为可解释的岗位推荐、差距诊断与简历优化建议。</p>
+        <p>Kongming-Student Job Matching Agent是一款面向学生求职场景的 AI 智能匹配工具，旨在帮助学生从海量岗位信息中快速发现与自身背景、能力特长和职业兴趣高度匹配的机会，并针对目标岗位提供简历匹配度分析与优化建议。</p>
         <button type="button" className="hero-primary" onClick={onStart}>
           开始解析简历
           <ArrowUpRight size={16} />
@@ -1204,9 +1242,22 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
           <span><ClipboardCheck size={16} />初筛优化</span>
         </div>
       </div>
-      <div className="hero-card">
+      <div className="hero-card hero-visual" ref={visualRef}>
+        <div className="scene-ring" />
+        <div className="orbit-node node-a">
+          <span>Resume</span>
+          <strong>{isReady ? activeLabel(selectedJob.title) : "上传简历"}</strong>
+        </div>
+        <div className="orbit-node node-b">
+          <span>Match</span>
+          <strong>{isReady ? `${result.total}` : "智能匹配"}</strong>
+        </div>
+        <div className="orbit-node node-c">
+          <span>Interview</span>
+          <strong>模拟面试</strong>
+        </div>
         {isReady ? (
-          <>
+          <div className="hero-live-panel">
             <span>当前分析</span>
             <strong>{selectedJob.title}</strong>
             <div className="hero-score">
@@ -1217,9 +1268,9 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
               </div>
             </div>
             <p>已覆盖 {result.coveredKeywords.length} 个岗位关键词，仍需补强 {result.missingKeywords.length} 个关键词。</p>
-          </>
+          </div>
         ) : (
-          <div className="hero-empty">
+          <div className="hero-empty hero-live-panel">
             <span>初始化状态</span>
             <strong>等待简历与岗位输入</strong>
             <p>上传或粘贴简历后，将生成学生画像、岗位推荐与优化建议。</p>
@@ -1229,6 +1280,8 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
     </header>
   );
 }
+
+const activeLabel = (value: string) => (value.length > 8 ? `${value.slice(0, 8)}...` : value);
 
 function EmptyState({ title, text }: { title: string; text: string }) {
   return (
