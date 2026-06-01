@@ -138,7 +138,7 @@ const superviseRecommendedJobs = (jobs: Job[]) => {
     .map((job, index) => ({
       ...job,
       id: `${normalizeRoleText(job.id || job.title || "agent-job") || "agent-job"}-${index + 1}`,
-      applicationLinks: buildApplicationLinks(job.title, (job.recommendedCompanies?.length ? job.recommendedCompanies : fallbackCompaniesForJob(job))),
+      applicationLinks: job.applicationLinks,
       responsibilities: job.responsibilities.slice(0, 5),
       requirements: job.requirements.slice(0, 5),
       bonus: job.bonus.slice(0, 5),
@@ -153,55 +153,6 @@ const superviseRecommendedJobs = (jobs: Job[]) => {
     usedIds.add(nextId);
     return { ...job, id: nextId };
   });
-};
-
-const companyCareerCatalog = [
-  { company: "字节跳动", aliases: ["字节", "bytedance"], url: "https://jobs.bytedance.com/campus/position?keywords={query}" },
-  { company: "阿里巴巴", aliases: ["阿里", "alibaba"], url: "https://talent.alibaba.com/campus/position-list?keyword={query}" },
-  { company: "美团", aliases: ["meituan"], url: "https://campus.meituan.com/jobs?keyword={query}" },
-  { company: "京东", aliases: ["jd"], url: "https://campus.jd.com/#/jobs" },
-  { company: "百度", aliases: ["baidu"], url: "https://talent.baidu.com/jobs/list?search={query}" },
-  { company: "网易", aliases: ["netease"], url: "https://hr.163.com/job-list.html?keyword={query}" },
-  { company: "携程", aliases: ["ctrip", "trip"], url: "https://careers.trip.com/campus-recruitment?keyword={query}" },
-  { company: "B站", aliases: ["哔哩哔哩", "bilibili"], url: "https://jobs.bilibili.com/campus/positions?keyword={query}" },
-  { company: "滴滴", aliases: ["didi"], url: "https://talent.didiglobal.com/campus/list?keyword={query}" },
-  { company: "蚂蚁集团", aliases: ["蚂蚁", "ant"], url: "https://talent.antgroup.com/campus-recruitment?keyword={query}" },
-  { company: "拼多多", aliases: ["pdd"], url: "https://careers.pinduoduo.com/campus/grad?t={query}" },
-  { company: "得物", aliases: ["dewu"], url: "https://app.mokahr.com/campus-recruitment/dewu/44588#/jobs?keyword={query}" },
-  { company: "小红书", aliases: ["red", "xiaohongshu"], url: "https://job.xiaohongshu.com/campus?keyword={query}" },
-] as const;
-
-const findCompanyEntry = (company: string) => {
-  const normalized = company.toLowerCase();
-  return companyCareerCatalog.find((entry) => entry.company === company || entry.aliases.some((alias) => normalized.includes(alias.toLowerCase())) || normalized.includes(entry.company.toLowerCase()));
-};
-
-const fallbackCompaniesForJob = (job: Pick<Job, "title" | "track" | "keywords">) => {
-  const text = `${job.title} ${job.track} ${job.keywords.join(" ")}`;
-  if (/心理|用户研究|调研|测评/.test(text)) return ["小红书", "美团", "百度"];
-  if (/新闻|内容|媒体|编辑|运营/.test(text)) return ["B站", "小红书", "网易"];
-  if (/数据|算法|研发|工程|数模/.test(text)) return ["百度", "京东", "蚂蚁集团"];
-  if (/供应链|物流|销售|市场/.test(text)) return ["京东", "携程", "得物"];
-  return ["美团", "携程", "网易"];
-};
-
-const buildApplicationLinks = (title: string, companies: string[] = []): NonNullable<Job["applicationLinks"]> => {
-  const query = encodeURIComponent(title || "实习");
-  const seen = new Set<string>();
-  return companies
-    .map(findCompanyEntry)
-    .filter((entry): entry is (typeof companyCareerCatalog)[number] => Boolean(entry))
-    .filter((entry) => {
-      if (seen.has(entry.company)) return false;
-      seen.add(entry.company);
-      return true;
-    })
-    .slice(0, 4)
-    .map((entry) => ({
-      company: entry.company,
-      url: entry.url.replace("{query}", query),
-      note: "招聘入口",
-    }));
 };
 
 function App() {
@@ -394,8 +345,7 @@ function App() {
         bonus: analysis.bonus.length ? analysis.bonus : draftJob.bonus,
         keywords: analysis.keywords.length ? analysis.keywords : draftJob.keywords,
         priority: analysis.priority,
-        recommendedCompanies: analysis.recommendedCompanies,
-        applicationLinks: buildApplicationLinks(analysis.title || draftJob.title, analysis.recommendedCompanies.length ? analysis.recommendedCompanies : fallbackCompaniesForJob(draftJob)),
+        applicationLinks: analysis.applicationLinks,
         jdAnalysis: {
           conclusion: analysis.conclusion,
           strengths: analysis.strengths,
