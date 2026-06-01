@@ -25,11 +25,12 @@ input {
 }
 
 .app-shell {
-  width: min(1680px, calc(100% - 32px));
+  width: 100%;
+  min-height: 100vh;
   margin: 0 auto;
-  padding: 28px 0 40px;
+  padding: 16px 24px 24px;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 232px minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -44,8 +45,10 @@ input {
   z-index: 20;
   grid-column: 1;
   display: grid;
+  grid-template-rows: auto auto 1fr;
   gap: 18px;
   align-items: start;
+  align-content: start;
   min-height: calc(100vh - 56px);
   padding: 14px;
   border: 1px solid rgba(37, 99, 235, 0.12);
@@ -85,6 +88,7 @@ input {
 .app-nav > div {
   display: grid;
   gap: 8px;
+  margin-top: 22px;
 }
 
 .app-nav > div button {
@@ -578,7 +582,12 @@ input {
 }
 
 .dashboard-resume {
-  grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.1fr);
+  grid-template-columns: minmax(420px, 0.95fr) minmax(0, 1.05fr);
+  min-height: calc(100vh - 48px);
+}
+
+.dashboard-resume .panel {
+  min-height: calc(100vh - 48px);
 }
 
 .dashboard-resume .match-column {
@@ -831,25 +840,42 @@ textarea {
 }
 
 .assistant-panel {
-  margin-top: 16px;
+  margin: 0;
+  min-height: calc(100vh - 48px);
+}
+
+.assistant-panel .panel {
+  min-height: calc(100vh - 48px);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.assistant-panel .panel-title {
+  display: none;
 }
 
 .chat-shell {
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   gap: 12px;
+  width: min(920px, 100%);
+  min-height: calc(100vh - 48px);
+  margin: 0 auto;
 }
 
 .chat-body {
   display: grid;
-  align-content: start;
+  align-content: end;
   gap: 12px;
-  min-height: 320px;
-  max-height: 520px;
+  min-height: 0;
+  max-height: none;
   overflow: auto;
-  padding: 16px;
-  border: 1px solid #bfdbfe;
+  padding: 28px 4px 12px;
+  border: 0;
   border-radius: 8px;
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  background: transparent;
 }
 
 .chat-empty {
@@ -929,18 +955,26 @@ textarea {
 
 .chat-composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 10px;
   align-items: end;
+  padding: 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
 }
 
 .chat-composer textarea {
-  min-height: 92px;
+  min-height: 58px;
+  max-height: 180px;
+  border: 0;
+  padding: 10px;
 }
 
 .chat-actions {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1617,8 +1651,8 @@ input {
 
 @media (max-width: 920px) {
   .app-shell {
-    width: min(100% - 20px, 760px);
-    padding-top: 16px;
+    width: 100%;
+    padding: 12px;
     display: block;
   }
 
@@ -1633,6 +1667,7 @@ input {
   .app-nav > div {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 0;
   }
 
   .app-nav > div button {
@@ -1658,6 +1693,14 @@ input {
     font-size: 36px;
   }
 
+  .dashboard-resume,
+  .dashboard-resume .panel,
+  .assistant-panel,
+  .assistant-panel .panel,
+  .chat-shell {
+    min-height: auto;
+  }
+
   .section-head {
     display: block;
   }
@@ -1670,7 +1713,8 @@ input {
 
 @media (max-width: 560px) {
   .app-shell {
-    width: calc(100% - 16px);
+    width: 100%;
+    padding: 8px;
   }
 
   .hero-copy,
@@ -1684,7 +1728,8 @@ input {
   }
 
   .job-board,
-  .verdict-card {
+  .verdict-card,
+  .chat-actions {
     grid-template-columns: 1fr;
   }
 }
