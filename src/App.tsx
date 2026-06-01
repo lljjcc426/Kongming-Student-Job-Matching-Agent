@@ -32,6 +32,7 @@ import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeO
 const MAX_UPLOAD_BYTES = 4_000_000;
 type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
 type JdPipelineStep = "idle" | "parse" | "evaluate" | "links" | "done" | "error";
+type ActivePage = "home" | "resume" | "jobs" | "interview" | "assistant";
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -187,6 +188,7 @@ function App() {
   const [chatInput, setChatInput] = useState("");
   const [chatStatus, setChatStatus] = useState<"idle" | "listening" | "loading" | "ready" | "error">("idle");
   const [chatMessage, setChatMessage] = useState("");
+  const [activePage, setActivePage] = useState<ActivePage>("home");
   const [uploadMessage, setUploadMessage] = useState("请上传简历文本/图片，或直接粘贴简历内容开始分析。");
   const [resumeSource, setResumeSource] = useState("等待上传");
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -694,27 +696,37 @@ function App() {
 
   return (
     <main className="app-shell">
-      <Hero result={result} selectedJob={selectedJob} isReady={hasAnalysis} />
+      <AppNav activePage={activePage} onChange={setActivePage} />
 
-      <section className="workflow" aria-label="产品工作流">
-        <WorkflowStep index="01" title="学生画像" text="识别专业、经历、技能与求职偏好" />
-        <WorkflowStep index="02" title="岗位捕手" text="筛选高匹配岗位并解释推荐原因" />
-        <WorkflowStep index="03" title="初筛优化" text="定位关键词缺口与经历表达问题" />
-        <WorkflowStep index="04" title="投递行动" text="输出投递前可执行清单" />
-      </section>
+      {activePage === "home" ? (
+        <>
+          <Hero result={result} selectedJob={selectedJob} isReady={hasAnalysis} onStart={() => setActivePage("resume")} />
 
-      <ProcessState
-        hasResume={hasResume}
-        customJobCount={customJobs.length}
-        resumeSource={resumeSource}
-        modelStatus={modelStatus}
-        pipelineStep={pipelineStep}
-        jdStatus={jdStatus}
-        jdStep={jdStep}
-        jdMessage={jdMessage}
-      />
+          <section className="workflow" aria-label="产品工作流">
+            <WorkflowStep index="01" title="学生画像" text="识别专业、经历、技能与求职偏好" />
+            <WorkflowStep index="02" title="岗位捕手" text="筛选高匹配岗位并解释推荐原因" />
+            <WorkflowStep index="03" title="初筛优化" text="定位关键词缺口与经历表达问题" />
+            <WorkflowStep index="04" title="投递行动" text="输出投递前可执行清单" />
+          </section>
 
-      <section className="dashboard">
+          <HomeOverview onNavigate={setActivePage} hasResume={hasResume} hasAnalysis={hasAnalysis} chatCount={chatMessages.length} />
+        </>
+      ) : null}
+
+      {activePage === "resume" || activePage === "jobs" ? (
+        <ProcessState
+          hasResume={hasResume}
+          customJobCount={customJobs.length}
+          resumeSource={resumeSource}
+          modelStatus={modelStatus}
+          pipelineStep={pipelineStep}
+          jdStatus={jdStatus}
+          jdStep={jdStep}
+          jdMessage={jdMessage}
+        />
+      ) : null}
+
+      <section className={`dashboard dashboard-${activePage}`} hidden={activePage !== "resume" && activePage !== "jobs"}>
         <aside className="profile-column">
           <Panel eyebrow="Profile" title="学生画像" icon={<FileText size={18} />}>
             <div className="identity-card">
@@ -1025,7 +1037,7 @@ function App() {
         </aside>
       </section>
 
-      <section className="assistant-panel">
+      <section className="assistant-panel" hidden={activePage !== "assistant"}>
         <Panel eyebrow="AI Assistant" title="求职 AI 助手" icon={<Bot size={18} />}>
           <div className="chat-shell">
             <div className="chat-body" ref={chatBodyRef} aria-live="polite">
@@ -1083,10 +1095,11 @@ function App() {
         </Panel>
       </section>
 
-      {hasAnalysis ? (
+      {activePage === "interview" ? (
         <section className="interview-panel">
           <Panel eyebrow="Interview" title="模拟面试" icon={<Video size={18} />}>
-            <div className="interview-studio">
+            {hasAnalysis ? (
+              <div className="interview-studio">
               <div className={`video-preview ${videoMode}`}>
                 {videoMode === "preview" ? <video ref={videoRef} autoPlay muted playsInline aria-label="视频面试预览" /> : <Video size={22} />}
                 <span>{videoMode === "preview" ? "视频预览中" : "视频对话接口预留"}</span>
@@ -1122,6 +1135,9 @@ function App() {
                 )}
               </div>
             </div>
+            ) : (
+              <EmptyState title="等待岗位上下文" text="完成简历解析和岗位推荐后，可以在这里围绕目标岗位进行文本、语音或视频面试练习。" />
+            )}
           </Panel>
         </section>
       ) : null}
@@ -1129,7 +1145,56 @@ function App() {
   );
 }
 
-function Hero({ result, selectedJob, isReady }: { result: MatchResult; selectedJob: Job; isReady: boolean }) {
+function AppNav({ activePage, onChange }: { activePage: ActivePage; onChange: (page: ActivePage) => void }) {
+  const items: Array<{ id: ActivePage; label: string; icon: ReactNode }> = [
+    { id: "home", label: "首页", icon: <Sparkles size={16} /> },
+    { id: "resume", label: "简历解析", icon: <FileText size={16} /> },
+    { id: "jobs", label: "岗位推荐", icon: <BriefcaseBusiness size={16} /> },
+    { id: "interview", label: "模拟面试", icon: <Video size={16} /> },
+    { id: "assistant", label: "AI 助手", icon: <Bot size={16} /> },
+  ];
+
+  return (
+    <nav className="app-nav" aria-label="页面导航">
+      <button type="button" className="nav-brand" onClick={() => onChange("home")}>
+        <span>孔明职配</span>
+        <small>学生求职智能工作台</small>
+      </button>
+      <div>
+        {items.map((item) => (
+          <button key={item.id} type="button" className={activePage === item.id ? "active" : ""} onClick={() => onChange(item.id)}>
+            {item.icon}
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+function HomeOverview({ onNavigate, hasResume, hasAnalysis, chatCount }: { onNavigate: (page: ActivePage) => void; hasResume: boolean; hasAnalysis: boolean; chatCount: number }) {
+  const cards: Array<{ page: ActivePage; title: string; text: string; meta: string; icon: ReactNode }> = [
+    { page: "resume", title: "学生简历解析", text: "提交简历后生成结构化画像、简历诊断和优化建议。", meta: hasResume ? "已有简历输入" : "等待简历输入", icon: <FileText size={20} /> },
+    { page: "jobs", title: "岗位推荐", text: "基于简历画像生成岗位方向、匹配评分和公开招聘入口。", meta: hasAnalysis ? "已有推荐结果" : "等待岗位生成", icon: <BriefcaseBusiness size={20} /> },
+    { page: "interview", title: "AI 模拟面试", text: "围绕目标岗位进行文本、语音和视频预览式面试练习。", meta: hasAnalysis ? "可开始练习" : "需要岗位上下文", icon: <Video size={20} /> },
+    { page: "assistant", title: "AI 助手", text: "像主流网页 AI 一样自由对话，支持求职规划、岗位澄清和准备建议。", meta: chatCount ? `已有 ${chatCount} 条对话` : "可直接提问", icon: <Bot size={20} /> },
+  ];
+
+  return (
+    <section className="home-overview">
+      {cards.map((card) => (
+        <button key={card.page} type="button" onClick={() => onNavigate(card.page)}>
+          <span>{card.icon}</span>
+          <strong>{card.title}</strong>
+          <p>{card.text}</p>
+          <small>{card.meta}</small>
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; selectedJob: Job; isReady: boolean; onStart: () => void }) {
   return (
     <header className="hero">
       <div className="hero-copy">
@@ -1139,6 +1204,10 @@ function Hero({ result, selectedJob, isReady }: { result: MatchResult; selectedJ
         </div>
         <h1>孔明职配</h1>
         <p>面向校园招聘与实习求职场景，把学生画像、岗位 JD 和简历文本转化为可解释的岗位推荐、差距诊断与简历优化建议。</p>
+        <button type="button" className="hero-primary" onClick={onStart}>
+          开始解析简历
+          <ArrowUpRight size={16} />
+        </button>
         <div className="hero-actions">
           <span><ShieldCheck size={16} />可解释评分</span>
           <span><Search size={16} />岗位优先级</span>
