@@ -142,7 +142,7 @@ async function main() {
   const initialOptimizedDraft = await page.getByText("优化后简历片段").count();
   const initialAgentCards = await page.locator(".agent-card").count();
   const initialInterviewInput = await page.getByLabel("模拟面试回答").count();
-  const initialProcessCards = await page.locator(".process-grid article").count();
+  const initialProgressBlocks = await page.locator(".inline-progress:visible").count();
   const uploadControl = await page.locator(".upload-control").count();
   const uploadedResume = [
     "姓名：陈雨",
@@ -165,7 +165,7 @@ async function main() {
   const copyButtons = await page.locator("button.secondary-action").filter({ hasText: "复制优化稿" }).count();
   const optimizedDraft = await page.getByText("优化后简历片段").count();
   const agentCards = await page.locator(".agent-card").count();
-  const processCards = await page.locator(".process-grid article").count();
+  const progressBlocks = await page.locator(".inline-progress:visible").count();
   const uploadMessage = await page.locator(".upload-message").innerText();
   const studentName = await page.locator(".identity-card strong").innerText();
   const educationCard = await page.locator(".resume-section-card").filter({ hasText: "学历" }).innerText();
@@ -189,8 +189,8 @@ async function main() {
   if (homeCards !== 4) {
     throw new Error(`Expected 4 home feature cards, found ${homeCards}`);
   }
-  if (initialProcessCards !== 3) {
-    throw new Error(`Expected 3 initial process cards, found ${initialProcessCards}`);
+  if (initialProgressBlocks !== 1) {
+    throw new Error(`Expected resume progress block, found ${initialProgressBlocks}`);
   }
   if (workflowSteps !== 4) {
     throw new Error(`Expected 4 workflow steps, found ${workflowSteps}`);
@@ -219,8 +219,8 @@ async function main() {
   if (interviewInput !== 1) {
     throw new Error(`Expected interview practice input after analysis, found ${interviewInput}`);
   }
-  if (processCards !== 3) {
-    throw new Error(`Expected 3 process cards, found ${processCards}`);
+  if (progressBlocks !== 1) {
+    throw new Error(`Expected resume progress block after analysis, found ${progressBlocks}`);
   }
   if (uploadControl !== 1) {
     throw new Error(`Expected resume upload control, found ${uploadControl}`);
@@ -249,7 +249,7 @@ async function main() {
     initialOptimizedDraft,
     initialAgentCards,
     initialInterviewInput,
-    initialProcessCards,
+    initialProgressBlocks,
     jobCards,
     workflowSteps,
     jdButtonText,
@@ -259,7 +259,7 @@ async function main() {
     optimizedDraft,
     agentCards,
     interviewInput,
-    processCards,
+    progressBlocks,
     uploadControl,
     uploadMessage,
     studentName,

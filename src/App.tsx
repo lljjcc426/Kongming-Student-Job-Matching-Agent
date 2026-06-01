@@ -725,6 +725,8 @@ function App() {
               <small>{structuredResume?.summary || "上传简历后由模型提取学生画像。"}</small>
             </div>
 
+            <ResumePipelineStatus hasResume={hasResume} resumeSource={resumeSource} modelStatus={modelStatus} pipelineStep={pipelineStep} />
+
             <ResumeSections structuredResume={structuredResume} />
 
             <InfoBlock title="简历文本">
@@ -779,6 +781,7 @@ function App() {
                   <h3>意向岗位 JD</h3>
                 </div>
               </div>
+              <JdPipelineStatus jdStatus={jdStatus} jdStep={jdStep} jdMessage={jdMessage} />
               <div className="field-row">
                 <label>
                   <span>岗位名称</span>
@@ -1023,19 +1026,6 @@ function App() {
           </Panel>
         </aside>
       </section>
-
-      {activePage === "resume" || activePage === "jobs" ? (
-        <ProcessState
-          hasResume={hasResume}
-          customJobCount={customJobs.length}
-          resumeSource={resumeSource}
-          modelStatus={modelStatus}
-          pipelineStep={pipelineStep}
-          jdStatus={jdStatus}
-          jdStep={jdStep}
-          jdMessage={jdMessage}
-        />
-      ) : null}
 
       <section className="assistant-panel" hidden={activePage !== "assistant"}>
         <Panel eyebrow="AI Assistant" title="求职 AI 助手" icon={<Bot size={18} />}>
@@ -1300,6 +1290,91 @@ function WorkflowStep({ index, title, text }: { index: string; title: string; te
       <strong>{title}</strong>
       <p>{text}</p>
     </article>
+  );
+}
+
+function ResumePipelineStatus({
+  hasResume,
+  resumeSource,
+  modelStatus,
+  pipelineStep,
+}: {
+  hasResume: boolean;
+  resumeSource: string;
+  modelStatus: "idle" | "loading" | "ready" | "error";
+  pipelineStep: PipelineStep;
+}) {
+  const steps = [
+    { id: "intake", label: "接收简历" },
+    { id: "structure", label: "解析画像" },
+    { id: "jobs", label: "生成岗位" },
+    { id: "analysis", label: "匹配建议" },
+  ];
+  const progressIndex = pipelineStep === "done" ? steps.length : pipelineStep === "error" ? Math.max(1, steps.findIndex((step) => step.id === pipelineStep) + 1) : steps.findIndex((step) => step.id === pipelineStep) + 1;
+  const progress = !hasResume && pipelineStep === "idle" ? 0 : Math.max(0, Math.min(100, Math.round((progressIndex / steps.length) * 100)));
+
+  return (
+    <section className={`inline-progress ${modelStatus}`}>
+      <div>
+        <strong>简历识别进度</strong>
+        <span>{modelStatus === "loading" ? "正在处理" : modelStatus === "ready" ? resumeSource : modelStatus === "error" ? "处理未完成" : "等待上传"}</span>
+      </div>
+      <div className="pipeline-bar" aria-label="简历识别进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} role="progressbar">
+        <i style={{ width: `${progress}%` }} />
+      </div>
+      <div className="pipeline-steps">
+        {steps.map((step, index) => {
+          const active = step.id === pipelineStep;
+          const done = pipelineStep === "done" || index < progressIndex - 1;
+          return (
+            <span key={step.id} className={active ? "active" : done ? "done" : ""}>
+              {step.label}
+            </span>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function JdPipelineStatus({
+  jdStatus,
+  jdStep,
+  jdMessage,
+}: {
+  jdStatus: "idle" | "loading" | "ready" | "error";
+  jdStep: JdPipelineStep;
+  jdMessage: string;
+}) {
+  const jdSteps = [
+    { id: "parse", label: "解析 JD" },
+    { id: "evaluate", label: "评估优先级" },
+    { id: "links", label: "生成入口" },
+  ];
+  const jdProgressIndex = jdStep === "done" ? jdSteps.length : jdStep === "error" ? Math.max(1, jdSteps.findIndex((step) => step.id === jdStep) + 1) : jdSteps.findIndex((step) => step.id === jdStep) + 1;
+  const jdProgress = jdStep === "idle" ? 0 : Math.max(0, Math.min(100, Math.round((jdProgressIndex / jdSteps.length) * 100)));
+
+  return (
+    <section className={`inline-progress ${jdStatus}`}>
+      <div>
+        <strong>岗位分析进度</strong>
+        <span>{jdMessage}</span>
+      </div>
+      <div className="pipeline-bar" aria-label="意向岗位分析进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={jdProgress} role="progressbar">
+        <i style={{ width: `${jdProgress}%` }} />
+      </div>
+      <div className="pipeline-steps three">
+        {jdSteps.map((step, index) => {
+          const active = step.id === jdStep;
+          const done = jdStep === "done" || index < jdProgressIndex - 1;
+          return (
+            <span key={step.id} className={active ? "active" : done ? "done" : ""}>
+              {step.label}
+            </span>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
