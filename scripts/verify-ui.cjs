@@ -133,7 +133,7 @@ async function main() {
   const title = await page.locator("h1").innerText();
   const initialJobCards = await page.locator(".job-card").count();
   const workflowSteps = await page.locator(".workflow article").count();
-  const jdButtonText = await page.locator(".primary-action").innerText();
+  const jdButtonText = await page.locator("button.primary-action").filter({ hasText: "分析该岗位" }).innerText();
   const initialReportButtons = await page.locator("button.secondary-action").filter({ hasText: "下载分析报告" }).count();
   const initialCopyButtons = await page.locator("button.secondary-action").filter({ hasText: "复制优化稿" }).count();
   const modelButtons = await page.locator("button.secondary-action").filter({ hasText: "模型增强分析" }).count();

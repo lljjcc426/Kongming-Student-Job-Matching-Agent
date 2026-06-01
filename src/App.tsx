@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowDownToLine,
   ArrowUpRight,
+  Bot,
   BriefcaseBusiness,
   CheckCircle2,
   ClipboardCheck,
@@ -12,10 +13,12 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  SendHorizontal,
   Sparkles,
   Trash2,
   Upload,
   Video,
+  Volume2,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Job } from "./data";
@@ -29,6 +32,11 @@ import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeO
 const MAX_UPLOAD_BYTES = 4_000_000;
 type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
 type JdPipelineStep = "idle" | "parse" | "evaluate" | "links" | "done" | "error";
+type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
 type SpeechRecognitionResultLike = {
   0?: {
     transcript?: string;
@@ -175,10 +183,15 @@ function App() {
   const [interviewStatus, setInterviewStatus] = useState<"idle" | "listening" | "loading" | "ready" | "error">("idle");
   const [interviewMessage, setInterviewMessage] = useState("");
   const [videoMode, setVideoMode] = useState<"idle" | "preview" | "blocked">("idle");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatStatus, setChatStatus] = useState<"idle" | "listening" | "loading" | "ready" | "error">("idle");
+  const [chatMessage, setChatMessage] = useState("");
   const [uploadMessage, setUploadMessage] = useState("请上传简历文本/图片，或直接粘贴简历内容开始分析。");
   const [resumeSource, setResumeSource] = useState("等待上传");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const chatBodyRef = useRef<HTMLDivElement | null>(null);
 
   const activeProfile = useMemo(() => profileFromStructuredResume(structuredResume, resumeText), [structuredResume, resumeText]);
   const hasResume = resumeText.trim().length > 0;
@@ -200,6 +213,10 @@ function App() {
   const result = useMemo(() => analyzeMatch(activeProfile, selectedJob, resumeText), [activeProfile, resumeText, selectedJob]);
   const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
   const [copyStatus, setCopyStatus] = useState("复制优化稿");
+
+  useEffect(() => {
+    chatBodyRef.current?.scrollTo({ top: chatBodyRef.current.scrollHeight, behavior: "smooth" });
+  }, [chatMessages, chatStatus]);
 
   const runJobRecommendations = async (nextResumeText: string, nextResume: StructuredResume) => {
     setPipelineStep("jobs");
@@ -578,6 +595,103 @@ function App() {
     setInterviewMessage(response.error || "模拟面试反馈生成失败，请检查模型服务。");
   };
 
+  const handleChatSpeechInput = () => {
+    const Recognition = getSpeechRecognition();
+    if (!Recognition) {
+      setChatStatus("error");
+      setChatMessage("当前浏览器不支持语音转写，请直接输入文字。");
+      return;
+    }
+
+    const recognition = new Recognition();
+    recognition.lang = "zh-CN";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => {
+      setChatStatus("listening");
+      setChatMessage("正在收听，结束后会写入输入框。");
+    };
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((item) => item[0]?.transcript ?? "")
+        .join("")
+        .trim();
+      if (transcript) {
+        setChatInput((current) => [current, transcript].filter(Boolean).join(current.trim() ? "\n" : ""));
+      }
+      setChatStatus("idle");
+      setChatMessage(transcript ? "已完成语音转写，可以继续编辑或发送。" : "未识别到有效语音，请重试或直接输入文字。");
+    };
+    recognition.onerror = () => {
+      setChatStatus("error");
+      setChatMessage("语音转写未完成，请检查浏览器麦克风权限。");
+    };
+    recognition.onend = () => {
+      setChatStatus((current) => (current === "listening" ? "idle" : current));
+    };
+    recognition.start();
+  };
+
+  const handleSendChat = async () => {
+    const message = chatInput.trim();
+    if (!message || chatStatus === "loading") return;
+
+    const nextUserMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: message,
+    };
+    const history = [...chatMessages, nextUserMessage];
+    setChatMessages(history);
+    setChatInput("");
+    setChatStatus("loading");
+    setChatMessage("正在生成回复");
+
+    const response = await callArkAgent(
+      {
+        task: "career-chat",
+        userMessage: message,
+        chatMessages: history.map(({ role, content }) => ({ role, content })),
+        resumeText,
+        resumeProfile: structuredResume,
+        selectedJob: hasAnalysis ? selectedJob : undefined,
+        matchResult: hasAnalysis ? result : undefined,
+      },
+      { timeoutMs: 45000 },
+    );
+
+    if (response.ok && response.content) {
+      setChatMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: response.content ?? "",
+        },
+      ]);
+      setChatStatus("ready");
+      setChatMessage("已回复");
+      return;
+    }
+
+    setChatStatus("error");
+    setChatMessage(response.error || "AI 助手暂时无法回复，请稍后重试。");
+  };
+
+  const handleReadLatestReply = () => {
+    const latestReply = [...chatMessages].reverse().find((message) => message.role === "assistant");
+    if (!latestReply || !("speechSynthesis" in window)) {
+      setChatStatus("error");
+      setChatMessage("当前没有可朗读的回复，或浏览器不支持语音朗读。");
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(latestReply.content);
+    utterance.lang = "zh-CN";
+    window.speechSynthesis.speak(utterance);
+    setChatMessage("正在朗读最新回复");
+  };
+
   return (
     <main className="app-shell">
       <Hero result={result} selectedJob={selectedJob} isReady={hasAnalysis} />
@@ -909,6 +1023,64 @@ function App() {
             )}
           </Panel>
         </aside>
+      </section>
+
+      <section className="assistant-panel">
+        <Panel eyebrow="AI Assistant" title="求职 AI 助手" icon={<Bot size={18} />}>
+          <div className="chat-shell">
+            <div className="chat-body" ref={chatBodyRef} aria-live="polite">
+              {chatMessages.length ? (
+                chatMessages.map((message) => (
+                  <article key={message.id} className={`chat-message ${message.role}`}>
+                    <span>{message.role === "user" ? "你" : "AI 助手"}</span>
+                    <p>{message.content}</p>
+                  </article>
+                ))
+              ) : (
+                <div className="chat-empty">
+                  <Bot size={24} />
+                  <strong>可以直接开始交流</strong>
+                  <p>输入你的问题，助手会结合当前简历、岗位和匹配结果回答；没有上下文时也可以自由交流。</p>
+                </div>
+              )}
+              {chatStatus === "loading" ? (
+                <article className="chat-message assistant pending">
+                  <span>AI 助手</span>
+                  <p>正在思考...</p>
+                </article>
+              ) : null}
+            </div>
+            <div className={`chat-status ${chatStatus === "error" ? "error" : ""}`}>{chatMessage || "自由对话，不使用预设问答。"}</div>
+            <div className="chat-composer">
+              <textarea
+                value={chatInput}
+                onChange={(event) => setChatInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void handleSendChat();
+                  }
+                }}
+                aria-label="AI 助手输入"
+                placeholder="输入想交流的内容"
+              />
+              <div className="chat-actions">
+                <button type="button" className="secondary-action compact-action" onClick={handleChatSpeechInput} disabled={chatStatus === "listening" || chatStatus === "loading"}>
+                  <Mic size={16} />
+                  {chatStatus === "listening" ? "收听中" : "语音输入"}
+                </button>
+                <button type="button" className="secondary-action compact-action" onClick={handleReadLatestReply} disabled={!chatMessages.some((message) => message.role === "assistant")}>
+                  <Volume2 size={16} />
+                  朗读
+                </button>
+                <button type="button" className="primary-action compact-action" onClick={() => void handleSendChat()} disabled={!chatInput.trim() || chatStatus === "loading"}>
+                  <SendHorizontal size={16} />
+                  {chatStatus === "loading" ? "发送中" : "发送"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Panel>
       </section>
 
       {hasAnalysis ? (
