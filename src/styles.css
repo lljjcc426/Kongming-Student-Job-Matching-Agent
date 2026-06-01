@@ -28,18 +28,26 @@ input {
   width: min(1680px, calc(100% - 32px));
   margin: 0 auto;
   padding: 28px 0 40px;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.app-shell > :not(.app-nav) {
+  grid-column: 2;
 }
 
 .app-nav {
   position: sticky;
-  top: 0;
+  top: 24px;
   z-index: 20;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 10px;
+  grid-column: 1;
+  display: grid;
+  gap: 18px;
+  align-items: start;
+  min-height: calc(100vh - 56px);
+  padding: 14px;
   border: 1px solid rgba(37, 99, 235, 0.12);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.92);
@@ -55,8 +63,8 @@ input {
 .nav-brand {
   display: grid;
   gap: 2px;
-  min-width: 160px;
-  padding: 6px 10px;
+  width: 100%;
+  padding: 10px;
   border-radius: 8px;
   background: transparent;
   text-align: left;
@@ -75,17 +83,17 @@ input {
 }
 
 .app-nav > div {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
   gap: 8px;
 }
 
 .app-nav > div button {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 36px;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
   padding: 0 12px;
   border: 1px solid #dbeafe;
   border-radius: 8px;
@@ -1611,18 +1619,24 @@ input {
   .app-shell {
     width: min(100% - 20px, 760px);
     padding-top: 16px;
+    display: block;
   }
 
   .app-nav {
+    position: sticky;
+    top: 0;
     display: grid;
+    min-height: 0;
+    margin-bottom: 16px;
   }
 
   .app-nav > div {
-    justify-content: stretch;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .app-nav > div button {
-    flex: 1 1 130px;
+    justify-content: center;
   }
 
   .hero,
