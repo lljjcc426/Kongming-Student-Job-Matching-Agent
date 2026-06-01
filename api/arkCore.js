@@ -1,8 +1,9 @@
 const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 const DEFAULT_MODEL = "doubao-seed-2-0-lite-260215";
-const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "jd-analysis", "interview-feedback"]);
+const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "jd-analysis", "interview-feedback", "career-chat"]);
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
+const MAX_CHAT_CHARS = 6000;
 const MAX_IMAGE_DATA_URL_CHARS = 4_500_000;
 const MAX_IMAGE_COUNT = 2;
 const REQUEST_TIMEOUT_MS = 60000;
@@ -76,6 +77,28 @@ const buildTextPrompt = (body) => {
       "输出包含：总体评分、回答亮点、主要风险、下一轮改进建议。",
       `目标岗位：${JSON.stringify(job, null, 2)}`,
       `候选人回答：${asText(body.interviewAnswer, MAX_INTERVIEW_CHARS)}`,
+    ].join("\n\n");
+  }
+
+  if (body.task === "career-chat") {
+    const messages = Array.isArray(body.chatMessages) ? body.chatMessages.slice(-10) : [];
+    const safeMessages = messages
+      .map((message) => ({
+        role: message?.role === "assistant" ? "assistant" : "user",
+        content: asText(message?.content, 900),
+      }))
+      .filter((message) => message.content.trim());
+    return [
+      "你是学生求职 AI 助手。请直接回答学生的问题，也可以根据对话主动帮助学生澄清目标岗位、拆解准备路径、优化简历表达、准备面试、比较岗位方向或制定行动计划。",
+      "不要使用预设问答，不要把学生限制在固定场景；根据学生本轮输入自由判断需要回应的内容。",
+      "如果问题信息不足，可以先给出可执行的下一步，并用一两个问题帮助学生补充关键信息。",
+      "回答应专业、克制、具体，不承诺录用结果，不编造学校、企业、岗位或政策事实。",
+      `当前简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
+      `当前结构化画像：${JSON.stringify(body.resumeProfile || {}, null, 2)}`,
+      `当前选中岗位：${JSON.stringify(job, null, 2)}`,
+      `当前匹配结果：${JSON.stringify(match, null, 2)}`,
+      `历史对话：${JSON.stringify(safeMessages, null, 2)}`,
+      `学生本轮输入：${asText(body.userMessage, MAX_CHAT_CHARS)}`,
     ].join("\n\n");
   }
 
@@ -422,7 +445,7 @@ export async function runArkCompletion(body) {
         thinking: {
           type: "disabled",
         },
-        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : 1200,
+        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : 1200,
       }),
     });
   } catch (error) {
