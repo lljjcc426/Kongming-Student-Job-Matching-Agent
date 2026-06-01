@@ -27,6 +27,7 @@ export type JdAnalysis = {
   responsibilities: string[];
   requirements: string[];
   bonus: string[];
+  recommendedCompanies: string[];
 };
 
 const emptyStructuredResume: StructuredResume = {
@@ -118,6 +119,7 @@ export function parseModelJobs(content: string): Job[] {
       bonus: asStringArray(item.bonus),
       keywords: asKeywordArray(item.keywords),
       priority: item.priority === "高" || item.priority === "中" || item.priority === "低" ? item.priority : "中",
+      recommendedCompanies: asStringArray(item.recommendedCompanies),
     }))
     .filter((item) => item.title && item.keywords.length > 0);
 }
@@ -139,6 +141,7 @@ export function parseJdAnalysis(content: string): JdAnalysis {
     responsibilities: asStringArray(data.responsibilities),
     requirements: asStringArray(data.requirements),
     bonus: asStringArray(data.bonus),
+    recommendedCompanies: asStringArray(data.recommendedCompanies),
   };
 }
 
