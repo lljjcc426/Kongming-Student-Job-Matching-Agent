@@ -29,7 +29,6 @@ export type Job = {
   bonus: string[];
   keywords: string[];
   priority: "高" | "中" | "低";
-  recommendedCompanies?: string[];
   applicationLinks?: Array<{
     company: string;
     url: string;

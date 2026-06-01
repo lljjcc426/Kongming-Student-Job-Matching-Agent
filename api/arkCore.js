@@ -102,7 +102,7 @@ const buildTextPrompt = (body) => {
       "必须覆盖学生简历中的专业背景、技能、经历和求职意愿；如果简历里写了目标岗位，以学生意愿为最高优先级。",
       "不要套用固定岗位模板，不要局限于互联网通用岗位。心理学、艺术类、新闻传播、法学、财务、医学、教育等专业都要给出相应岗位。",
       "请输出严格 JSON 数组，不要输出 Markdown，不要解释。数组每项结构如下：",
-      '{"id":"","title":"","track":"","city":"","level":"","companyScenario":"","summary":"","responsibilities":[],"requirements":[],"bonus":[],"keywords":[],"priority":"高","recommendedCompanies":[]}',
+      '{"id":"","title":"","track":"","city":"","level":"","companyScenario":"","summary":"","responsibilities":[],"requirements":[],"bonus":[],"keywords":[],"priority":"高","applicationLinks":[{"company":"","url":"","note":""}]}',
       "要求：",
       `1. 返回 ${jobCount} 个岗位。`,
       "2. id 使用英文短横线小写。",
@@ -112,7 +112,8 @@ const buildTextPrompt = (body) => {
       "6. 每个文本字段保持简洁，避免长段解释。",
       "7. keywords 必须是拆开的短关键词数组，不要把多个关键词合并在一个字符串里。",
       "8. 不要返回完全相同的岗位标题；实习岗位和正式岗位可以分别保留。",
-      "9. recommendedCompanies 返回 2-4 个适合该岗位方向和学生背景的真实企业名称，优先从以下企业池选择：字节跳动、阿里巴巴、美团、京东、百度、网易、携程、B站、滴滴、蚂蚁集团、拼多多、得物、小红书。",
+      "9. applicationLinks 返回 2-4 个适合该岗位方向和学生背景的真实招聘入口，company 写企业/机构名称，url 必须是 http 或 https 开头的官方招聘页、岗位页或可信招聘搜索页；不确定真实链接时宁可少给，不要编造。",
+      "10. 企业/机构必须根据专业和岗位匹配，不要默认推荐单一行业企业。历史学可考虑博物馆、出版社、文旅集团、教育培训机构、研究院、档案馆、文博单位、内容机构、地方人才招聘平台等真实方向。",
       `简历结构：${JSON.stringify(body.resumeProfile || {}, null, 2)}`,
       `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
       `目标 JD：${asText(body.jdText, 5000)}`,
@@ -123,14 +124,15 @@ const buildTextPrompt = (body) => {
     return [
       "你是目标岗位 JD 分析智能体。请结合学生简历、岗位名称和岗位 JD，评估该岗位对学生的投递优先级，并抽取可用于匹配的结构化岗位信息。",
       "请输出严格 JSON，不要输出 Markdown，不要解释。结构如下：",
-      '{"title":"","priority":"中","track":"","city":"","level":"","summary":"","conclusion":"","strengths":[],"risks":[],"actions":[],"keywords":[],"responsibilities":[],"requirements":[],"bonus":[],"recommendedCompanies":[]}',
+      '{"title":"","priority":"中","track":"","city":"","level":"","summary":"","conclusion":"","strengths":[],"risks":[],"actions":[],"keywords":[],"responsibilities":[],"requirements":[],"bonus":[],"applicationLinks":[{"company":"","url":"","note":""}]}',
       "字段要求：",
       "1. priority 只能是 高、中、低，必须结合学生简历和 JD 评估，不要默认高。",
       "2. title 优先使用用户填写的岗位名称；没有填写时从 JD 或岗位描述中识别。",
       "3. keywords 必须是拆开的短关键词数组。",
       "4. strengths、risks、actions 各 2-4 条，具体、可执行。",
       "5. responsibilities、requirements、bonus 各 2-5 条。",
-      "6. recommendedCompanies 返回 2-4 个适合该岗位方向和学生背景的真实企业名称，优先从以下企业池选择：字节跳动、阿里巴巴、美团、京东、百度、网易、携程、B站、滴滴、蚂蚁集团、拼多多、得物、小红书。",
+      "6. applicationLinks 返回 2-4 个适合该岗位方向和学生背景的真实招聘入口，company 写企业/机构名称，url 必须是 http 或 https 开头的官方招聘页、岗位页或可信招聘搜索页；不确定真实链接时宁可少给，不要编造。",
+      "7. 企业/机构必须根据专业和岗位匹配，不要默认推荐单一行业企业。历史学可考虑博物馆、出版社、文旅集团、教育培训机构、研究院、档案馆、文博单位、内容机构、地方人才招聘平台等真实方向。",
       `岗位名称：${asText(body.jobTitle, 120)}`,
       `岗位 JD：${asText(body.jdText, 5000)}`,
       `简历结构：${JSON.stringify(body.resumeProfile || {}, null, 2)}`,
@@ -194,6 +196,86 @@ const buildMessages = (body) => {
       content: buildTextPrompt(body),
     },
   ];
+};
+
+const extractJsonContent = (content) => {
+  const trimmed = String(content || "").trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) return fenced[1].trim();
+  const firstArray = trimmed.indexOf("[");
+  const firstObject = trimmed.indexOf("{");
+  const startsWithArray = firstArray !== -1 && (firstObject === -1 || firstArray < firstObject);
+  const start = startsWithArray ? firstArray : firstObject;
+  const end = startsWithArray ? trimmed.lastIndexOf("]") : trimmed.lastIndexOf("}");
+  if (start !== -1 && end > start) return trimmed.slice(start, end + 1);
+  return trimmed;
+};
+
+const normalizeApplicationLinks = (links) => {
+  if (!Array.isArray(links)) return [];
+  const used = new Set();
+  return links
+    .map((item) => ({
+      company: typeof item?.company === "string" ? item.company.trim() : "",
+      url: typeof item?.url === "string" ? item.url.trim() : "",
+      note: typeof item?.note === "string" ? item.note.trim() : "招聘入口",
+    }))
+    .filter((item) => item.company && /^https?:\/\//i.test(item.url))
+    .filter((item) => {
+      const key = `${item.company}-${item.url}`;
+      if (used.has(key)) return false;
+      used.add(key);
+      return true;
+    })
+    .slice(0, 4);
+};
+
+const isReachableRecruitingUrl = async (url) => {
+  const probe = async (method) => {
+    const response = await fetch(url, {
+      method,
+      redirect: "follow",
+      signal: AbortSignal.timeout(2500),
+      headers: method === "GET" ? { Range: "bytes=0-0" } : undefined,
+    });
+    return response.status >= 200 && response.status < 500 && response.status !== 404 && response.status !== 410;
+  };
+
+  try {
+    if (await probe("HEAD")) return true;
+  } catch {
+    // Some recruiting sites block HEAD; retry with a tiny GET request.
+  }
+
+  try {
+    return await probe("GET");
+  } catch {
+    return false;
+  }
+};
+
+const sanitizeRecruitingLinks = async (content, task) => {
+  if (task !== "job-recommendations" && task !== "jd-analysis") return content;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(extractJsonContent(content));
+  } catch {
+    return content;
+  }
+
+  const jobs = Array.isArray(parsed) ? parsed : [parsed];
+  const uniqueUrls = [...new Set(jobs.flatMap((job) => normalizeApplicationLinks(job?.applicationLinks).map((link) => link.url)))];
+  const reachablePairs = await Promise.all(uniqueUrls.map(async (url) => [url, await isReachableRecruitingUrl(url)]));
+  const reachableUrls = new Set(reachablePairs.filter(([, ok]) => ok).map(([url]) => url));
+
+  jobs.forEach((job) => {
+    if (job && typeof job === "object") {
+      job.applicationLinks = normalizeApplicationLinks(job.applicationLinks).filter((link) => reachableUrls.has(link.url));
+    }
+  });
+
+  return JSON.stringify(Array.isArray(parsed) ? jobs : jobs[0], null, 2);
 };
 
 export async function runArkCompletion(body) {
@@ -266,7 +348,7 @@ export async function runArkCompletion(body) {
     payload: {
       ok: true,
       model,
-      content: data?.choices?.[0]?.message?.content || "",
+      content: await sanitizeRecruitingLinks(data?.choices?.[0]?.message?.content || "", body.task),
     },
   };
 }

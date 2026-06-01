@@ -27,7 +27,7 @@ export type JdAnalysis = {
   responsibilities: string[];
   requirements: string[];
   bonus: string[];
-  recommendedCompanies: string[];
+  applicationLinks: NonNullable<Job["applicationLinks"]>;
 };
 
 const emptyStructuredResume: StructuredResume = {
@@ -48,6 +48,28 @@ const asKeywordArray = (value: unknown) =>
     .flatMap((item) => item.split(/[，,、/]/g))
     .map((item) => item.trim())
     .filter(Boolean);
+
+const asApplicationLinks = (value: unknown): NonNullable<Job["applicationLinks"]> => {
+  if (!Array.isArray(value)) return [];
+  const used = new Set<string>();
+  return value
+    .map((item) => {
+      const record = item && typeof item === "object" ? item as Partial<NonNullable<Job["applicationLinks"]>[number]> : {};
+      return {
+        company: typeof record.company === "string" ? record.company.trim() : "",
+        url: typeof record.url === "string" ? record.url.trim() : "",
+        note: typeof record.note === "string" ? record.note.trim() : "招聘入口",
+      };
+    })
+    .filter((item) => item.company && /^https?:\/\//i.test(item.url))
+    .filter((item) => {
+      const key = `${item.company}-${item.url}`;
+      if (used.has(key)) return false;
+      used.add(key);
+      return true;
+    })
+    .slice(0, 4);
+};
 
 const extractJsonText = (content: string) => {
   const trimmed = content.trim();
@@ -119,7 +141,7 @@ export function parseModelJobs(content: string): Job[] {
       bonus: asStringArray(item.bonus),
       keywords: asKeywordArray(item.keywords),
       priority: item.priority === "高" || item.priority === "中" || item.priority === "低" ? item.priority : "中",
-      recommendedCompanies: asStringArray(item.recommendedCompanies),
+      applicationLinks: asApplicationLinks(item.applicationLinks),
     }))
     .filter((item) => item.title && item.keywords.length > 0);
 }
@@ -141,7 +163,7 @@ export function parseJdAnalysis(content: string): JdAnalysis {
     responsibilities: asStringArray(data.responsibilities),
     requirements: asStringArray(data.requirements),
     bonus: asStringArray(data.bonus),
-    recommendedCompanies: asStringArray(data.recommendedCompanies),
+    applicationLinks: asApplicationLinks(data.applicationLinks),
   };
 }
 
