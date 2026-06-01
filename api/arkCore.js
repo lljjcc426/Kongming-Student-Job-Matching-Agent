@@ -6,6 +6,8 @@ const MAX_INTERVIEW_CHARS = 4000;
 const MAX_IMAGE_DATA_URL_CHARS = 4_500_000;
 const MAX_IMAGE_COUNT = 2;
 const REQUEST_TIMEOUT_MS = 60000;
+const SEARCH_TIMEOUT_MS = 5000;
+const SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; StudentJobMatcher/0.1)";
 
 const asText = (value, maxLength) => {
   if (typeof value !== "string") return "";
@@ -102,7 +104,7 @@ const buildTextPrompt = (body) => {
       "必须覆盖学生简历中的专业背景、技能、经历和求职意愿；如果简历里写了目标岗位，以学生意愿为最高优先级。",
       "不要套用固定岗位模板，不要局限于互联网通用岗位。心理学、艺术类、新闻传播、法学、财务、医学、教育等专业都要给出相应岗位。",
       "请输出严格 JSON 数组，不要输出 Markdown，不要解释。数组每项结构如下：",
-      '{"id":"","title":"","track":"","city":"","level":"","companyScenario":"","summary":"","responsibilities":[],"requirements":[],"bonus":[],"keywords":[],"priority":"高","applicationLinks":[{"company":"","url":"","note":""}]}',
+      '{"id":"","title":"","track":"","city":"","level":"","companyScenario":"","summary":"","responsibilities":[],"requirements":[],"bonus":[],"keywords":[],"priority":"高"}',
       "要求：",
       `1. 返回 ${jobCount} 个岗位。`,
       "2. id 使用英文短横线小写。",
@@ -112,8 +114,8 @@ const buildTextPrompt = (body) => {
       "6. 每个文本字段保持简洁，避免长段解释。",
       "7. keywords 必须是拆开的短关键词数组，不要把多个关键词合并在一个字符串里。",
       "8. 不要返回完全相同的岗位标题；实习岗位和正式岗位可以分别保留。",
-      "9. applicationLinks 返回 2-4 个适合该岗位方向和学生背景的真实招聘入口，company 写企业/机构名称，url 必须是 http 或 https 开头的官方招聘页、岗位页或可信招聘搜索页；不确定真实链接时宁可少给，不要编造。",
-      "10. 企业/机构必须根据专业和岗位匹配，不要默认推荐单一行业企业。历史学可考虑博物馆、出版社、文旅集团、教育培训机构、研究院、档案馆、文博单位、内容机构、地方人才招聘平台等真实方向。",
+      "9. 不要输出企业名单或招聘链接；企业入口由后续搜索智能体根据岗位标题、方向和关键词实时检索。",
+      "10. companyScenario 只描述岗位常见组织场景，不要写具体企业名，不要默认推荐单一行业企业。",
       `简历结构：${JSON.stringify(body.resumeProfile || {}, null, 2)}`,
       `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
       `目标 JD：${asText(body.jdText, 5000)}`,
@@ -124,15 +126,15 @@ const buildTextPrompt = (body) => {
     return [
       "你是目标岗位 JD 分析智能体。请结合学生简历、岗位名称和岗位 JD，评估该岗位对学生的投递优先级，并抽取可用于匹配的结构化岗位信息。",
       "请输出严格 JSON，不要输出 Markdown，不要解释。结构如下：",
-      '{"title":"","priority":"中","track":"","city":"","level":"","summary":"","conclusion":"","strengths":[],"risks":[],"actions":[],"keywords":[],"responsibilities":[],"requirements":[],"bonus":[],"applicationLinks":[{"company":"","url":"","note":""}]}',
+      '{"title":"","priority":"中","track":"","city":"","level":"","summary":"","conclusion":"","strengths":[],"risks":[],"actions":[],"keywords":[],"responsibilities":[],"requirements":[],"bonus":[]}',
       "字段要求：",
       "1. priority 只能是 高、中、低，必须结合学生简历和 JD 评估，不要默认高。",
       "2. title 优先使用用户填写的岗位名称；没有填写时从 JD 或岗位描述中识别。",
       "3. keywords 必须是拆开的短关键词数组。",
       "4. strengths、risks、actions 各 2-4 条，具体、可执行。",
       "5. responsibilities、requirements、bonus 各 2-5 条。",
-      "6. applicationLinks 返回 2-4 个适合该岗位方向和学生背景的真实招聘入口，company 写企业/机构名称，url 必须是 http 或 https 开头的官方招聘页、岗位页或可信招聘搜索页；不确定真实链接时宁可少给，不要编造。",
-      "7. 企业/机构必须根据专业和岗位匹配，不要默认推荐单一行业企业。历史学可考虑博物馆、出版社、文旅集团、教育培训机构、研究院、档案馆、文博单位、内容机构、地方人才招聘平台等真实方向。",
+      "6. 不要输出企业名单或招聘链接；企业入口由后续搜索智能体根据岗位标题、方向和关键词实时检索。",
+      "7. companyScenario 只描述岗位常见组织场景，不要写具体企业名，不要默认推荐单一行业企业。",
       `岗位名称：${asText(body.jobTitle, 120)}`,
       `岗位 JD：${asText(body.jdText, 5000)}`,
       `简历结构：${JSON.stringify(body.resumeProfile || {}, null, 2)}`,
@@ -230,6 +232,100 @@ const normalizeApplicationLinks = (links) => {
     .slice(0, 4);
 };
 
+const stripHtml = (value) => String(value || "")
+  .replace(/<script[\s\S]*?<\/script>/gi, "")
+  .replace(/<style[\s\S]*?<\/style>/gi, "")
+  .replace(/<[^>]+>/g, " ")
+  .replace(/&quot;/g, '"')
+  .replace(/&#39;/g, "'")
+  .replace(/&amp;/g, "&")
+  .replace(/&lt;/g, "<")
+  .replace(/&gt;/g, ">")
+  .replace(/\s+/g, " ")
+  .trim();
+
+const decodeBingUrl = (url) => {
+  const value = String(url || "").trim();
+  if (!value) return "";
+  try {
+    const parsed = new URL(value);
+    const redirect = parsed.searchParams.get("u") || parsed.searchParams.get("url");
+    if (redirect?.startsWith("http")) return redirect;
+  } catch {
+    // Keep direct URLs below.
+  }
+  return value.startsWith("http") ? value : "";
+};
+
+const companyNameFromSearchResult = (title, url) => {
+  const cleanTitle = stripHtml(title)
+    .replace(/[-_丨|].*$/g, "")
+    .replace(/招聘.*$/g, "")
+    .replace(/校园.*$/g, "")
+    .replace(/职位.*$/g, "")
+    .replace(/人才.*$/g, "")
+    .trim();
+  if (cleanTitle && cleanTitle.length <= 18) return cleanTitle;
+
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return host.split(".")[0] || host;
+  } catch {
+    return "";
+  }
+};
+
+const hasRecruitingSignal = (title, url, block) => {
+  const text = `${stripHtml(title)} ${url} ${stripHtml(block)}`.toLowerCase();
+  return /招聘|职位|岗位|人才|应聘|招考|career|careers|job|jobs|recruit|recruitment|join|campus|zhaopin/.test(text);
+};
+
+const buildRecruitingSearchQuery = (job = {}) => {
+  const parts = [
+    asText(job.title, 40),
+    asText(job.track, 30),
+    ...(Array.isArray(job.keywords) ? job.keywords.slice(0, 4).map((item) => asText(item, 24)) : []),
+    "招聘",
+    "实习",
+    "应届",
+  ];
+  return [...new Set(parts.map((item) => item.trim()).filter(Boolean))].join(" ");
+};
+
+const searchRecruitingLinks = async (job) => {
+  const query = buildRecruitingSearchQuery(job);
+  if (!query) return [];
+
+  let html = "";
+  try {
+    const response = await fetch(`https://cn.bing.com/search?q=${encodeURIComponent(query)}`, {
+      headers: { "User-Agent": SEARCH_USER_AGENT },
+      signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return [];
+    html = await response.text();
+  } catch {
+    return [];
+  }
+
+  const links = [];
+  const used = new Set();
+  const resultPattern = /<li class="b_algo"[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<\/li>/gi;
+  let match;
+  while ((match = resultPattern.exec(html)) && links.length < 4) {
+    const block = match[0];
+    const url = decodeBingUrl(match[1]);
+    if (!/^https?:\/\//i.test(url) || used.has(url)) continue;
+    if (!hasRecruitingSignal(match[2], url, block)) continue;
+    const company = companyNameFromSearchResult(match[2], url);
+    if (!company) continue;
+    used.add(url);
+    links.push({ company, url, note: "公开招聘搜索结果" });
+  }
+
+  return links;
+};
+
 const isReachableRecruitingUrl = async (url) => {
   const probe = async (method) => {
     const response = await fetch(url, {
@@ -254,7 +350,7 @@ const isReachableRecruitingUrl = async (url) => {
   }
 };
 
-const sanitizeRecruitingLinks = async (content, task) => {
+const attachRecruitingLinks = async (content, task) => {
   if (task !== "job-recommendations" && task !== "jd-analysis") return content;
 
   let parsed;
@@ -265,6 +361,13 @@ const sanitizeRecruitingLinks = async (content, task) => {
   }
 
   const jobs = Array.isArray(parsed) ? parsed : [parsed];
+  const searchedLinks = await Promise.all(jobs.map((job) => searchRecruitingLinks(job)));
+  jobs.forEach((job, index) => {
+    if (job && typeof job === "object") {
+      job.applicationLinks = searchedLinks[index];
+    }
+  });
+
   const uniqueUrls = [...new Set(jobs.flatMap((job) => normalizeApplicationLinks(job?.applicationLinks).map((link) => link.url)))];
   const reachablePairs = await Promise.all(uniqueUrls.map(async (url) => [url, await isReachableRecruitingUrl(url)]));
   const reachableUrls = new Set(reachablePairs.filter(([, ok]) => ok).map(([url]) => url));
@@ -348,7 +451,7 @@ export async function runArkCompletion(body) {
     payload: {
       ok: true,
       model,
-      content: await sanitizeRecruitingLinks(data?.choices?.[0]?.message?.content || "", body.task),
+      content: await attachRecruitingLinks(data?.choices?.[0]?.message?.content || "", body.task),
     },
   };
 }
