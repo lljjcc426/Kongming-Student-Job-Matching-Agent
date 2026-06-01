@@ -133,6 +133,8 @@ async function main() {
   const title = await page.locator("h1").innerText();
   const initialJobCards = await page.locator(".job-card").count();
   const workflowSteps = await page.locator(".workflow article").count();
+  const homeCards = await page.locator(".home-overview button").count();
+  await page.locator(".app-nav > div button").nth(1).click();
   const jdButtonText = await page.locator("button.primary-action").filter({ hasText: "分析该岗位" }).innerText();
   const initialReportButtons = await page.locator("button.secondary-action").filter({ hasText: "下载分析报告" }).count();
   const initialCopyButtons = await page.locator("button.secondary-action").filter({ hasText: "复制优化稿" }).count();
@@ -163,13 +165,14 @@ async function main() {
   const copyButtons = await page.locator("button.secondary-action").filter({ hasText: "复制优化稿" }).count();
   const optimizedDraft = await page.getByText("优化后简历片段").count();
   const agentCards = await page.locator(".agent-card").count();
-  const interviewInput = await page.getByLabel("模拟面试回答").count();
   const processCards = await page.locator(".process-grid article").count();
   const uploadMessage = await page.locator(".upload-message").innerText();
   const studentName = await page.locator(".identity-card strong").innerText();
   const educationCard = await page.locator(".resume-section-card").filter({ hasText: "学历" }).innerText();
   const dynamicSkillVisible = await page.getByText("SPSS", { exact: true }).count();
   const psychologyJobVisible = await page.getByText("心理测评产品实习生").count();
+  await page.locator(".app-nav > div button").nth(3).click();
+  const interviewInput = await page.getByLabel("模拟面试回答").count();
 
   await page.screenshot({ path: "artifacts/redesign-homepage.png", fullPage: true });
   await browser.close();
@@ -182,6 +185,9 @@ async function main() {
   }
   if (initialReportButtons !== 0 || initialCopyButtons !== 0 || initialOptimizedDraft !== 0 || initialAgentCards !== 0 || initialInterviewInput !== 0) {
     throw new Error("Initial page should not show completed analysis sections");
+  }
+  if (homeCards !== 4) {
+    throw new Error(`Expected 4 home feature cards, found ${homeCards}`);
   }
   if (initialProcessCards !== 3) {
     throw new Error(`Expected 3 initial process cards, found ${initialProcessCards}`);

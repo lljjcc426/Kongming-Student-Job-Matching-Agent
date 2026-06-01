@@ -30,6 +30,77 @@ input {
   padding: 28px 0 40px;
 }
 
+.app-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 10px;
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.app-nav button {
+  border: 0;
+  cursor: pointer;
+}
+
+.nav-brand {
+  display: grid;
+  gap: 2px;
+  min-width: 160px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+}
+
+.nav-brand span {
+  color: #0b1f51;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.nav-brand small {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.app-nav > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.app-nav > div button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.app-nav > div button.active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -93,6 +164,21 @@ input {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 22px;
+}
+
+.hero-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  margin-top: 22px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  padding: 0 16px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .hero-actions span {
@@ -215,6 +301,56 @@ input {
   color: #64748b;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.home-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.home-overview button {
+  display: grid;
+  gap: 10px;
+  min-height: 190px;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  border-radius: 8px;
+  padding: 18px;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
+}
+
+.home-overview button > span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.home-overview strong {
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.home-overview p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.home-overview small {
+  align-self: end;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .process-state {
@@ -426,6 +562,28 @@ input {
   grid-template-columns: 330px minmax(520px, 1fr) 390px;
   gap: 16px;
   align-items: start;
+}
+
+.dashboard[hidden],
+.assistant-panel[hidden] {
+  display: none;
+}
+
+.dashboard-resume {
+  grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.1fr);
+}
+
+.dashboard-resume .match-column {
+  display: none;
+}
+
+.dashboard-jobs {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dashboard-jobs .profile-column,
+.dashboard-jobs .insight-column {
+  display: none;
 }
 
 .panel {
@@ -1431,6 +1589,11 @@ input {
     grid-template-columns: 320px minmax(0, 1fr);
   }
 
+  .dashboard-resume,
+  .dashboard-jobs {
+    grid-template-columns: 1fr;
+  }
+
   .insight-column {
     grid-column: 1 / -1;
   }
@@ -1450,8 +1613,21 @@ input {
     padding-top: 16px;
   }
 
+  .app-nav {
+    display: grid;
+  }
+
+  .app-nav > div {
+    justify-content: stretch;
+  }
+
+  .app-nav > div button {
+    flex: 1 1 130px;
+  }
+
   .hero,
   .workflow,
+  .home-overview,
   .process-grid,
   .dashboard,
   .job-detail-grid,
