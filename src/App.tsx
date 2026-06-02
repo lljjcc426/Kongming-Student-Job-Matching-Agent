@@ -34,6 +34,7 @@ import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeO
 const MAX_UPLOAD_BYTES = 4_000_000;
 const INTRO_CELLS = Array.from({ length: 72 }, (_, index) => index);
 const HERO_PARTICLES = Array.from({ length: 22 }, (_, index) => index);
+const HERO_METRICS = ["Profile", "Match", "Interview", "Chat"];
 const INTRO_MARKS = ["01", "02", "03", "04", "05"];
 type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
 type JdPipelineStep = "idle" | "parse" | "evaluate" | "links" | "done" | "error";
@@ -1177,17 +1178,6 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
       gsap.fromTo(".intro-orbit", { scale: 0.84, rotation: -28, autoAlpha: 0 }, { scale: 1, rotation: 0, autoAlpha: 1, duration: reduceMotion ? 0 : 0.9, ease: "power3.out", delay: reduceMotion ? 0 : 0.2 });
       gsap.to(".intro-orbit", { rotation: 360, duration: 18, repeat: -1, ease: "none" });
       gsap.to(".intro-mote", { y: reduceMotion ? 0 : -26, x: reduceMotion ? 0 : 14, duration: 3.6, repeat: reduceMotion ? 0 : -1, yoyo: true, stagger: { amount: 1.8, from: "random" }, ease: "sine.inOut" });
-      gsap.to(root, {
-        "--intro-progress": 100,
-        duration: reduceMotion ? 0.12 : 4.8,
-        ease: "power1.inOut",
-        onUpdate: () => {
-          const next = Math.round(Number(gsap.getProperty(root, "--intro-progress")));
-          progressRef.current = next;
-          setProgress(next);
-        },
-        onComplete: completeIntro,
-      });
     }, root);
 
     const cellAnimation = animate(root.querySelectorAll(".intro-cell"), {
@@ -1214,6 +1204,10 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
       ryTo(px * 12);
       mxTo(px * 44);
       myTo(py * 44);
+      const next = Math.max(progressRef.current, Math.min(88, 10 + Math.hypot(px, py) * 116));
+      progressRef.current = next;
+      setProgress(Math.round(next));
+      progressTo(next);
     };
     const handleWheel = (event: WheelEvent) => {
       const next = Math.min(100, progressRef.current + Math.abs(event.deltaY) * 0.08);
@@ -1383,6 +1377,14 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
           <span><Search size={16} />岗位优先级</span>
           <span><ClipboardCheck size={16} />初筛优化</span>
         </div>
+      </div>
+      <div className="hero-metric-rail" aria-hidden="true">
+        {HERO_METRICS.map((item, index) => (
+          <span key={item}>
+            <b>{String(index + 1).padStart(2, "0")}</b>
+            <em>{item}</em>
+          </span>
+        ))}
       </div>
       <div className="hero-card hero-visual" ref={visualRef}>
         <div className="hero-particle-field" aria-hidden="true">
