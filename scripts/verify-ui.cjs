@@ -129,8 +129,20 @@ async function main() {
   });
 
   await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
+  const introStage = await page.locator(".intro-stage").count();
+  const introProgress = await page.locator(".intro-progress").count();
+  await page.screenshot({ path: "artifacts/check-intro.png", fullPage: false });
+  await page.mouse.move(820, 500);
+  await page.mouse.wheel(0, 900);
+  await page.waitForTimeout(160);
+  const introProgressAfterWheel = Number(await page.locator(".intro-progress").getAttribute("aria-valuenow"));
+  await page.locator(".intro-meta button").click();
+  await page.locator(".intro-stage").waitFor({ state: "detached", timeout: 3000 }).catch(async () => {
+    await page.waitForFunction(() => !document.querySelector(".intro-stage"), null, { timeout: 3000 });
+  });
 
   const title = await page.locator("h1").innerText();
+  await page.screenshot({ path: "artifacts/check-home.png", fullPage: false });
   const initialJobCards = await page.locator(".job-card").count();
   const workflowSteps = await page.locator(".workflow article").count();
   const homeCards = await page.locator(".home-overview button").count();
@@ -171,12 +183,19 @@ async function main() {
   const educationCard = await page.locator(".resume-section-card").filter({ hasText: "学历" }).innerText();
   const dynamicSkillVisible = await page.getByText("SPSS", { exact: true }).count();
   const psychologyJobVisible = await page.getByText("心理测评产品实习生").count();
+  await page.screenshot({ path: "artifacts/check-resume-after-upload.png", fullPage: false });
   await page.locator(".app-nav > div button").nth(3).click();
   const interviewInput = await page.getByLabel("模拟面试回答").count();
 
-  await page.screenshot({ path: "artifacts/redesign-homepage.png", fullPage: true });
+  await page.screenshot({ path: "artifacts/check-interview.png", fullPage: false });
   await browser.close();
 
+  if (introStage !== 1 || introProgress !== 1) {
+    throw new Error(`Expected intro stage and progress, found stage=${introStage}, progress=${introProgress}`);
+  }
+  if (introProgressAfterWheel <= 0) {
+    throw new Error(`Expected wheel interaction to advance intro progress, found ${introProgressAfterWheel}`);
+  }
   if (title !== "孔明职配") {
     throw new Error(`Unexpected title: ${title}`);
   }
@@ -243,6 +262,9 @@ async function main() {
 
   console.log(JSON.stringify({
     title,
+    introStage,
+    introProgress,
+    introProgressAfterWheel,
     initialJobCards,
     initialReportButtons,
     initialCopyButtons,
@@ -266,7 +288,7 @@ async function main() {
     educationCard,
     dynamicSkillVisible,
     psychologyJobVisible,
-    screenshot: "artifacts/redesign-homepage.png",
+    screenshots: ["artifacts/check-intro.png", "artifacts/check-home.png", "artifacts/check-resume-after-upload.png", "artifacts/check-interview.png"],
   }, null, 2));
 }
 

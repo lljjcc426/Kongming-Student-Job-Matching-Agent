@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowDownToLine,
   ArrowUpRight,
@@ -20,6 +20,7 @@ import {
   Video,
   Volume2,
 } from "lucide-react";
+import { animate, stagger } from "animejs";
 import { gsap } from "gsap";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Job } from "./data";
@@ -31,6 +32,7 @@ import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
 
 const MAX_UPLOAD_BYTES = 4_000_000;
+const INTRO_CELLS = Array.from({ length: 72 }, (_, index) => index);
 type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
 type JdPipelineStep = "idle" | "parse" | "evaluate" | "links" | "done" | "error";
 type ActivePage = "home" | "resume" | "jobs" | "interview" | "assistant";
@@ -166,6 +168,7 @@ const superviseRecommendedJobs = (jobs: Job[]) => {
 };
 
 function App() {
+  const [introVisible, setIntroVisible] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState("");
   const [resumeText, setResumeText] = useState("");
   const [customTitle, setCustomTitle] = useState("");
@@ -695,6 +698,10 @@ function App() {
     setChatMessage("正在朗读最新回复");
   };
 
+  if (introVisible) {
+    return <IntroExperience onComplete={() => setIntroVisible(false)} />;
+  }
+
   return (
     <main className="app-shell">
       <AppNav activePage={activePage} onChange={setActivePage} />
@@ -1132,6 +1139,136 @@ function App() {
   );
 }
 
+function IntroExperience({ onComplete }: { onComplete: () => void }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const completedRef = useRef(false);
+  const progressRef = useRef(0);
+  const [progress, setProgress] = useState(0);
+
+  const completeIntro = useCallback(() => {
+    const root = rootRef.current;
+    if (completedRef.current) return;
+    completedRef.current = true;
+    if (!root) {
+      onComplete();
+      return;
+    }
+    gsap.to(root, {
+      autoAlpha: 0,
+      scale: 0.985,
+      duration: 0.42,
+      ease: "power2.inOut",
+      onComplete,
+    });
+  }, [onComplete]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const context = gsap.context(() => {
+      gsap.set(root, { "--intro-progress": 0, "--rx": 0, "--ry": 0, "--mx": 0, "--my": 0 });
+      gsap.fromTo(".intro-logo-mark", { autoAlpha: 0, scale: 0.76, rotation: -14 }, { autoAlpha: 1, scale: 1, rotation: 0, duration: reduceMotion ? 0 : 0.7, ease: "back.out(1.7)" });
+      gsap.fromTo(".intro-title span", { yPercent: 110, rotationX: -60, autoAlpha: 0 }, { yPercent: 0, rotationX: 0, autoAlpha: 1, duration: reduceMotion ? 0 : 0.86, stagger: 0.045, ease: "power3.out", delay: reduceMotion ? 0 : 0.12 });
+      gsap.fromTo(".intro-copy", { y: 18, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: reduceMotion ? 0 : 0.64, ease: "power2.out", delay: reduceMotion ? 0 : 0.48 });
+      gsap.fromTo(".intro-orbit", { scale: 0.84, rotation: -28, autoAlpha: 0 }, { scale: 1, rotation: 0, autoAlpha: 1, duration: reduceMotion ? 0 : 0.9, ease: "power3.out", delay: reduceMotion ? 0 : 0.2 });
+      gsap.to(".intro-orbit", { rotation: 360, duration: 18, repeat: -1, ease: "none" });
+      gsap.to(root, {
+        "--intro-progress": 100,
+        duration: reduceMotion ? 0.12 : 4.8,
+        ease: "power1.inOut",
+        onUpdate: () => {
+          const next = Math.round(Number(gsap.getProperty(root, "--intro-progress")));
+          progressRef.current = next;
+          setProgress(next);
+        },
+        onComplete: completeIntro,
+      });
+    }, root);
+
+    const cellAnimation = animate(root.querySelectorAll(".intro-cell"), {
+      opacity: [0.08, 0.76],
+      scale: [0.72, 1],
+      duration: reduceMotion ? 1 : 1300,
+      delay: stagger(18, { grid: [12, 6], from: "center" }),
+      loop: reduceMotion ? false : true,
+      alternate: true,
+      ease: "inOutSine",
+    });
+
+    const rxTo = gsap.quickTo(root, "--rx", { duration: 0.42, ease: "power3.out" });
+    const ryTo = gsap.quickTo(root, "--ry", { duration: 0.42, ease: "power3.out" });
+    const mxTo = gsap.quickTo(root, "--mx", { duration: 0.32, ease: "power2.out" });
+    const myTo = gsap.quickTo(root, "--my", { duration: 0.32, ease: "power2.out" });
+    const progressTo = gsap.quickTo(root, "--intro-progress", { duration: 0.25, ease: "power2.out" });
+
+    const handlePointerMove = (event: MouseEvent) => {
+      const rect = root.getBoundingClientRect();
+      const px = (event.clientX - rect.left) / rect.width - 0.5;
+      const py = (event.clientY - rect.top) / rect.height - 0.5;
+      rxTo(py * -9);
+      ryTo(px * 12);
+      mxTo(px * 44);
+      myTo(py * 44);
+    };
+    const handleWheel = (event: WheelEvent) => {
+      const next = Math.min(100, progressRef.current + Math.abs(event.deltaY) * 0.08);
+      progressRef.current = next;
+      setProgress(Math.round(next));
+      progressTo(next);
+      if (next >= 98) completeIntro();
+    };
+
+    root.addEventListener("mousemove", handlePointerMove);
+    root.addEventListener("wheel", handleWheel, { passive: true });
+
+    return () => {
+      root.removeEventListener("mousemove", handlePointerMove);
+      root.removeEventListener("wheel", handleWheel);
+      cellAnimation.revert();
+      context.revert();
+    };
+  }, [completeIntro]);
+
+  return (
+    <main className="intro-stage" ref={rootRef} aria-label="产品进场动画">
+      <div className="intro-grid" aria-hidden="true">
+        {INTRO_CELLS.map((item) => (
+          <span key={item} className="intro-cell" />
+        ))}
+      </div>
+      <section className="intro-panel">
+        <div className="intro-logo">
+          <span className="intro-logo-mark">KM</span>
+          <div>
+            <strong>孔明职配</strong>
+            <small>Kongming-Student Job Matching Agent</small>
+          </div>
+        </div>
+        <h1 className="intro-title" aria-label="Kongming">
+          {"Kongming".split("").map((letter, index) => (
+            <span key={`${letter}-${index}`}>{letter}</span>
+          ))}
+        </h1>
+        <p className="intro-copy">简历解析、岗位推荐、模拟面试和求职对话正在接入同一个学生求职工作流。</p>
+        <div className="intro-progress" aria-label="进场动画进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} role="progressbar">
+          <i style={{ width: `${progress}%` }} />
+        </div>
+        <div className="intro-meta">
+          <span>滚轮可推进动画</span>
+          <button type="button" onClick={completeIntro}>跳过动画</button>
+        </div>
+      </section>
+      <aside className="intro-orbit" aria-hidden="true">
+        <span className="intro-ring" />
+        <b className="intro-dot dot-a">Resume</b>
+        <b className="intro-dot dot-b">Match</b>
+        <b className="intro-dot dot-c">Interview</b>
+      </aside>
+    </main>
+  );
+}
+
 function AppNav({ activePage, onChange }: { activePage: ActivePage; onChange: (page: ActivePage) => void }) {
   const items: Array<{ id: ActivePage; label: string; icon: ReactNode }> = [
     { id: "home", label: "首页", icon: <Sparkles size={16} /> },
@@ -1144,6 +1281,7 @@ function AppNav({ activePage, onChange }: { activePage: ActivePage; onChange: (p
   return (
     <nav className="app-nav" aria-label="页面导航">
       <button type="button" className="nav-brand" onClick={() => onChange("home")}>
+        <b className="brand-mark">KM</b>
         <span>孔明职配</span>
         <small>学生求职智能工作台</small>
       </button>
