@@ -131,7 +131,10 @@ async function main() {
   await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
   const introStage = await page.locator(".intro-stage").count();
   const introProgress = await page.locator(".intro-progress").count();
+  const introParticles = await page.locator(".intro-shape-particle").count();
   await page.screenshot({ path: "artifacts/check-intro.png", fullPage: false });
+  await page.waitForTimeout(8800);
+  await page.screenshot({ path: "artifacts/check-intro-final.png", fullPage: false });
   await page.mouse.move(820, 500);
   await page.mouse.wheel(0, 900);
   await page.waitForTimeout(160);
@@ -142,6 +145,11 @@ async function main() {
   });
 
   const title = await page.locator("h1").innerText();
+  const heroMatchHub = await page.locator(".hero-match-hub").count();
+  const heroElectricLines = await page.locator(".electric-line").count();
+  const navHoverBefore = await page.locator(".app-nav > div button").nth(4).evaluate((node) => getComputedStyle(node).backgroundColor);
+  await page.locator(".app-nav > div button").nth(4).hover();
+  const navHoverAfter = await page.locator(".app-nav > div button").nth(4).evaluate((node) => getComputedStyle(node).color);
   await page.screenshot({ path: "artifacts/check-home.png", fullPage: false });
   const initialJobCards = await page.locator(".job-card").count();
   const workflowSteps = await page.locator(".workflow article").count();
@@ -194,6 +202,8 @@ async function main() {
   const chatTopbar = await page.locator(".chat-topbar").count();
   const chatComposer = await page.getByLabel("AI 助手输入").count();
   const readActionVisible = await page.locator(".chat-actions button").nth(1).isVisible();
+  const composerIconButtons = await page.locator(".composer-icon-button").count();
+  const composerButtonText = await page.locator(".composer-icon-button").allInnerTexts();
   const assistantOrb = await page.locator(".chat-empty .product-avatar").count();
   const assistantOrbImageOpacity = await page.locator(".chat-empty .product-avatar img").evaluate((node) => getComputedStyle(node).opacity);
   const chatTopbarRadius = await page.locator(".chat-topbar").evaluate((node) => getComputedStyle(node).borderRadius);
@@ -202,6 +212,9 @@ async function main() {
 
   if (introStage !== 1 || introProgress !== 1) {
     throw new Error(`Expected intro stage and progress, found stage=${introStage}, progress=${introProgress}`);
+  }
+  if (introParticles < 200) {
+    throw new Error(`Expected rich intro particle field, found ${introParticles}`);
   }
   if (introProgressAfterWheel <= 0) {
     throw new Error(`Expected wheel interaction to advance intro progress, found ${introProgressAfterWheel}`);
@@ -217,6 +230,12 @@ async function main() {
   }
   if (homeCards !== 0 || workflowSteps !== 0 || removedHomeCardText !== 0) {
     throw new Error(`Expected removed home cards, found homeCards=${homeCards}, workflowSteps=${workflowSteps}, text=${removedHomeCardText}`);
+  }
+  if (heroMatchHub !== 1 || heroElectricLines < 4) {
+    throw new Error(`Expected hero match hub and electric lines, found hub=${heroMatchHub}, lines=${heroElectricLines}`);
+  }
+  if (navHoverAfter === navHoverBefore) {
+    throw new Error(`Expected nav hover visual response, before=${navHoverBefore}, after=${navHoverAfter}`);
   }
   if (initialProgressBlocks !== 1) {
     throw new Error(`Expected resume progress block, found ${initialProgressBlocks}`);
@@ -275,6 +294,9 @@ async function main() {
   if (readActionVisible) {
     throw new Error("Read-aloud action should be hidden from assistant composer");
   }
+  if (composerIconButtons !== 2 || composerButtonText.join("").trim() !== "") {
+    throw new Error(`Expected two icon-only composer buttons, found count=${composerIconButtons}, text=${composerButtonText.join("|")}`);
+  }
   if (assistantOrb !== 1 || assistantOrbImageOpacity !== "0") {
     throw new Error(`Expected assistant particle orb visual, found orb=${assistantOrb}, imageOpacity=${assistantOrbImageOpacity}`);
   }
@@ -286,6 +308,7 @@ async function main() {
     title,
     introStage,
     introProgress,
+    introParticles,
     introProgressAfterWheel,
     initialJobCards,
     initialReportButtons,
@@ -298,6 +321,10 @@ async function main() {
     workflowSteps,
     homeCards,
     removedHomeCardText,
+    heroMatchHub,
+    heroElectricLines,
+    navHoverBefore,
+    navHoverAfter,
     jdButtonText,
     reportButtons,
     copyButtons,
@@ -316,10 +343,12 @@ async function main() {
     chatTopbar,
     chatComposer,
     readActionVisible,
+    composerIconButtons,
+    composerButtonText,
     assistantOrb,
     assistantOrbImageOpacity,
     chatTopbarRadius,
-    screenshots: ["artifacts/check-intro.png", "artifacts/check-home.png", "artifacts/check-resume-after-upload.png", "artifacts/check-interview.png", "artifacts/check-assistant.png"],
+    screenshots: ["artifacts/check-intro.png", "artifacts/check-intro-final.png", "artifacts/check-home.png", "artifacts/check-resume-after-upload.png", "artifacts/check-interview.png", "artifacts/check-assistant.png"],
   }, null, 2));
 }
 

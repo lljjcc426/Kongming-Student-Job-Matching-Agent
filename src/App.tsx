@@ -32,8 +32,10 @@ import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
 
 const MAX_UPLOAD_BYTES = 4_000_000;
-const INTRO_CELLS = Array.from({ length: 72 }, (_, index) => index);
+const INTRO_CELLS = Array.from({ length: 112 }, (_, index) => index);
+const INTRO_PARTICLES = Array.from({ length: 228 }, (_, index) => index);
 const HERO_PARTICLES = Array.from({ length: 22 }, (_, index) => index);
+const HERO_RING_PARTICLES = Array.from({ length: 18 }, (_, index) => index);
 const HERO_METRICS = ["Profile", "Match", "Interview", "Chat"];
 const INTRO_MARKS = ["01", "02", "03", "04", "05"];
 type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
@@ -63,6 +65,77 @@ type BrowserSpeechRecognition = {
   start: () => void;
 };
 type SpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+const introParticleData = (index: number) => {
+  const seed = Math.sin((index + 1) * 12.9898) * 43758.5453;
+  const rand = seed - Math.floor(seed);
+  const orbit = 220 + (index % 47) * 8;
+  const angle = index * 2.399963 + rand * 0.6;
+  const sx = Math.cos(angle) * orbit;
+  const sy = Math.sin(angle) * orbit * 0.58;
+  const sz = ((index % 19) - 9) * 18;
+  const mx = Math.cos(angle * 0.72) * (132 + (index % 29) * 6);
+  const my = Math.sin(angle * 1.12) * (86 + (index % 23) * 5);
+  const mz = Math.sin(index * 0.38) * 180;
+  let tx = 0;
+  let ty = 0;
+  let tz = 0;
+  let group = "paper";
+
+  if (index < 116) {
+    const col = index % 14;
+    const row = Math.floor(index / 14);
+    const edge = row === 0 || row === 7 || col === 0 || col === 13;
+    tx = (col - 6.5) * 15 + (edge ? Math.sin(row) * 2 : 0);
+    ty = (row - 3.5) * 17 - 78;
+    tz = edge ? 28 : 8;
+    group = edge ? "paper-edge" : "paper-fill";
+  } else if (index < 150) {
+    const local = index - 116;
+    const col = local % 17;
+    const row = Math.floor(local / 17);
+    tx = (col - 8) * 10;
+    ty = row * 18 - 114;
+    tz = 36;
+    group = "paper-line";
+  } else if (index < 190) {
+    const local = index - 150;
+    const t = local / 39;
+    tx = -82 + t * 164;
+    ty = 28 + Math.sin(t * Math.PI) * 42;
+    tz = 24;
+    group = "hand";
+  } else if (index < 218) {
+    const local = index - 190;
+    const finger = Math.floor(local / 7);
+    const step = local % 7;
+    tx = -58 + finger * 30 + Math.sin(step) * 4;
+    ty = -8 + step * 10 - Math.max(0, finger - 1) * 3;
+    tz = 40;
+    group = "finger";
+  } else {
+    const local = index - 218;
+    tx = 54 + local * 7;
+    ty = 32 - local * 5;
+    tz = 46;
+    group = "thumb";
+  }
+
+  return {
+    sx: sx.toFixed(2),
+    sy: sy.toFixed(2),
+    sz: sz.toFixed(2),
+    mx: mx.toFixed(2),
+    my: my.toFixed(2),
+    mz: mz.toFixed(2),
+    tx: tx.toFixed(2),
+    ty: ty.toFixed(2),
+    tz: tz.toFixed(2),
+    scale: (0.62 + rand * 0.7).toFixed(2),
+    group,
+  };
+};
+
 const getSpeechRecognition = () => {
   const browserWindow = window as typeof window & {
     SpeechRecognition?: SpeechRecognitionConstructor;
@@ -1077,6 +1150,12 @@ function App() {
                 aria-label="AI 助手输入"
                 placeholder="输入想交流的内容"
               />
+              <button type="button" className="composer-icon-button send-action" aria-label="send" onClick={() => void handleSendChat()} disabled={!chatInput.trim() || chatStatus === "loading"}>
+                <SendHorizontal size={18} />
+              </button>
+              <button type="button" className={`composer-icon-button voice-action ${chatStatus === "listening" ? "listening" : ""}`} aria-label="voice input" onClick={handleChatSpeechInput} disabled={chatStatus === "listening" || chatStatus === "loading"}>
+                <Mic size={18} />
+              </button>
               <div className="chat-actions">
                 <button type="button" className="secondary-action compact-action" onClick={handleChatSpeechInput} disabled={chatStatus === "listening" || chatStatus === "loading"}>
                   <Mic size={16} />
@@ -1178,13 +1257,88 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
       gsap.fromTo(".intro-orbit", { scale: 0.84, rotation: -28, autoAlpha: 0 }, { scale: 1, rotation: 0, autoAlpha: 1, duration: reduceMotion ? 0 : 0.9, ease: "power3.out", delay: reduceMotion ? 0 : 0.2 });
       gsap.to(".intro-orbit", { rotation: 360, duration: 18, repeat: -1, ease: "none" });
       gsap.to(".intro-mote", { y: reduceMotion ? 0 : -26, x: reduceMotion ? 0 : 14, duration: 3.6, repeat: reduceMotion ? 0 : -1, yoyo: true, stagger: { amount: 1.8, from: "random" }, ease: "sine.inOut" });
+      const particles = gsap.utils.toArray<HTMLElement>(".intro-shape-particle");
+      const read = (target: HTMLElement, key: string) => Number(target.dataset[key] || 0);
+      gsap.set(".intro-shape", { rotationX: -8, rotationY: 0, rotationZ: 0 });
+      gsap.set(particles, {
+        x: (_index, target) => read(target as HTMLElement, "sx"),
+        y: (_index, target) => read(target as HTMLElement, "sy"),
+        z: (_index, target) => read(target as HTMLElement, "sz"),
+        scale: 0.35,
+        autoAlpha: 0,
+      });
+      const particleTimeline = gsap.timeline({ repeat: reduceMotion ? 0 : -1, repeatDelay: 0.7 });
+      particleTimeline
+        .to(particles, {
+          autoAlpha: 0.85,
+          scale: (_index, target) => read(target as HTMLElement, "scale"),
+          duration: reduceMotion ? 0 : 1.6,
+          stagger: { amount: 1.2, from: "random" },
+          ease: "power2.out",
+        })
+        .to(
+          ".intro-shape",
+          {
+            rotationY: reduceMotion ? 0 : 28,
+            rotationX: reduceMotion ? 0 : 18,
+            rotationZ: reduceMotion ? 0 : -8,
+            duration: reduceMotion ? 0 : 4.2,
+            ease: "power2.inOut",
+          },
+          0.4,
+        )
+        .to(
+          particles,
+          {
+            x: (_index, target) => read(target as HTMLElement, "mx"),
+            y: (_index, target) => read(target as HTMLElement, "my"),
+            z: (_index, target) => read(target as HTMLElement, "mz"),
+            duration: reduceMotion ? 0 : 4.2,
+            stagger: { amount: 1.4, from: "center" },
+            ease: "sine.inOut",
+          },
+          0.9,
+        )
+        .to(
+          particles,
+          {
+            x: (_index, target) => read(target as HTMLElement, "tx"),
+            y: (_index, target) => read(target as HTMLElement, "ty"),
+            z: (_index, target) => read(target as HTMLElement, "tz"),
+            scale: (_index, target) => read(target as HTMLElement, "scale") + 0.16,
+            autoAlpha: 1,
+            duration: reduceMotion ? 0 : 5.4,
+            stagger: { amount: 1.8, from: "random" },
+            ease: "power3.inOut",
+          },
+          4.1,
+        )
+        .to(
+          ".intro-shape",
+          {
+            rotationY: reduceMotion ? 0 : -18,
+            rotationX: reduceMotion ? 0 : 10,
+            rotationZ: reduceMotion ? 0 : 4,
+            duration: reduceMotion ? 0 : 5.4,
+            ease: "power3.inOut",
+          },
+          4.1,
+        )
+        .to(particles, {
+          scale: (_index, target) => read(target as HTMLElement, "scale") + 0.28,
+          duration: reduceMotion ? 0 : 1.4,
+          repeat: reduceMotion ? 0 : 1,
+          yoyo: true,
+          stagger: { amount: 0.9, from: "edges" },
+          ease: "sine.inOut",
+        });
     }, root);
 
     const cellAnimation = animate(root.querySelectorAll(".intro-cell"), {
       opacity: [0.08, 0.76],
       scale: [0.72, 1],
       duration: reduceMotion ? 1 : 1300,
-      delay: stagger(18, { grid: [12, 6], from: "center" }),
+      delay: stagger(18, { grid: [16, 7], from: "center" }),
       loop: reduceMotion ? false : true,
       alternate: true,
       ease: "inOutSine",
@@ -1234,6 +1388,27 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
         {INTRO_CELLS.map((item) => (
           <span key={item} className="intro-cell" />
         ))}
+      </div>
+      <div className="intro-shape" aria-hidden="true">
+        {INTRO_PARTICLES.map((item) => {
+          const particle = introParticleData(item);
+          return (
+            <i
+              key={item}
+              className={`intro-shape-particle ${particle.group}`}
+              data-sx={particle.sx}
+              data-sy={particle.sy}
+              data-sz={particle.sz}
+              data-mx={particle.mx}
+              data-my={particle.my}
+              data-mz={particle.mz}
+              data-tx={particle.tx}
+              data-ty={particle.ty}
+              data-tz={particle.tz}
+              data-scale={particle.scale}
+            />
+          );
+        })}
       </div>
       <section className="intro-panel">
         <div className="intro-logo">
@@ -1387,9 +1562,20 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
         ))}
       </div>
       <div className="hero-card hero-visual" ref={visualRef}>
+        <div className="hero-electric-web" aria-hidden="true">
+          <i className="electric-line electric-a" />
+          <i className="electric-line electric-b" />
+          <i className="electric-line electric-c" />
+          <i className="electric-line electric-d" />
+        </div>
         <div className="hero-particle-field" aria-hidden="true">
           {HERO_PARTICLES.map((item) => (
             <i key={item} className="hero-particle" style={{ "--i": item } as CSSProperties} />
+          ))}
+        </div>
+        <div className="hero-ring-particles" aria-hidden="true">
+          {HERO_RING_PARTICLES.map((item) => (
+            <i key={item} style={{ "--i": item } as CSSProperties} />
           ))}
         </div>
         <div className="scene-ring" />
@@ -1397,6 +1583,11 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
           <ProductAvatar />
           <span className="planet-ring ring-main" />
           <span className="planet-ring ring-tilt" />
+        </div>
+        <div className="hero-match-hub" aria-hidden="true">
+          <span>AI 智能匹配中</span>
+          <strong>{isReady ? `${result.total}%` : "Match"}</strong>
+          <em />
         </div>
         <div className="orbit-node node-a">
           <span>Resume</span>
