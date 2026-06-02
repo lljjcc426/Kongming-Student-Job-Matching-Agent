@@ -146,6 +146,7 @@ async function main() {
   const initialJobCards = await page.locator(".job-card").count();
   const workflowSteps = await page.locator(".workflow article").count();
   const homeCards = await page.locator(".home-overview button").count();
+  const removedHomeCardText = await page.getByText("岗位捕手").count();
   await page.locator(".app-nav > div button").nth(1).click();
   const jdButtonText = await page.locator("button.primary-action").filter({ hasText: "分析该岗位" }).innerText();
   const initialReportButtons = await page.locator("button.secondary-action").filter({ hasText: "下载分析报告" }).count();
@@ -181,6 +182,7 @@ async function main() {
   const uploadMessage = await page.locator(".upload-message").innerText();
   const studentName = await page.locator(".identity-card strong").innerText();
   const educationCard = await page.locator(".resume-section-card").filter({ hasText: "学历" }).innerText();
+  const removedResumeSkillSection = await page.getByText("技能与求职方向").count();
   const dynamicSkillVisible = await page.getByText("SPSS", { exact: true }).count();
   const psychologyJobVisible = await page.getByText("心理测评产品实习生").count();
   await page.screenshot({ path: "artifacts/check-resume-after-upload.png", fullPage: false });
@@ -188,6 +190,10 @@ async function main() {
   const interviewInput = await page.getByLabel("模拟面试回答").count();
 
   await page.screenshot({ path: "artifacts/check-interview.png", fullPage: false });
+  await page.locator(".app-nav > div button").nth(4).click();
+  const chatTopbar = await page.locator(".chat-topbar").count();
+  const chatComposer = await page.getByLabel("AI 助手输入").count();
+  await page.screenshot({ path: "artifacts/check-assistant.png", fullPage: false });
   await browser.close();
 
   if (introStage !== 1 || introProgress !== 1) {
@@ -205,14 +211,11 @@ async function main() {
   if (initialReportButtons !== 0 || initialCopyButtons !== 0 || initialOptimizedDraft !== 0 || initialAgentCards !== 0 || initialInterviewInput !== 0) {
     throw new Error("Initial page should not show completed analysis sections");
   }
-  if (homeCards !== 4) {
-    throw new Error(`Expected 4 home feature cards, found ${homeCards}`);
+  if (homeCards !== 0 || workflowSteps !== 0 || removedHomeCardText !== 0) {
+    throw new Error(`Expected removed home cards, found homeCards=${homeCards}, workflowSteps=${workflowSteps}, text=${removedHomeCardText}`);
   }
   if (initialProgressBlocks !== 1) {
     throw new Error(`Expected resume progress block, found ${initialProgressBlocks}`);
-  }
-  if (workflowSteps !== 4) {
-    throw new Error(`Expected 4 workflow steps, found ${workflowSteps}`);
   }
   if (!jdButtonText.includes("分析该岗位")) {
     throw new Error(`JD action not found: ${jdButtonText}`);
@@ -253,11 +256,17 @@ async function main() {
   if (!educationCard.includes("心理学")) {
     throw new Error(`Education card did not update from model: ${educationCard}`);
   }
+  if (removedResumeSkillSection !== 0) {
+    throw new Error("Resume skill and target section should be removed");
+  }
   if (dynamicSkillVisible < 1) {
     throw new Error("Expected uploaded resume skill SPSS to be visible");
   }
   if (psychologyJobVisible < 1) {
     throw new Error("Expected psychology-specific model job to be visible");
+  }
+  if (chatTopbar !== 1 || chatComposer !== 1) {
+    throw new Error(`Expected assistant chat shell, found topbar=${chatTopbar}, composer=${chatComposer}`);
   }
 
   console.log(JSON.stringify({
@@ -274,6 +283,8 @@ async function main() {
     initialProgressBlocks,
     jobCards,
     workflowSteps,
+    homeCards,
+    removedHomeCardText,
     jdButtonText,
     reportButtons,
     copyButtons,
@@ -286,9 +297,12 @@ async function main() {
     uploadMessage,
     studentName,
     educationCard,
+    removedResumeSkillSection,
     dynamicSkillVisible,
     psychologyJobVisible,
-    screenshots: ["artifacts/check-intro.png", "artifacts/check-home.png", "artifacts/check-resume-after-upload.png", "artifacts/check-interview.png"],
+    chatTopbar,
+    chatComposer,
+    screenshots: ["artifacts/check-intro.png", "artifacts/check-home.png", "artifacts/check-resume-after-upload.png", "artifacts/check-interview.png", "artifacts/check-assistant.png"],
   }, null, 2));
 }
 

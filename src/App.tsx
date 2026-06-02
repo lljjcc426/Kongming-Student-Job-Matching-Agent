@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowDownToLine,
   ArrowUpRight,
@@ -33,6 +33,8 @@ import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeO
 
 const MAX_UPLOAD_BYTES = 4_000_000;
 const INTRO_CELLS = Array.from({ length: 72 }, (_, index) => index);
+const HERO_PARTICLES = Array.from({ length: 22 }, (_, index) => index);
+const INTRO_MARKS = ["01", "02", "03", "04", "05"];
 type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
 type JdPipelineStep = "idle" | "parse" | "evaluate" | "links" | "done" | "error";
 type ActivePage = "home" | "resume" | "jobs" | "interview" | "assistant";
@@ -709,15 +711,6 @@ function App() {
       {activePage === "home" ? (
         <>
           <Hero result={result} selectedJob={selectedJob} isReady={hasAnalysis} onStart={() => setActivePage("resume")} />
-
-          <section className="workflow" aria-label="产品工作流">
-            <WorkflowStep index="01" title="学生画像" text="识别专业、经历、技能与求职偏好" />
-            <WorkflowStep index="02" title="岗位捕手" text="筛选高匹配岗位并解释推荐原因" />
-            <WorkflowStep index="03" title="初筛优化" text="定位关键词缺口与经历表达问题" />
-            <WorkflowStep index="04" title="投递行动" text="输出投递前可执行清单" />
-          </section>
-
-          <HomeOverview onNavigate={setActivePage} hasResume={hasResume} hasAnalysis={hasAnalysis} chatCount={chatMessages.length} />
         </>
       ) : null}
 
@@ -1038,29 +1031,38 @@ function App() {
       <section className="assistant-panel" hidden={activePage !== "assistant"}>
         <Panel eyebrow="AI Assistant" title="求职 AI 助手" icon={<Bot size={18} />}>
           <div className="chat-shell">
+            <div className="chat-topbar">
+              <div>
+                <ProductAvatar compact />
+                <div>
+                  <strong>求职 AI 助手</strong>
+                  <span>结合当前简历、岗位和匹配结果进行自由对话</span>
+                </div>
+              </div>
+              <small className={chatStatus === "error" ? "error" : ""}>{chatStatus === "loading" ? "正在生成回复" : chatStatus === "listening" ? "正在收听" : chatMessage || "就绪"}</small>
+            </div>
             <div className="chat-body" ref={chatBodyRef} aria-live="polite">
               {chatMessages.length ? (
                 chatMessages.map((message) => (
                   <article key={message.id} className={`chat-message ${message.role}`}>
-                    <span>{message.role === "user" ? "你" : "AI 助手"}</span>
+                    {message.role === "assistant" ? <ProductAvatar compact /> : <span className="chat-user-avatar">你</span>}
                     <p>{message.content}</p>
                   </article>
                 ))
               ) : (
                 <div className="chat-empty">
-                  <Bot size={24} />
+                  <ProductAvatar />
                   <strong>可以直接开始交流</strong>
                   <p>输入你的问题，助手会结合当前简历、岗位和匹配结果回答；没有上下文时也可以自由交流。</p>
                 </div>
               )}
               {chatStatus === "loading" ? (
                 <article className="chat-message assistant pending">
-                  <span>AI 助手</span>
+                  <ProductAvatar compact />
                   <p>正在思考...</p>
                 </article>
               ) : null}
             </div>
-            <div className={`chat-status ${chatStatus === "error" ? "error" : ""}`}>{chatMessage || "自由对话，不使用预设问答。"}</div>
             <div className="chat-composer">
               <textarea
                 value={chatInput}
@@ -1168,11 +1170,13 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const context = gsap.context(() => {
       gsap.set(root, { "--intro-progress": 0, "--rx": 0, "--ry": 0, "--mx": 0, "--my": 0 });
-      gsap.fromTo(".intro-logo-mark", { autoAlpha: 0, scale: 0.76, rotation: -14 }, { autoAlpha: 1, scale: 1, rotation: 0, duration: reduceMotion ? 0 : 0.7, ease: "back.out(1.7)" });
+      gsap.fromTo(".intro-logo .product-avatar", { autoAlpha: 0, scale: 0.76, rotation: -14 }, { autoAlpha: 1, scale: 1, rotation: 0, duration: reduceMotion ? 0 : 0.7, ease: "back.out(1.7)" });
+      gsap.fromTo(".intro-mascot", { y: 26, scale: 0.86, rotationY: -18, autoAlpha: 0 }, { y: 0, scale: 1, rotationY: 0, autoAlpha: 1, duration: reduceMotion ? 0 : 0.9, ease: "back.out(1.4)", delay: reduceMotion ? 0 : 0.16 });
       gsap.fromTo(".intro-title span", { yPercent: 110, rotationX: -60, autoAlpha: 0 }, { yPercent: 0, rotationX: 0, autoAlpha: 1, duration: reduceMotion ? 0 : 0.86, stagger: 0.045, ease: "power3.out", delay: reduceMotion ? 0 : 0.12 });
       gsap.fromTo(".intro-copy", { y: 18, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: reduceMotion ? 0 : 0.64, ease: "power2.out", delay: reduceMotion ? 0 : 0.48 });
       gsap.fromTo(".intro-orbit", { scale: 0.84, rotation: -28, autoAlpha: 0 }, { scale: 1, rotation: 0, autoAlpha: 1, duration: reduceMotion ? 0 : 0.9, ease: "power3.out", delay: reduceMotion ? 0 : 0.2 });
       gsap.to(".intro-orbit", { rotation: 360, duration: 18, repeat: -1, ease: "none" });
+      gsap.to(".intro-mote", { y: reduceMotion ? 0 : -26, x: reduceMotion ? 0 : 14, duration: 3.6, repeat: reduceMotion ? 0 : -1, yoyo: true, stagger: { amount: 1.8, from: "random" }, ease: "sine.inOut" });
       gsap.to(root, {
         "--intro-progress": 100,
         duration: reduceMotion ? 0.12 : 4.8,
@@ -1239,11 +1243,16 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
       </div>
       <section className="intro-panel">
         <div className="intro-logo">
-          <span className="intro-logo-mark">KM</span>
+          <ProductAvatar compact />
           <div>
             <strong>孔明职配</strong>
             <small>Kongming-Student Job Matching Agent</small>
           </div>
+        </div>
+        <div className="intro-mascot">
+          <ProductAvatar />
+          <span className="mascot-orbit orbit-one" />
+          <span className="mascot-orbit orbit-two" />
         </div>
         <h1 className="intro-title" aria-label="Kongming">
           {"Kongming".split("").map((letter, index) => (
@@ -1261,11 +1270,25 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
       </section>
       <aside className="intro-orbit" aria-hidden="true">
         <span className="intro-ring" />
+        {INTRO_CELLS.slice(0, 24).map((item) => (
+          <i key={item} className="intro-mote" style={{ "--i": item } as CSSProperties} />
+        ))}
         <b className="intro-dot dot-a">Resume</b>
         <b className="intro-dot dot-b">Match</b>
         <b className="intro-dot dot-c">Interview</b>
+        {INTRO_MARKS.map((mark, index) => (
+          <em key={mark} className={`intro-mark mark-${index}`}>{mark}</em>
+        ))}
       </aside>
     </main>
+  );
+}
+
+function ProductAvatar({ compact = false }: { compact?: boolean }) {
+  return (
+    <span className={`product-avatar ${compact ? "compact" : ""}`}>
+      <img src="/kongming-ip.png" alt="" aria-hidden="true" />
+    </span>
   );
 }
 
@@ -1281,8 +1304,8 @@ function AppNav({ activePage, onChange }: { activePage: ActivePage; onChange: (p
   return (
     <nav className="app-nav" aria-label="页面导航">
       <button type="button" className="nav-brand" onClick={() => onChange("home")}>
-        <b className="brand-mark">KM</b>
-        <span>孔明职配</span>
+        <ProductAvatar compact />
+        <span className="brand-name">孔明职配</span>
         <small>学生求职智能工作台</small>
       </button>
       <div>
@@ -1294,28 +1317,6 @@ function AppNav({ activePage, onChange }: { activePage: ActivePage; onChange: (p
         ))}
       </div>
     </nav>
-  );
-}
-
-function HomeOverview({ onNavigate, hasResume, hasAnalysis, chatCount }: { onNavigate: (page: ActivePage) => void; hasResume: boolean; hasAnalysis: boolean; chatCount: number }) {
-  const cards: Array<{ page: ActivePage; title: string; text: string; meta: string; icon: ReactNode }> = [
-    { page: "resume", title: "学生简历解析", text: "提交简历后生成结构化画像、简历诊断和优化建议。", meta: hasResume ? "已有简历输入" : "等待简历输入", icon: <FileText size={20} /> },
-    { page: "jobs", title: "岗位推荐", text: "基于简历画像生成岗位方向、匹配评分和公开招聘入口。", meta: hasAnalysis ? "已有推荐结果" : "等待岗位生成", icon: <BriefcaseBusiness size={20} /> },
-    { page: "interview", title: "AI 模拟面试", text: "围绕目标岗位进行文本、语音和视频预览式面试练习。", meta: hasAnalysis ? "可开始练习" : "需要岗位上下文", icon: <Video size={20} /> },
-    { page: "assistant", title: "AI 助手", text: "像主流网页 AI 一样自由对话，支持求职规划、岗位澄清和准备建议。", meta: chatCount ? `已有 ${chatCount} 条对话` : "可直接提问", icon: <Bot size={20} /> },
-  ];
-
-  return (
-    <section className="home-overview">
-      {cards.map((card) => (
-        <button key={card.page} type="button" onClick={() => onNavigate(card.page)}>
-          <span>{card.icon}</span>
-          <strong>{card.title}</strong>
-          <p>{card.text}</p>
-          <small>{card.meta}</small>
-        </button>
-      ))}
-    </section>
   );
 }
 
@@ -1344,6 +1345,9 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
         ease: "none",
         transformOrigin: "50% 50%",
       });
+      gsap.to(".planet-ring", { rotation: reduceMotion ? 0 : 360, duration: 16, repeat: reduceMotion ? 0 : -1, ease: "none", transformOrigin: "50% 50%" });
+      gsap.fromTo(".hero-particle", { autoAlpha: 0.35 }, { y: reduceMotion ? 0 : -18, x: reduceMotion ? 0 : 10, autoAlpha: 0.95, duration: 2.8, repeat: reduceMotion ? 0 : -1, yoyo: true, stagger: { amount: 1.6, from: "random" }, ease: "sine.inOut" });
+      gsap.to(".planet-core", { y: reduceMotion ? 0 : -8, duration: 2.4, repeat: reduceMotion ? 0 : -1, yoyo: true, ease: "sine.inOut" });
     }, visualRef);
 
     const xTo = gsap.quickTo(visual, "--mx", { duration: 0.45, ease: "power3.out" });
@@ -1381,7 +1385,17 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
         </div>
       </div>
       <div className="hero-card hero-visual" ref={visualRef}>
+        <div className="hero-particle-field" aria-hidden="true">
+          {HERO_PARTICLES.map((item) => (
+            <i key={item} className="hero-particle" style={{ "--i": item } as CSSProperties} />
+          ))}
+        </div>
         <div className="scene-ring" />
+        <div className="planet-core" aria-hidden="true">
+          <ProductAvatar />
+          <span className="planet-ring ring-main" />
+          <span className="planet-ring ring-tilt" />
+        </div>
         <div className="orbit-node node-a">
           <span>Resume</span>
           <strong>{isReady ? activeLabel(selectedJob.title) : "上传简历"}</strong>
@@ -1466,21 +1480,7 @@ function ResumeSections({ structuredResume }: { structuredResume: StructuredResu
           )}
         </details>
       ))}
-      <details className="resume-section-card">
-        <summary>技能与求职方向</summary>
-        <TagList items={[...structuredResume.skills, ...structuredResume.targetRoles]} compact />
-      </details>
     </div>
-  );
-}
-
-function WorkflowStep({ index, title, text }: { index: string; title: string; text: string }) {
-  return (
-    <article>
-      <span>{index}</span>
-      <strong>{title}</strong>
-      <p>{text}</p>
-    </article>
   );
 }
 
