@@ -193,6 +193,10 @@ async function main() {
   await page.locator(".app-nav > div button").nth(4).click();
   const chatTopbar = await page.locator(".chat-topbar").count();
   const chatComposer = await page.getByLabel("AI 助手输入").count();
+  const readActionVisible = await page.locator(".chat-actions button").nth(1).isVisible();
+  const assistantOrb = await page.locator(".chat-empty .product-avatar").count();
+  const assistantOrbImageOpacity = await page.locator(".chat-empty .product-avatar img").evaluate((node) => getComputedStyle(node).opacity);
+  const chatTopbarRadius = await page.locator(".chat-topbar").evaluate((node) => getComputedStyle(node).borderRadius);
   await page.screenshot({ path: "artifacts/check-assistant.png", fullPage: false });
   await browser.close();
 
@@ -268,6 +272,15 @@ async function main() {
   if (chatTopbar !== 1 || chatComposer !== 1) {
     throw new Error(`Expected assistant chat shell, found topbar=${chatTopbar}, composer=${chatComposer}`);
   }
+  if (readActionVisible) {
+    throw new Error("Read-aloud action should be hidden from assistant composer");
+  }
+  if (assistantOrb !== 1 || assistantOrbImageOpacity !== "0") {
+    throw new Error(`Expected assistant particle orb visual, found orb=${assistantOrb}, imageOpacity=${assistantOrbImageOpacity}`);
+  }
+  if (!chatTopbarRadius || chatTopbarRadius === "0px") {
+    throw new Error(`Expected rounded assistant topbar, found radius=${chatTopbarRadius}`);
+  }
 
   console.log(JSON.stringify({
     title,
@@ -302,6 +315,10 @@ async function main() {
     psychologyJobVisible,
     chatTopbar,
     chatComposer,
+    readActionVisible,
+    assistantOrb,
+    assistantOrbImageOpacity,
+    chatTopbarRadius,
     screenshots: ["artifacts/check-intro.png", "artifacts/check-home.png", "artifacts/check-resume-after-upload.png", "artifacts/check-interview.png", "artifacts/check-assistant.png"],
   }, null, 2));
 }
