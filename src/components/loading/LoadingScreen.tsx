@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import FloatingParticles from "./FloatingParticles";
+import HeroVisual from "./HeroVisual";
 import LoadingBrand from "./LoadingBrand";
+import LoadingParticles from "./LoadingParticles";
 import LoadingProgress from "./LoadingProgress";
-import OrbitRings from "./OrbitRings";
-import ParticleResumeHand from "./ParticleResumeHand";
+import OrbitOverlay from "./OrbitOverlay";
 import { loadingStages } from "./stageData";
 
 type LoadingScreenProps = {
@@ -19,6 +19,7 @@ const pause = (duration: number, timers: number[]) =>
 export default function LoadingScreen({ onFinish }: LoadingScreenProps) {
   const [progress, setProgress] = useState(0);
   const [currentStage, setCurrentStage] = useState(0);
+  const [leaving, setLeaving] = useState(false);
   const finishedRef = useRef(false);
   const progressRef = useRef(0);
   const frameRef = useRef<number | null>(null);
@@ -33,7 +34,9 @@ export default function LoadingScreen({ onFinish }: LoadingScreenProps) {
       window.cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
     }
-    onFinish();
+    setLeaving(true);
+    const timer = window.setTimeout(onFinish, 700);
+    timersRef.current.push(timer);
   }, [onFinish]);
 
   useEffect(() => {
@@ -87,8 +90,8 @@ export default function LoadingScreen({ onFinish }: LoadingScreenProps) {
   }, [finish]);
 
   return (
-    <main className="loading-screen loading-screen-v2" onDoubleClick={finish} aria-label="孔明职配加载页">
-      <FloatingParticles />
+    <main className={`loading-screen loading-screen-asset ${leaving ? "leaving" : ""}`} onDoubleClick={finish} aria-label="孔明职配加载页">
+      <LoadingParticles />
       <span className="skip-hint">Double click to skip</span>
       <section className="loading-copy">
         <LoadingBrand />
@@ -99,8 +102,8 @@ export default function LoadingScreen({ onFinish }: LoadingScreenProps) {
         </footer>
       </section>
       <section className="loading-visual" aria-hidden="true">
-        <OrbitRings />
-        <ParticleResumeHand />
+        <OrbitOverlay />
+        <HeroVisual />
         <div className="loading-data-flow data-flow-a" />
         <div className="loading-data-flow data-flow-b" />
       </section>

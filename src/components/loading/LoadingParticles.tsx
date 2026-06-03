@@ -1,24 +1,24 @@
 import { useMemo, type CSSProperties } from "react";
 
-const STAR_COUNT = 420;
-const LINE_COUNT = 18;
+const PARTICLE_COUNT = 260;
+const LINE_COUNT = 16;
 
-const pseudoRandom = (seed: number) => {
+const random = (seed: number) => {
   const value = Math.sin(seed * 12.9898) * 43758.5453;
   return value - Math.floor(value);
 };
 
-export default function FloatingParticles() {
+export default function LoadingParticles() {
   const particles = useMemo(
     () =>
-      Array.from({ length: STAR_COUNT }, (_, index) => ({
+      Array.from({ length: PARTICLE_COUNT }, (_, index) => ({
         id: index,
-        x: pseudoRandom(index + 1) * 100,
-        y: pseudoRandom(index + 97) * 100,
-        size: 0.8 + pseudoRandom(index + 211) * 3.2,
-        opacity: 0.12 + pseudoRandom(index + 503) * 0.58,
-        duration: 7 + pseudoRandom(index + 809) * 10,
-        delay: -pseudoRandom(index + 1301) * 8,
+        x: random(index + 3) * 100,
+        y: random(index + 89) * 100,
+        size: 0.8 + random(index + 233) * 3.1,
+        opacity: 0.16 + random(index + 377) * 0.5,
+        duration: 7 + random(index + 521) * 9,
+        delay: -random(index + 701) * 8,
       })),
     [],
   );
@@ -27,13 +27,13 @@ export default function FloatingParticles() {
     () =>
       Array.from({ length: LINE_COUNT }, (_, index) => ({
         id: index,
-        x: 18 + pseudoRandom(index + 1701) * 78,
-        y: 8 + pseudoRandom(index + 1901) * 78,
-        width: 90 + pseudoRandom(index + 2101) * 260,
-        rotate: -28 + pseudoRandom(index + 2301) * 56,
-        opacity: 0.06 + pseudoRandom(index + 2501) * 0.16,
-        duration: 9 + pseudoRandom(index + 2701) * 8,
-        delay: -pseudoRandom(index + 2901) * 7,
+        x: 18 + random(index + 1001) * 76,
+        y: 8 + random(index + 1201) * 82,
+        width: 120 + random(index + 1401) * 280,
+        rotate: -30 + random(index + 1601) * 60,
+        opacity: 0.05 + random(index + 1801) * 0.14,
+        duration: 9 + random(index + 2001) * 8,
+        delay: -random(index + 2201) * 7,
       })),
     [],
   );
