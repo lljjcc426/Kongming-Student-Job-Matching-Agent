@@ -134,9 +134,10 @@ async function main() {
   const introParticles = await page.locator(".shape-particle").count();
   const introOrbits = await page.locator(".loading-orbit").count();
   await page.screenshot({ path: "artifacts/check-intro.png", fullPage: false });
+  await page.waitForTimeout(1400);
+  const introProgressAfterWheel = Number(await page.locator(".loading-progress-track").getAttribute("aria-valuenow"));
   await page.waitForTimeout(8800);
   await page.screenshot({ path: "artifacts/check-intro-final.png", fullPage: false });
-  const introProgressAfterWheel = Number(await page.locator(".loading-progress-track").getAttribute("aria-valuenow"));
   if (await page.locator(".loading-screen").count()) {
     await page.dblclick(".loading-screen").catch(() => {});
   }
@@ -215,8 +216,11 @@ async function main() {
   if (introStage !== 1 || introProgress !== 1) {
     throw new Error(`Expected intro stage and progress, found stage=${introStage}, progress=${introProgress}`);
   }
-  if (introParticles < 200) {
+  if (introParticles < 2500) {
     throw new Error(`Expected rich intro particle field, found ${introParticles}`);
+  }
+  if (introOrbits < 7) {
+    throw new Error(`Expected layered intro orbits, found ${introOrbits}`);
   }
   if (introProgressAfterWheel <= 0) {
     throw new Error(`Expected wheel interaction to advance intro progress, found ${introProgressAfterWheel}`);
