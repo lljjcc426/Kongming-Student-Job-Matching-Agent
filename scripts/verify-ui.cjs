@@ -131,8 +131,9 @@ async function main() {
   await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
   const introStage = await page.locator(".loading-screen").count();
   const introProgress = await page.locator(".loading-progress-track").count();
-  const introParticles = await page.locator(".shape-particle").count();
+  const introParticles = await page.locator(".loading-stars > i").count();
   const introOrbits = await page.locator(".loading-orbit").count();
+  const introHeroImage = await page.locator(".loading-hero-visual img").count();
   await page.screenshot({ path: "artifacts/check-intro.png", fullPage: false });
   await page.waitForTimeout(1400);
   const introProgressAfterWheel = Number(await page.locator(".loading-progress-track").getAttribute("aria-valuenow"));
@@ -216,10 +217,13 @@ async function main() {
   if (introStage !== 1 || introProgress !== 1) {
     throw new Error(`Expected intro stage and progress, found stage=${introStage}, progress=${introProgress}`);
   }
-  if (introParticles < 2500) {
-    throw new Error(`Expected rich intro particle field, found ${introParticles}`);
+  if (introHeroImage !== 1) {
+    throw new Error(`Expected loading hero image, found ${introHeroImage}`);
   }
-  if (introOrbits < 7) {
+  if (introParticles < 180 || introParticles > 320) {
+    throw new Error(`Expected 180-320 background particles, found ${introParticles}`);
+  }
+  if (introOrbits < 5) {
     throw new Error(`Expected layered intro orbits, found ${introOrbits}`);
   }
   if (introProgressAfterWheel <= 0) {
