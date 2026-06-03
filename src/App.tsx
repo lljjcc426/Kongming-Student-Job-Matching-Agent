@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowDownToLine,
+  ArrowUp,
   ArrowUpRight,
   Bot,
   BriefcaseBusiness,
@@ -30,12 +31,16 @@ import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { parseJdAnalysis, parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
 import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
+import LoadingScreen from "./LoadingScreen";
 
 const MAX_UPLOAD_BYTES = 4_000_000;
 const INTRO_CELLS = Array.from({ length: 112 }, (_, index) => index);
 const INTRO_PARTICLES = Array.from({ length: 228 }, (_, index) => index);
+const INTRO_RESUME_LINES = Array.from({ length: 16 }, (_, index) => index);
+const INTRO_HOLO_DOTS = Array.from({ length: 96 }, (_, index) => index);
 const HERO_PARTICLES = Array.from({ length: 22 }, (_, index) => index);
 const HERO_RING_PARTICLES = Array.from({ length: 18 }, (_, index) => index);
+const GALAXY_PARTICLES = Array.from({ length: 72 }, (_, index) => index);
 const HERO_METRICS = ["Profile", "Match", "Interview", "Chat"];
 const INTRO_MARKS = ["01", "02", "03", "04", "05"];
 type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
@@ -775,7 +780,7 @@ function App() {
   };
 
   if (introVisible) {
-    return <IntroExperience onComplete={() => setIntroVisible(false)} />;
+    return <LoadingScreen onFinish={() => setIntroVisible(false)} />;
   }
 
   return (
@@ -1125,7 +1130,7 @@ function App() {
                 ))
               ) : (
                 <div className="chat-empty">
-                  <ProductAvatar />
+                  <AssistantGalaxy />
                   <strong>可以直接开始交流</strong>
                   <p>输入你的问题，助手会结合当前简历、岗位和匹配结果回答；没有上下文时也可以自由交流。</p>
                 </div>
@@ -1138,6 +1143,9 @@ function App() {
               ) : null}
             </div>
             <div className="chat-composer">
+              <button type="button" className="composer-plus-button" aria-label="add context">
+                <Plus size={20} />
+              </button>
               <textarea
                 value={chatInput}
                 onChange={(event) => setChatInput(event.target.value)}
@@ -1150,11 +1158,12 @@ function App() {
                 aria-label="AI 助手输入"
                 placeholder="输入想交流的内容"
               />
-              <button type="button" className="composer-icon-button send-action" aria-label="send" onClick={() => void handleSendChat()} disabled={!chatInput.trim() || chatStatus === "loading"}>
-                <SendHorizontal size={18} />
-              </button>
+              <span className="composer-mode">Thinking</span>
               <button type="button" className={`composer-icon-button voice-action ${chatStatus === "listening" ? "listening" : ""}`} aria-label="voice input" onClick={handleChatSpeechInput} disabled={chatStatus === "listening" || chatStatus === "loading"}>
                 <Mic size={18} />
+              </button>
+              <button type="button" className="composer-icon-button send-action" aria-label="send" onClick={() => void handleSendChat()} disabled={!chatInput.trim() || chatStatus === "loading"}>
+                <ArrowUp size={20} />
               </button>
               <div className="chat-actions">
                 <button type="button" className="secondary-action compact-action" onClick={handleChatSpeechInput} disabled={chatStatus === "listening" || chatStatus === "loading"}>
@@ -1349,8 +1358,21 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
     const mxTo = gsap.quickTo(root, "--mx", { duration: 0.32, ease: "power2.out" });
     const myTo = gsap.quickTo(root, "--my", { duration: 0.32, ease: "power2.out" });
     const progressTo = gsap.quickTo(root, "--intro-progress", { duration: 0.25, ease: "power2.out" });
+    const idleProgressTween = gsap.to(root, {
+      "--intro-progress": reduceMotion ? 36 : 78,
+      duration: reduceMotion ? 0.2 : 8.4,
+      ease: "power1.inOut",
+      onUpdate: () => {
+        const next = Number(gsap.getProperty(root, "--intro-progress"));
+        if (!completedRef.current && next > progressRef.current) {
+          progressRef.current = next;
+          setProgress(Math.round(next));
+        }
+      },
+    });
 
     const handlePointerMove = (event: MouseEvent) => {
+      idleProgressTween.kill();
       const rect = root.getBoundingClientRect();
       const px = (event.clientX - rect.left) / rect.width - 0.5;
       const py = (event.clientY - rect.top) / rect.height - 0.5;
@@ -1364,6 +1386,7 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
       progressTo(next);
     };
     const handleWheel = (event: WheelEvent) => {
+      idleProgressTween.kill();
       const next = Math.min(100, progressRef.current + Math.abs(event.deltaY) * 0.08);
       progressRef.current = next;
       setProgress(Math.round(next));
@@ -1377,6 +1400,7 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
     return () => {
       root.removeEventListener("mousemove", handlePointerMove);
       root.removeEventListener("wheel", handleWheel);
+      idleProgressTween.kill();
       cellAnimation.revert();
       context.revert();
     };
@@ -1410,12 +1434,60 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
           );
         })}
       </div>
+      <div className="intro-hologram" aria-hidden="true">
+        <div className="holo-orbit-field">
+          {INTRO_HOLO_DOTS.map((item) => (
+            <i
+              key={item}
+              style={
+                {
+                  "--angle": `${item * 13}deg`,
+                  "--radius": `${160 + (item % 16) * 16}px`,
+                  "--size": `${2 + (item % 4)}px`,
+                  "--orbit-duration": `${8 + (item % 11) * 0.45}s`,
+                  "--orbit-tilt": `${52 + (item % 9) * 3}deg`,
+                  "--delay": `${item * -0.09}s`,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+        <div className="holo-paper">
+          <span className="holo-avatar" />
+          {INTRO_RESUME_LINES.map((item) => (
+            <i
+              key={item}
+              style={
+                {
+                  "--line-top": `${34 + item * 24}px`,
+                  "--line-width": `${118 + (item % 5) * 18}px`,
+                  "--line-opacity": `${0.95 - (item % 4) * 0.08}`,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+        <div className="holo-hand left-hand" />
+        <div className="holo-hand right-hand" />
+        <div className="holo-scan scan-a" />
+        <div className="holo-scan scan-b" />
+      </div>
       <section className="intro-panel">
         <div className="intro-logo">
           <ProductAvatar compact />
           <div>
             <strong>孔明职配</strong>
             <small>Kongming-Student Job Matching Agent</small>
+          </div>
+        </div>
+        <div className="intro-loading-copy">
+          <strong>AI 求职引擎加载中...</strong>
+          <div className="intro-progress-value">{progress}%</div>
+          <div className="intro-step-track">
+            <span className={progress >= 18 ? "done" : ""}>解析简历</span>
+            <span className={progress >= 42 ? "done" : ""}>岗位匹配</span>
+            <span className={progress >= 66 ? "done" : ""}>生成建议</span>
+            <span className={progress >= 88 ? "done" : ""}>模拟面试</span>
           </div>
         </div>
         <div className="intro-mascot">
@@ -1450,6 +1522,42 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
         ))}
       </aside>
     </main>
+  );
+}
+
+function AssistantGalaxy() {
+  return (
+    <div className="assistant-galaxy" aria-hidden="true">
+      <span className="galaxy-core" />
+      <span className="galaxy-halo halo-a" />
+      <span className="galaxy-halo halo-b" />
+      <span className="galaxy-halo halo-c" />
+      {GALAXY_PARTICLES.map((item) => {
+        const ring = item % 9;
+        const angle = (item * 137.5) % 360;
+        const size = 2 + (item % 5);
+        const radius = 34 + ring * 12 + (item % 3) * 5;
+        const duration = 5.4 + ring * 1.1 + (item % 4) * 0.35;
+        const delay = -((item % 17) * 0.37);
+        const depth = ((item % 11) - 5) * 4;
+        return (
+          <i
+            key={item}
+            className={`galaxy-star ring-${ring}`}
+            style={
+              {
+                "--angle": `${angle}deg`,
+                "--size": `${size}px`,
+                "--radius": `${radius}px`,
+                "--duration": `${duration}s`,
+                "--delay": `${delay}s`,
+                "--depth": `${depth}px`,
+              } as CSSProperties
+            }
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -1535,7 +1643,8 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
   }, []);
 
   return (
-    <header className="hero">
+    <header className="hero asset-hero">
+      <button type="button" className="hero-asset-start" onClick={onStart} aria-label="开始解析简历" />
       <div className="hero-copy">
         <div className="eyebrow">
           <Sparkles size={16} />
@@ -1600,6 +1709,21 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
         <div className="orbit-node node-c">
           <span>Interview</span>
           <strong>模拟面试</strong>
+        </div>
+        <div className="hero-mini-panel mini-radar" aria-hidden="true">
+          <span>能力图谱</span>
+          <i />
+        </div>
+        <div className="hero-mini-panel mini-score" aria-hidden="true">
+          <span>简历分析</span>
+          <strong>{isReady ? `${result.total}分` : "84分"}</strong>
+          <em />
+        </div>
+        <div className="hero-mini-panel mini-advice" aria-hidden="true">
+          <span>优化建议</span>
+          <small>突出成果数据化</small>
+          <small>补充技能证书</small>
+          <small>优化目标描述</small>
         </div>
         {isReady ? (
           <div className="hero-live-panel">

@@ -129,19 +129,19 @@ async function main() {
   });
 
   await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
-  const introStage = await page.locator(".intro-stage").count();
-  const introProgress = await page.locator(".intro-progress").count();
-  const introParticles = await page.locator(".intro-shape-particle").count();
+  const introStage = await page.locator(".loading-screen").count();
+  const introProgress = await page.locator(".loading-progress-track").count();
+  const introParticles = await page.locator(".shape-particle").count();
+  const introOrbits = await page.locator(".loading-orbit").count();
   await page.screenshot({ path: "artifacts/check-intro.png", fullPage: false });
   await page.waitForTimeout(8800);
   await page.screenshot({ path: "artifacts/check-intro-final.png", fullPage: false });
-  await page.mouse.move(820, 500);
-  await page.mouse.wheel(0, 900);
-  await page.waitForTimeout(160);
-  const introProgressAfterWheel = Number(await page.locator(".intro-progress").getAttribute("aria-valuenow"));
-  await page.locator(".intro-meta button").click();
-  await page.locator(".intro-stage").waitFor({ state: "detached", timeout: 3000 }).catch(async () => {
-    await page.waitForFunction(() => !document.querySelector(".intro-stage"), null, { timeout: 3000 });
+  const introProgressAfterWheel = Number(await page.locator(".loading-progress-track").getAttribute("aria-valuenow"));
+  if (await page.locator(".loading-screen").count()) {
+    await page.dblclick(".loading-screen").catch(() => {});
+  }
+  await page.locator(".loading-screen").waitFor({ state: "detached", timeout: 3000 }).catch(async () => {
+    await page.waitForFunction(() => !document.querySelector(".loading-screen"), null, { timeout: 3000 });
   });
 
   const title = await page.locator("h1").innerText();
@@ -149,6 +149,7 @@ async function main() {
   const heroElectricLines = await page.locator(".electric-line").count();
   const navHoverBefore = await page.locator(".app-nav > div button").nth(4).evaluate((node) => getComputedStyle(node).backgroundColor);
   await page.locator(".app-nav > div button").nth(4).hover();
+  await page.waitForTimeout(200);
   const navHoverAfter = await page.locator(".app-nav > div button").nth(4).evaluate((node) => getComputedStyle(node).color);
   await page.screenshot({ path: "artifacts/check-home.png", fullPage: false });
   const initialJobCards = await page.locator(".job-card").count();
@@ -204,8 +205,9 @@ async function main() {
   const readActionVisible = await page.locator(".chat-actions button").nth(1).isVisible();
   const composerIconButtons = await page.locator(".composer-icon-button").count();
   const composerButtonText = await page.locator(".composer-icon-button").allInnerTexts();
-  const assistantOrb = await page.locator(".chat-empty .product-avatar").count();
-  const assistantOrbImageOpacity = await page.locator(".chat-empty .product-avatar img").evaluate((node) => getComputedStyle(node).opacity);
+  const assistantGalaxy = await page.locator(".assistant-galaxy").count();
+  const galaxyCore = await page.locator(".assistant-galaxy .galaxy-core").count();
+  const galaxyStars = await page.locator(".assistant-galaxy .galaxy-star").count();
   const chatTopbarRadius = await page.locator(".chat-topbar").evaluate((node) => getComputedStyle(node).borderRadius);
   await page.screenshot({ path: "artifacts/check-assistant.png", fullPage: false });
   await browser.close();
@@ -297,8 +299,8 @@ async function main() {
   if (composerIconButtons !== 2 || composerButtonText.join("").trim() !== "") {
     throw new Error(`Expected two icon-only composer buttons, found count=${composerIconButtons}, text=${composerButtonText.join("|")}`);
   }
-  if (assistantOrb !== 1 || assistantOrbImageOpacity !== "0") {
-    throw new Error(`Expected assistant particle orb visual, found orb=${assistantOrb}, imageOpacity=${assistantOrbImageOpacity}`);
+  if (assistantGalaxy !== 1 || galaxyCore !== 1 || galaxyStars < 60) {
+    throw new Error(`Expected assistant galaxy visual, found galaxy=${assistantGalaxy}, core=${galaxyCore}, stars=${galaxyStars}`);
   }
   if (!chatTopbarRadius || chatTopbarRadius === "0px") {
     throw new Error(`Expected rounded assistant topbar, found radius=${chatTopbarRadius}`);
@@ -345,8 +347,9 @@ async function main() {
     readActionVisible,
     composerIconButtons,
     composerButtonText,
-    assistantOrb,
-    assistantOrbImageOpacity,
+    assistantGalaxy,
+    galaxyCore,
+    galaxyStars,
     chatTopbarRadius,
     screenshots: ["artifacts/check-intro.png", "artifacts/check-intro-final.png", "artifacts/check-home.png", "artifacts/check-resume-after-upload.png", "artifacts/check-interview.png", "artifacts/check-assistant.png"],
   }, null, 2));
