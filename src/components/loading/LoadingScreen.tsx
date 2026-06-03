@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import HeroVisual from "./HeroVisual";
-import LoadingBrand from "./LoadingBrand";
 import LoadingParticles from "./LoadingParticles";
 import LoadingProgress from "./LoadingProgress";
-import OrbitOverlay from "./OrbitOverlay";
 import { loadingStages } from "./stageData";
 
 type LoadingScreenProps = {
@@ -90,22 +88,12 @@ export default function LoadingScreen({ onFinish }: LoadingScreenProps) {
   }, [finish]);
 
   return (
-    <main className={`loading-screen loading-screen-asset ${leaving ? "leaving" : ""}`} onDoubleClick={finish} aria-label="孔明职配加载页">
+    <main className={`loading-screen loading-screen-video ${leaving ? "leaving" : ""}`} onDoubleClick={finish} aria-label="孔明职配加载页">
+      <HeroVisual />
       <LoadingParticles />
       <span className="skip-hint">Double click to skip</span>
-      <section className="loading-copy">
-        <LoadingBrand />
+      <section className="loading-progress-card">
         <LoadingProgress progress={progress} currentStage={currentStage} />
-        <footer className="loading-slogan">
-          <strong>让每一份潜力，都有精准的舞台</strong>
-          <span>KONGMING CAREER MATCHING</span>
-        </footer>
-      </section>
-      <section className="loading-visual" aria-hidden="true">
-        <OrbitOverlay />
-        <HeroVisual />
-        <div className="loading-data-flow data-flow-a" />
-        <div className="loading-data-flow data-flow-b" />
       </section>
     </main>
   );
