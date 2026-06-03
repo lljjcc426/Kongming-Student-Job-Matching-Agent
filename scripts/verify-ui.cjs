@@ -131,8 +131,9 @@ async function main() {
   await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
   const introStage = await page.locator(".loading-screen").count();
   const introProgress = await page.locator(".loading-progress-track").count();
+  const introProgressCard = await page.locator(".loading-progress-card").count();
   const introParticles = await page.locator(".loading-stars > i").count();
-  const introOrbits = await page.locator(".loading-orbit").count();
+  const introVideoBackdrop = await page.locator(".loading-video-backdrop video").count();
   const introHeroVideo = await page.locator(".loading-hero-visual video").count();
   await page.screenshot({ path: "artifacts/check-intro.png", fullPage: false });
   await page.waitForTimeout(1400);
@@ -214,17 +215,14 @@ async function main() {
   await page.screenshot({ path: "artifacts/check-assistant.png", fullPage: false });
   await browser.close();
 
-  if (introStage !== 1 || introProgress !== 1) {
-    throw new Error(`Expected intro stage and progress, found stage=${introStage}, progress=${introProgress}`);
+  if (introStage !== 1 || introProgress !== 1 || introProgressCard !== 1) {
+    throw new Error(`Expected intro stage and progress card, found stage=${introStage}, progress=${introProgress}, card=${introProgressCard}`);
   }
-  if (introHeroVideo !== 1) {
-    throw new Error(`Expected loading hero video, found ${introHeroVideo}`);
+  if (introVideoBackdrop !== 1 || introHeroVideo !== 0) {
+    throw new Error(`Expected full-screen loading video only, found backdrop=${introVideoBackdrop}, hero=${introHeroVideo}`);
   }
   if (introParticles < 180 || introParticles > 320) {
     throw new Error(`Expected 180-320 background particles, found ${introParticles}`);
-  }
-  if (introOrbits < 5) {
-    throw new Error(`Expected layered intro orbits, found ${introOrbits}`);
   }
   if (introProgressAfterWheel <= 0) {
     throw new Error(`Expected wheel interaction to advance intro progress, found ${introProgressAfterWheel}`);
