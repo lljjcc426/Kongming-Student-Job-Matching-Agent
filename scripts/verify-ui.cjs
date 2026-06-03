@@ -133,7 +133,7 @@ async function main() {
   const introProgress = await page.locator(".loading-progress-track").count();
   const introParticles = await page.locator(".loading-stars > i").count();
   const introOrbits = await page.locator(".loading-orbit").count();
-  const introHeroImage = await page.locator(".loading-hero-visual img").count();
+  const introHeroVideo = await page.locator(".loading-hero-visual video").count();
   await page.screenshot({ path: "artifacts/check-intro.png", fullPage: false });
   await page.waitForTimeout(1400);
   const introProgressAfterWheel = Number(await page.locator(".loading-progress-track").getAttribute("aria-valuenow"));
@@ -217,8 +217,8 @@ async function main() {
   if (introStage !== 1 || introProgress !== 1) {
     throw new Error(`Expected intro stage and progress, found stage=${introStage}, progress=${introProgress}`);
   }
-  if (introHeroImage !== 1) {
-    throw new Error(`Expected loading hero image, found ${introHeroImage}`);
+  if (introHeroVideo !== 1) {
+    throw new Error(`Expected loading hero video, found ${introHeroVideo}`);
   }
   if (introParticles < 180 || introParticles > 320) {
     throw new Error(`Expected 180-320 background particles, found ${introParticles}`);
