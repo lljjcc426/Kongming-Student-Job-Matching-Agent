@@ -31,7 +31,10 @@ import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { parseJdAnalysis, parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
 import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
+import AIAssistantPage from "./pages/AIAssistantPage";
+import HomePage from "./pages/HomePage";
 import LoadingScreen from "./LoadingScreen";
+import homeHeroVideo from "./assets/home-hero-video.mp4";
 
 const MAX_UPLOAD_BYTES = 4_000_000;
 const INTRO_CELLS = Array.from({ length: 112 }, (_, index) => index);
@@ -789,7 +792,7 @@ function App() {
 
       {activePage === "home" ? (
         <>
-          <Hero result={result} selectedJob={selectedJob} isReady={hasAnalysis} onStart={() => setActivePage("resume")} />
+          <HomePage onNavigate={setActivePage} />
         </>
       ) : null}
 
@@ -1108,6 +1111,19 @@ function App() {
       </section>
 
       <section className="assistant-panel" hidden={activePage !== "assistant"}>
+        <AIAssistantPage
+          messages={chatMessages}
+          input={chatInput}
+          status={chatStatus}
+          statusMessage={chatStatus === "loading" ? "正在生成回复" : chatStatus === "listening" ? "正在收听" : chatMessage}
+          bodyRef={chatBodyRef}
+          onInputChange={setChatInput}
+          onSend={() => void handleSendChat()}
+          onVoiceInput={handleChatSpeechInput}
+        />
+      </section>
+
+      <section className="assistant-panel legacy-assistant-panel" hidden>
         <Panel eyebrow="AI Assistant" title="求职 AI 助手" icon={<Bot size={18} />}>
           <div className="chat-shell">
             <div className="chat-topbar">
@@ -1597,6 +1613,14 @@ function AppNav({ activePage, onChange }: { activePage: ActivePage; onChange: (p
   );
 }
 
+function HomeVideoPage() {
+  return (
+    <section className="home-video-page" aria-label="孔明职配首页">
+      <video src={homeHeroVideo} autoPlay muted loop playsInline preload="auto" />
+    </section>
+  );
+}
+
 function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; selectedJob: Job; isReady: boolean; onStart: () => void }) {
   const visualRef = useRef<HTMLDivElement | null>(null);
 
@@ -1644,6 +1668,7 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
 
   return (
     <header className="hero asset-hero">
+      <video className="home-hero-video" src={homeHeroVideo} autoPlay muted loop playsInline preload="auto" aria-hidden="true" />
       <button type="button" className="hero-asset-start" onClick={onStart} aria-label="开始解析简历" />
       <div className="hero-copy">
         <div className="eyebrow">
