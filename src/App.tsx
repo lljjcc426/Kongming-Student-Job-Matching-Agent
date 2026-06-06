@@ -21,6 +21,8 @@ import {
   Video,
   Volume2,
 } from "lucide-react";
+import { faClipboardCheck, faUserAstronaut, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { animate, stagger } from "animejs";
 import { gsap } from "gsap";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -46,6 +48,20 @@ const HERO_RING_PARTICLES = Array.from({ length: 18 }, (_, index) => index);
 const GALAXY_PARTICLES = Array.from({ length: 72 }, (_, index) => index);
 const HERO_METRICS = ["Profile", "Match", "Interview", "Chat"];
 const INTRO_MARKS = ["01", "02", "03", "04", "05"];
+
+function FontAwesomeShapeIcon({ icon, size = 16 }: { icon: IconDefinition; size?: number }) {
+  const [width, height, , , pathData] = icon.icon;
+  const paths = Array.isArray(pathData) ? pathData : [pathData];
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${width} ${height}`} fill="currentColor" aria-hidden="true" focusable="false">
+      {paths.map((path, index) => (
+        <path key={`${icon.iconName}-${index}`} d={path} />
+      ))}
+    </svg>
+  );
+}
+
 type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
 type JdPipelineStep = "idle" | "parse" | "evaluate" | "links" | "done" | "error";
 type ActivePage = "home" | "resume" | "jobs" | "interview" | "assistant";
@@ -848,7 +864,7 @@ function App() {
                 onClick={() => void runModelPipeline(resumeText)}
                 disabled={!resumeText.trim() || modelStatus === "loading"}
               >
-                <Sparkles size={16} />
+                <FontAwesomeShapeIcon icon={faClipboardCheck} size={16} />
                 解析简历并推荐岗位
               </button>
             </InfoBlock>
@@ -1016,7 +1032,7 @@ function App() {
                 </button>
 
                 <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()} disabled={modelStatus === "loading" || !hasResume || !hasAnalysis}>
-                  <Sparkles size={16} />
+                  <FontAwesomeShapeIcon icon={faWandMagicSparkles} size={16} />
                   {modelStatus === "loading" ? "模型分析中" : "模型增强分析"}
                 </button>
 
@@ -1094,7 +1110,7 @@ function App() {
               <div>
                 <EmptyState title="等待分析" text="当前没有简历或岗位输入。上传简历后，这里会生成匹配结论、关键词覆盖、优化动作和投递清单。" />
                 <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()}>
-                  <Sparkles size={16} />
+                  <FontAwesomeShapeIcon icon={faWandMagicSparkles} size={16} />
                   模型增强分析
                 </button>
                 {modelMessage ? (
@@ -1110,18 +1126,20 @@ function App() {
         </aside>
       </section>
 
-      <section className="assistant-panel" hidden={activePage !== "assistant"}>
-        <AIAssistantPage
-          messages={chatMessages}
-          input={chatInput}
-          status={chatStatus}
-          statusMessage={chatStatus === "loading" ? "正在生成回复" : chatStatus === "listening" ? "正在收听" : chatMessage}
-          bodyRef={chatBodyRef}
-          onInputChange={setChatInput}
-          onSend={() => void handleSendChat()}
-          onVoiceInput={handleChatSpeechInput}
-        />
-      </section>
+      {activePage === "assistant" ? (
+        <section className="assistant-panel">
+          <AIAssistantPage
+            messages={chatMessages}
+            input={chatInput}
+            status={chatStatus}
+            statusMessage={chatStatus === "loading" ? "正在生成回复" : chatStatus === "listening" ? "正在收听" : chatMessage}
+            bodyRef={chatBodyRef}
+            onInputChange={setChatInput}
+            onSend={() => void handleSendChat()}
+            onVoiceInput={handleChatSpeechInput}
+          />
+        </section>
+      ) : null}
 
       <section className="assistant-panel legacy-assistant-panel" hidden>
         <Panel eyebrow="AI Assistant" title="求职 AI 助手" icon={<Bot size={18} />}>
@@ -1587,7 +1605,7 @@ function ProductAvatar({ compact = false }: { compact?: boolean }) {
 
 function AppNav({ activePage, onChange }: { activePage: ActivePage; onChange: (page: ActivePage) => void }) {
   const items: Array<{ id: ActivePage; label: string; icon: ReactNode }> = [
-    { id: "home", label: "首页", icon: <Sparkles size={16} /> },
+    { id: "home", label: "首页", icon: <FontAwesomeShapeIcon icon={faUserAstronaut} size={16} /> },
     { id: "resume", label: "简历解析", icon: <FileText size={16} /> },
     { id: "jobs", label: "岗位推荐", icon: <BriefcaseBusiness size={16} /> },
     { id: "interview", label: "模拟面试", icon: <Video size={16} /> },
@@ -1603,7 +1621,12 @@ function AppNav({ activePage, onChange }: { activePage: ActivePage; onChange: (p
       </button>
       <div>
         {items.map((item) => (
-          <button key={item.id} type="button" className={activePage === item.id ? "active" : ""} onClick={() => onChange(item.id)}>
+          <button
+            key={item.id}
+            type="button"
+            className={activePage === item.id ? "active" : ""}
+            onClick={() => onChange(item.id)}
+          >
             {item.icon}
             {item.label}
           </button>

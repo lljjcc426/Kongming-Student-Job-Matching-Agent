@@ -1,4 +1,7 @@
 import { ArrowUp, Bot, Mic } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { RefObject } from "react";
 import logoUrl from "../assets/kongming-logo.png";
 
@@ -32,6 +35,14 @@ const statusText: Record<AssistantChatStatus, string> = {
   error: "需要重试",
 };
 
+function AssistantMarkdownMessage({ content }: { content: string }) {
+  return (
+    <div className="assistant-markdown-message">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    </div>
+  );
+}
+
 export default function AssistantChatPanel({
   messages,
   input,
@@ -43,6 +54,34 @@ export default function AssistantChatPanel({
   onVoiceInput,
   onQuickQuestion,
 }: AssistantChatPanelProps) {
+  const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToLatest = (behavior: ScrollBehavior = "auto") => {
+    const body = bodyRef.current;
+    if (!body) return;
+
+    body.scrollTop = body.scrollHeight;
+    bottomAnchorRef.current?.scrollIntoView({ block: "end", behavior });
+  };
+
+  useLayoutEffect(() => {
+    scrollToLatest("auto");
+  }, [messages.length, status]);
+
+  useEffect(() => {
+    const performScroll = () => scrollToLatest("auto");
+
+    const frame = window.requestAnimationFrame(performScroll);
+    const timeout = window.setTimeout(performScroll, 90);
+    const lateTimeout = window.setTimeout(performScroll, 240);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+      window.clearTimeout(lateTimeout);
+    };
+  }, [bodyRef, messages, status, statusMessage]);
+
   return (
     <section className="assistant-chat-panel" aria-label="AI 求职助手对话面板">
       <header className="assistant-chat-header">
@@ -74,7 +113,7 @@ export default function AssistantChatPanel({
               ) : (
                 <span className="assistant-message-avatar user">你</span>
               )}
-              <p>{message.content}</p>
+              {message.role === "assistant" ? <AssistantMarkdownMessage content={message.content} /> : <p>{message.content}</p>}
             </article>
           ))
         ) : (
@@ -93,6 +132,7 @@ export default function AssistantChatPanel({
             <p>正在分析你的问题...</p>
           </article>
         ) : null}
+        <div ref={bottomAnchorRef} className="assistant-chat-bottom-anchor" aria-hidden="true" />
       </div>
 
       {statusMessage ? <div className={`assistant-chat-status ${status === "error" ? "error" : ""}`}>{statusMessage}</div> : null}

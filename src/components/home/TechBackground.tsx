@@ -1,16 +1,21 @@
-import type { CSSProperties } from "react";
 import FloatingLines from "./FloatingLines";
 
-const binaryRows = ["0101 1100 1011 0010", "1100 0110 0101 1001", "0011 1010 1110 0101", "1010 0101 0011 1100"];
+const binaryRows = [
+  "0101 1100 1011 0010 1100 0110 0101 1001 0011 1010 1110 0101 1010 0101 0011 1100",
+  "1100 0101 0110 1001 0101 1110 0011 0100 1011 0010 0101 1100 0010 1110 1001 0101",
+];
+const makeBinaryStream = (row: string) => Array.from({ length: 40 }, () => row).join(" ");
 const cityBars = [36, 82, 48, 124, 70, 150, 58, 108, 88, 136, 62, 96, 72, 118, 54, 86, 142, 68];
-const particles = Array.from({ length: 48 }, (_, index) => index);
 
 export default function TechBackground() {
   return (
     <div className="km-tech-background" aria-hidden="true">
       <div className="km-binary-cloud">
-        {binaryRows.map((row) => (
-          <span key={row}>{row}</span>
+        {binaryRows.map((row, index) => (
+          <span key={row} className={`stream-${index + 1}`}>
+            {makeBinaryStream(row)}
+            <i>{makeBinaryStream(row)}</i>
+          </span>
         ))}
       </div>
 
@@ -26,17 +31,11 @@ export default function TechBackground() {
       <div className="km-dot-matrix km-dot-left" />
       <div className="km-dot-matrix km-dot-right" />
 
-      <div className="km-particle-layer">
-        {particles.map((item) => (
-          <i key={item} style={{ "--i": item } as CSSProperties} />
-        ))}
-      </div>
-
       <div className="km-light-trails">
         <FloatingLines
           enabledWaves={["bottom", "middle", "top"]}
-          lineCount={[10, 14, 18]}
-          lineDistance={[56, 48, 40]}
+          lineCount={[7, 9, 11]}
+          lineDistance={[46, 40, 34]}
           bottomWavePosition={{ x: 1.8, y: -0.98, rotate: -0.75 }}
           middleWavePosition={{ x: 4.7, y: -0.58, rotate: 0.18 }}
           topWavePosition={{ x: 9.2, y: -0.28, rotate: -0.34 }}
@@ -47,7 +46,7 @@ export default function TechBackground() {
           mouseDamping={0.055}
           parallax
           parallaxStrength={0.12}
-          linesGradient={["#1f8ff2", "#35c7ff", "#dff8ff"]}
+          linesGradient={["#38bdf8", "#22d3ee", "#ffffff"]}
           mixBlendMode="screen"
         />
       </div>
