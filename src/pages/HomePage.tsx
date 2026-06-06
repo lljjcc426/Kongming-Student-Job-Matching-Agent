@@ -1,4 +1,4 @@
-import DashboardShowcase from "../components/home/DashboardShowcase";
+import CardSwapShowcase from "../components/home/CardSwapShowcase";
 import HeroSection from "../components/home/HeroSection";
 import TechBackground from "../components/home/TechBackground";
 
@@ -14,7 +14,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
       <TechBackground />
       <div className="km-home-canvas">
         <HeroSection onNavigate={onNavigate} />
-        <DashboardShowcase />
+        <CardSwapShowcase />
       </div>
     </section>
   );

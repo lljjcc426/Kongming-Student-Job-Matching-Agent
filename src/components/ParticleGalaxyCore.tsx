@@ -20,14 +20,11 @@ type OrbitConfig = {
 };
 
 const orbitConfigs: OrbitConfig[] = [
-  { radiusX: 1.55, radiusY: 0.44, rotation: [0.72, 0.18, 0.08], speed: 0.58, direction: 1, bodies: [{ offset: 0.2, size: 0.024, color: "#e0f2fe" }, { offset: 2.8, size: 0.022, color: "#38bdf8" }] },
-  { radiusX: 1.92, radiusY: 0.58, rotation: [1.14, -0.22, -0.52], speed: 0.42, direction: -1, dashed: true, bodies: [{ offset: 1.1, size: 0.025, color: "#7dd3fc" }] },
-  { radiusX: 1.18, radiusY: 0.96, rotation: [-0.15, 0.98, 0.42], speed: 0.66, direction: 1, bodies: [{ offset: 0.8, size: 0.023, color: "#bfdbfe" }, { offset: 3.4, size: 0.021, color: "#22d3ee" }] },
-  { radiusX: 2.26, radiusY: 0.72, rotation: [0.38, 0.78, 1.1], speed: 0.32, direction: 1, dashed: true, bodies: [{ offset: 2.2, size: 0.026, color: "#ffffff" }] },
-  { radiusX: 1.38, radiusY: 0.32, rotation: [1.34, 0.42, -1.28], speed: 0.9, direction: -1, bodies: [{ offset: 0.5, size: 0.022, color: "#67e8f9" }, { offset: 4.2, size: 0.02, color: "#93c5fd" }] },
-  { radiusX: 2.02, radiusY: 1.18, rotation: [-0.72, 0.46, 0.72], speed: 0.28, direction: -1, bodies: [{ offset: 1.9, size: 0.024, color: "#dbeafe" }, { offset: 5.1, size: 0.022, color: "#38bdf8" }] },
-  { radiusX: 1.03, radiusY: 1.46, rotation: [0.52, -1.08, -0.24], speed: 0.5, direction: 1, bodies: [{ offset: 3.2, size: 0.024, color: "#f8fafc" }] },
-  { radiusX: 2.48, radiusY: 0.92, rotation: [0.88, -0.66, 1.72], speed: 0.22, direction: 1, dashed: true, bodies: [{ offset: 0.9, size: 0.023, color: "#60a5fa" }, { offset: 3.8, size: 0.021, color: "#cffafe" }] },
+  { radiusX: 1.55, radiusY: 0.44, rotation: [0.82, 0.04, 0.08], speed: 0.58, direction: 1, bodies: [{ offset: 0.2, size: 0.024, color: "#e0f2fe" }] },
+  { radiusX: 1.92, radiusY: 0.58, rotation: [1.18, -0.36, -0.62], speed: 0.42, direction: -1, dashed: true, bodies: [{ offset: 1.1, size: 0.025, color: "#7dd3fc" }] },
+  { radiusX: 1.18, radiusY: 0.96, rotation: [-0.28, 1.12, 0.36], speed: 0.66, direction: 1, bodies: [{ offset: 0.8, size: 0.023, color: "#bfdbfe" }] },
+  { radiusX: 1.96, radiusY: 0.62, rotation: [0.46, 0.82, 1.22], speed: 0.32, direction: 1, dashed: true, bodies: [{ offset: 2.2, size: 0.026, color: "#ffffff" }] },
+  { radiusX: 1.38, radiusY: 0.32, rotation: [1.44, 0.54, -1.42], speed: 0.9, direction: -1, bodies: [{ offset: 0.5, size: 0.022, color: "#67e8f9" }] },
 ];
 
 function GalaxyScene() {
@@ -49,7 +46,7 @@ function GalaxyScene() {
       <BackgroundStars />
       <EnergyCore />
       {orbitConfigs.map((orbit, index) => (
-        <Orbit key={index} config={orbit} index={index} />
+        <Orbit key={index} config={orbit} />
       ))}
       <Sparkles count={120} scale={[4.6, 3.6, 3.2]} size={1.85} speed={0.16} opacity={0.48} color="#bfdbfe" />
     </group>
@@ -220,8 +217,7 @@ function createParticleRing(count: number, radius: number, jitter: number, theme
   return { positions, colors };
 }
 
-function Orbit({ config, index }: { config: OrbitConfig; index: number }) {
-  const groupRef = useRef<THREE.Group>(null);
+function Orbit({ config }: { config: OrbitConfig }) {
   const lineRef = useRef<THREE.Line>(null);
   const points = useMemo(() => {
     const vertices: THREE.Vector3[] = [];
@@ -245,20 +241,8 @@ function Orbit({ config, index }: { config: OrbitConfig; index: number }) {
   );
   const lineObject = useMemo(() => new THREE.Line(geometry, material), [geometry, material]);
 
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const time = state.clock.elapsedTime;
-    groupRef.current.rotation.x = config.rotation[0] + Math.sin(time * 0.14 + index) * 0.025;
-    groupRef.current.rotation.y = config.rotation[1] + Math.cos(time * 0.12 + index) * 0.025;
-    groupRef.current.rotation.z = config.rotation[2] + time * 0.012 * config.direction;
-    if (lineRef.current?.material) {
-      const currentMaterial = lineRef.current.material as THREE.LineBasicMaterial;
-      currentMaterial.opacity = 0.42;
-    }
-  });
-
   return (
-    <group ref={groupRef}>
+    <group rotation={config.rotation}>
       <primitive ref={lineRef} object={lineObject} />
       {config.bodies.map((body, bodyIndex) => (
         <OrbitingBody key={bodyIndex} config={config} body={body} bodyIndex={bodyIndex} />

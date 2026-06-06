@@ -13,11 +13,6 @@ export default function ConnectionLines() {
       <path d="M676 162C742 118 808 102 882 124" />
       <path d="M678 360C766 408 824 438 886 514" />
       <path d="M318 572C412 514 456 502 512 514" />
-      <circle cx="330" cy="184" r="5" />
-      <circle cx="500" cy="340" r="5" />
-      <circle cx="882" cy="124" r="5" />
-      <circle cx="886" cy="514" r="5" />
-      <circle cx="318" cy="572" r="5" />
     </svg>
   );
 }
