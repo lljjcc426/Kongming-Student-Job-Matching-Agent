@@ -7,6 +7,10 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
+    "cloudbase:login": "npx -y -p @cloudbase/cli tcb login",
+    "cloudbase:deploy:function": "npx -y -p @cloudbase/cli tcb fn deploy ark --httpFn --path /api/ark --force",
+    "cloudbase:deploy:hosting": "npm run build && npx -y -p @cloudbase/cli tcb hosting deploy ./dist / -e kongming-career-demo-d2a6ec63160",
+    "cloudbase:deploy": "npm run cloudbase:deploy:function && npm run cloudbase:deploy:hosting",
     "verify:parsers": "node scripts/verify-parsers.cjs",
     "verify:ui": "node scripts/verify-ui.cjs"
   },
