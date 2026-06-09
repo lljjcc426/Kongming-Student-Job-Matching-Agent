@@ -1,7 +1,4 @@
-import http from "node:http";
-import { runArkCompletion } from "./arkCore.js";
-
-const PORT = Number(process.env.PORT || 9000);
+const { runArkCompletion } = require("./arkCore.js");
 
 const securityHeaders = {
   "Cache-Control": "no-store, private",
@@ -18,60 +15,39 @@ const corsHeaders = {
   "Vary": "Origin",
 };
 
-const readJsonBody = (request) =>
-  new Promise((resolve, reject) => {
-    const chunks = [];
-    request.on("data", (chunk) => chunks.push(chunk));
-    request.on("end", () => {
-      const text = Buffer.concat(chunks).toString("utf8").trim();
-      if (!text) {
-        resolve({});
-        return;
-      }
-      try {
-        resolve(JSON.parse(text));
-      } catch (error) {
-        reject(error);
-      }
-    });
-    request.on("error", reject);
-  });
-
-const sendJson = (response, status, payload) => {
-  response.writeHead(status, {
-    ...securityHeaders,
-    ...corsHeaders,
-  });
-  response.end(JSON.stringify(payload));
+const parseBody = (event) => {
+  if (!event?.body) return {};
+  if (typeof event.body === "object") return event.body;
+  const raw = event.isBase64Encoded ? Buffer.from(event.body, "base64").toString("utf8") : String(event.body);
+  return raw.trim() ? JSON.parse(raw) : {};
 };
 
-const server = http.createServer(async (request, response) => {
-  if (request.method === "OPTIONS") {
-    response.writeHead(204, {
-      ...securityHeaders,
-      ...corsHeaders,
-    });
-    response.end();
-    return;
-  }
+const jsonResponse = (statusCode, payload) => ({
+  statusCode,
+  headers: {
+    ...securityHeaders,
+    ...corsHeaders,
+  },
+  body: JSON.stringify(payload),
+});
 
-  if (request.method !== "POST") {
-    sendJson(response, 405, { ok: false, error: "只支持 POST 请求。" });
-    return;
-  }
-
+async function main(event = {}) {
+  const method = event.httpMethod || event.requestContext?.http?.method || event.requestContext?.httpMethod || "POST";
+  if (method === "OPTIONS") return jsonResponse(204, {});
+  if (method !== "POST") return jsonResponse(405, { ok: false, error: "只支持 POST 请求。" });
   try {
-    const body = await readJsonBody(request);
+    const body = parseBody(event);
     const result = await runArkCompletion(body);
-    sendJson(response, result.status, result.payload);
+    return jsonResponse(result.status, result.payload);
   } catch (error) {
-    sendJson(response, 500, {
+    console.error("ark cloud function failed", error);
+    return jsonResponse(500, {
       ok: false,
       error: "模型代理服务异常，请稍后重试。",
     });
   }
-});
+}
 
-server.listen(PORT, () => {
-  console.log(`CloudBase ark function listening on ${PORT}`);
-});
+module.exports = {
+  main,
+};

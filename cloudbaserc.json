@@ -19,6 +19,7 @@
       "name": "ark",
       "timeout": 60,
       "runtime": "Nodejs18.15",
+      "handler": "index.main",
       "memorySize": 512,
       "installDependency": true
     }
