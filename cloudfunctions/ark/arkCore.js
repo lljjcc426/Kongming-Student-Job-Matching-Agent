@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
+﻿const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 const DEFAULT_MODEL = "doubao-seed-2-0-lite-260215";
 const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "jd-analysis", "interview-feedback", "career-chat"]);
 const MAX_RESUME_CHARS = 12000;
@@ -404,7 +404,7 @@ const attachRecruitingLinks = async (content, task) => {
   return JSON.stringify(Array.isArray(parsed) ? jobs : jobs[0], null, 2);
 };
 
-export async function runArkCompletion(body) {
+async function runArkCompletion(body) {
   const validationError = validateRequest(body);
   if (validationError) {
     return {
@@ -478,3 +478,8 @@ export async function runArkCompletion(body) {
     },
   };
 }
+
+
+module.exports = {
+  runArkCompletion,
+};
