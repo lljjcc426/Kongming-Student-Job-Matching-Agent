@@ -34,9 +34,10 @@ export async function callArkAgent(payload: ArkRequest, options: { timeoutMs?: n
   const controller = new AbortController();
   const timeoutId = options.timeoutMs ? window.setTimeout(() => controller.abort(), options.timeoutMs) : 0;
   let response: Response;
+  const endpoint = import.meta.env.VITE_ARK_API_URL || "/api/ark";
 
   try {
-    response = await fetch("/api/ark", {
+    response = await fetch(endpoint, {
       method: "POST",
       signal: controller.signal,
       headers: {
