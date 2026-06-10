@@ -36,6 +36,7 @@ import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
 import AIAssistantPage from "./pages/AIAssistantPage";
 import HomePage from "./pages/HomePage";
+import InterviewPage from "./pages/InterviewPage";
 import LoadingScreen from "./LoadingScreen";
 import homeHeroVideo from "./assets/home-hero-video.mp4";
 
@@ -1251,46 +1252,7 @@ function App() {
       </section>
 
       {activePage === "interview" ? (
-        <section className="interview-panel">
-          <Panel eyebrow="Interview" title="模拟面试" icon={<Video size={18} />}>
-            <div className="interview-studio">
-              <div className={`video-preview ${videoMode}`}>
-                {videoMode === "preview" ? <video ref={videoRef} autoPlay muted playsInline aria-label="视频面试预览" /> : <Video size={22} />}
-                <span>{videoMode === "preview" ? "视频预览中" : "视频对话接口预留"}</span>
-              </div>
-              <div className="interview-main">
-                <p>{hasAnalysis ? "围绕当前岗位进行问答练习；现阶段支持文本与浏览器语音转写，后续可扩展为实时音视频对话。" : "完成简历解析和岗位推荐后，可围绕目标岗位进行文本、语音或视频面试练习。"}</p>
-                <textarea
-                  className="interview-textarea"
-                  value={interviewAnswer}
-                  onChange={(event) => setInterviewAnswer(event.target.value)}
-                  aria-label="模拟面试回答"
-                  placeholder="输入或语音转写你的回答，例如：请介绍一个与你目标岗位相关的项目经历。"
-                />
-                <div className="interview-actions">
-                  <button type="button" className="secondary-action compact-action" onClick={handleSpeechInput} disabled={interviewStatus === "listening" || interviewStatus === "loading"}>
-                    <Mic size={16} />
-                    {interviewStatus === "listening" ? "收听中" : "语音转写"}
-                  </button>
-                  <button type="button" className="secondary-action compact-action" onClick={() => void handleVideoPreview()}>
-                    <Video size={16} />
-                    视频预览
-                  </button>
-                  <button type="button" className="primary-action compact-action" onClick={() => void handleInterviewFeedback()} disabled={interviewStatus === "loading"}>
-                    <Sparkles size={16} />
-                    {interviewStatus === "loading" ? "评估中" : "生成反馈"}
-                  </button>
-                </div>
-                {(interviewMessage || interviewFeedback) && (
-                  <div className={`model-insight ${interviewStatus === "error" ? "error" : ""}`}>
-                    {interviewMessage ? <strong>{interviewMessage}</strong> : null}
-                    {interviewFeedback ? <p>{interviewFeedback}</p> : null}
-                  </div>
-                )}
-              </div>
-            </div>
-          </Panel>
-        </section>
+        <InterviewPage job={selectedJob} profile={activeProfile} resumeText={resumeText} hasAnalysis={hasAnalysis} />
       ) : null}
     </main>
   );

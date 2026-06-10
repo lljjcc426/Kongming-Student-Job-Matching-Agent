@@ -1,0 +1,11 @@
+{
+  "name": "Kongming AI Interviewer",
+  "mode": "static-fallback",
+  "description": "Default local interviewer avatar configuration. Replace avatar.vrm or avatar.glb here when a 3D model is available.",
+  "fallback": "/avatars/fallback/interviewer.svg",
+  "futureAssets": {
+    "vrm": "/avatars/interviewer/avatar.vrm",
+    "glb": "/avatars/interviewer/avatar.glb",
+    "preview": "/avatars/interviewer/preview.png"
+  }
+}
