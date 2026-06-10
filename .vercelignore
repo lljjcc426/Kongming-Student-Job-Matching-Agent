@@ -1,0 +1,9 @@
+node_modules
+dist
+output
+artifacts
+.git
+.vercel
+dev-server.log
+dev-server.err.log
+tsconfig.tsbuildinfo
