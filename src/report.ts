@@ -1,8 +1,16 @@
 import type { Job, StudentProfile } from "./data";
 import type { MatchResult } from "./matchEngine";
+import type { CareerOpsEvaluation } from "./careerOps";
 import type { OptimizedResumeDraft } from "./resumeOptimizer";
 
-export function buildMatchReport(profile: StudentProfile, job: Job, result: MatchResult, resumeText: string, optimizedDraft: OptimizedResumeDraft) {
+export function buildMatchReport(
+  profile: StudentProfile,
+  job: Job,
+  result: MatchResult,
+  resumeText: string,
+  optimizedDraft: OptimizedResumeDraft,
+  careerOpsEvaluation?: CareerOpsEvaluation,
+) {
   return `# 孔明职配分析报告
 
 ## 目标岗位
@@ -37,6 +45,18 @@ ${result.risks.map((item) => `- ${item}`).join("\n")}
 
 ${result.resumeActions.map((item) => `- ${item.title}：${item.detail}`).join("\n")}
 
+## 岗位深度评估
+
+${careerOpsEvaluation?.roleSummary ?? "暂无"}
+
+### 要求匹配表
+
+${careerOpsEvaluation?.requirementMatrix.map((item) => `- ${item.requirement}｜${item.status}：${item.evidence}`).join("\n") ?? "暂无"}
+
+### 定位策略
+
+${careerOpsEvaluation?.positioning ?? "暂无"}
+
 ## 优化后简历片段
 
 ### 个人总结
@@ -53,7 +73,11 @@ ${optimizedDraft.skillLine}
 
 ## 投递前清单
 
-${result.actionPlan.map((item, index) => `${index + 1}. ${item}`).join("\n")}
+${(careerOpsEvaluation?.applicationChecklist ?? result.actionPlan).map((item, index) => `${index + 1}. ${item}`).join("\n")}
+
+## 投递运营看板
+
+${careerOpsEvaluation?.pipeline.map((item) => `- ${item.stage}｜${item.status}：${item.action}`).join("\n") ?? "暂无"}
 
 ## 当前简历文本
 

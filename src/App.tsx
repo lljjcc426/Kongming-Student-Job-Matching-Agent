@@ -28,6 +28,7 @@ import { gsap } from "gsap";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Job } from "./data";
 import { callArkAgent } from "./arkClient";
+import { buildCareerOpsEvaluation } from "./careerOps";
 import { parseCustomJob } from "./jobParser";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { parseJdAnalysis, parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
@@ -318,6 +319,7 @@ function App() {
   const hasAnalysis = rankedJobs.length > 0;
   const result = useMemo(() => analyzeMatch(activeProfile, selectedJob, resumeText), [activeProfile, resumeText, selectedJob]);
   const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
+  const careerOpsEvaluation = useMemo(() => buildCareerOpsEvaluation(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
   const [copyStatus, setCopyStatus] = useState("复制优化稿");
 
   useEffect(() => {
@@ -490,7 +492,7 @@ function App() {
 
   const handleDownloadReport = () => {
     if (!hasResume) return;
-    const report = buildMatchReport(activeProfile, selectedJob, result, resumeText, optimizedDraft);
+    const report = buildMatchReport(activeProfile, selectedJob, result, resumeText, optimizedDraft, careerOpsEvaluation);
     downloadTextFile("kongming-match-report.md", report);
   };
 
@@ -986,6 +988,24 @@ function App() {
                       </InfoBlock>
                     </div>
                   ) : null}
+
+                  <div className="career-ops-panel">
+                    <InfoBlock title="岗位深度评估">
+                      <p>{careerOpsEvaluation.roleSummary}</p>
+                      <p>{careerOpsEvaluation.positioning}</p>
+                    </InfoBlock>
+                    <InfoBlock title="要求匹配表">
+                      <div className="requirement-matrix">
+                        {careerOpsEvaluation.requirementMatrix.map((item) => (
+                          <article key={item.requirement}>
+                            <span className={item.status === "强匹配" ? "strong" : item.status === "可补强" ? "medium" : "weak"}>{item.status}</span>
+                            <strong>{item.requirement}</strong>
+                            <p>{item.evidence}</p>
+                          </article>
+                        ))}
+                      </div>
+                    </InfoBlock>
+                  </div>
                 </div>
 
                 <div className="chart-card">
@@ -1102,8 +1122,20 @@ function App() {
 
                 <InfoBlock title="投递前清单">
                   <ol className="checklist">
-                    {result.actionPlan.map((item) => <li key={item}>{item}</li>)}
+                    {careerOpsEvaluation.applicationChecklist.map((item) => <li key={item}>{item}</li>)}
                   </ol>
+                </InfoBlock>
+
+                <InfoBlock title="投递运营看板">
+                  <div className="pipeline-board">
+                    {careerOpsEvaluation.pipeline.map((item) => (
+                      <article key={item.stage} className={item.status === "已完成" ? "done" : item.status === "进行中" ? "active" : ""}>
+                        <span>{item.status}</span>
+                        <strong>{item.stage}</strong>
+                        <p>{item.action}</p>
+                      </article>
+                    ))}
+                  </div>
                 </InfoBlock>
               </>
             ) : (

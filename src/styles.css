@@ -8417,6 +8417,89 @@ input {
   margin-top: 4px;
 }
 
+.career-ops-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 14px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(147, 197, 253, 0.72);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(239, 246, 255, 0.74)),
+    radial-gradient(circle at 12% 0%, rgba(125, 211, 252, 0.22), transparent 34%);
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.08);
+}
+
+.career-ops-panel .info-block {
+  margin-top: 0;
+}
+
+.requirement-matrix {
+  display: grid;
+  gap: 10px;
+}
+
+.requirement-matrix article,
+.pipeline-board article {
+  position: relative;
+  overflow: hidden;
+  padding: 12px;
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.requirement-matrix article::before,
+.pipeline-board article::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #38bdf8, #2563eb);
+}
+
+.requirement-matrix span,
+.pipeline-board span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.requirement-matrix span.medium,
+.pipeline-board article.active span {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.requirement-matrix span.weak {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.requirement-matrix strong,
+.pipeline-board strong {
+  display: block;
+  margin: 8px 0 5px;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.requirement-matrix p,
+.pipeline-board p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .bullet-list {
   display: grid;
   gap: 8px;
@@ -8593,6 +8676,16 @@ input {
   line-height: 1.6;
 }
 
+.pipeline-board {
+  display: grid;
+  gap: 10px;
+}
+
+.pipeline-board article.done span {
+  background: #dcfce7;
+  color: #15803d;
+}
+
 @media (max-width: 1380px) {
   .dashboard {
     grid-template-columns: 320px minmax(0, 1fr);
@@ -8600,6 +8693,10 @@ input {
 
   .dashboard-resume,
   .dashboard-jobs {
+    grid-template-columns: 1fr;
+  }
+
+  .career-ops-panel {
     grid-template-columns: 1fr;
   }
 
