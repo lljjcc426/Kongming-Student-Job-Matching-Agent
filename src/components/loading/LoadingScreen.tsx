@@ -125,7 +125,7 @@ export default function LoadingScreen({ onFinish }: LoadingScreenProps) {
       const playPromise = video.play();
       if (playPromise) {
         playPromise.catch(() => {
-          // If autoplay with sound is blocked, the start button still lets the user enter the product.
+          // The start button still lets the user enter the product if playback is blocked.
         });
       }
     }
@@ -158,6 +158,7 @@ export default function LoadingScreen({ onFinish }: LoadingScreenProps) {
           ref={videoRef}
           src={doubaoLoadingVideo}
           autoPlay
+          muted
           playsInline
           preload="auto"
           onPlay={handleVideoPlaying}
