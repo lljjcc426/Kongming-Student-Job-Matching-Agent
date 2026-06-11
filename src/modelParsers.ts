@@ -109,8 +109,106 @@ const extractJsonText = (content: string) => {
   return source.slice(start);
 };
 
+const normalizeJsonCandidate = (content: string) =>
+  extractJsonText(content)
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/,\s*([}\]])/g, "$1")
+    .trim();
+
+const parseJsonWithBasicRepair = <T,>(content: string): T => {
+  const source = normalizeJsonCandidate(content);
+  const candidates = [
+    source,
+    source.replace(/([{,]\s*)([A-Za-z_][\w]*)\s*:/g, '$1"$2":'),
+    source.replace(/([{,]\s*)([A-Za-z_][\w]*)\s+/g, '$1"$2": '),
+  ];
+
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate) as T;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("JSON parse failed");
+};
+
+const findKeyValueStart = (source: string, key: keyof StructuredResume) => {
+  const patterns = [
+    new RegExp(`"${key}"\\s*[:：]`),
+    new RegExp(`${key}\\s*[:：]`),
+    new RegExp(`"${key}"\\s+`),
+  ];
+  for (const pattern of patterns) {
+    const match = pattern.exec(source);
+    if (match) return match.index + match[0].length;
+  }
+  return -1;
+};
+
+const readLooseString = (source: string, key: keyof StructuredResume) => {
+  const start = findKeyValueStart(source, key);
+  if (start < 0) return "";
+  const rest = source.slice(start).trimStart();
+  const quoted = rest.match(/^["']([\s\S]*?)(?:["']\s*[,}]|\n\s*["']?\w+["']?\s*[:：]|$)/);
+  if (quoted?.[1]) return quoted[1].trim();
+  const plain = rest.match(/^([^,\n}]+)/);
+  return plain?.[1]?.replace(/^["']|["']$/g, "").trim() || "";
+};
+
+const readLooseArray = (source: string, key: keyof StructuredResume) => {
+  const start = findKeyValueStart(source, key);
+  if (start < 0) return [];
+  const rest = source.slice(start);
+  const bracketStart = rest.indexOf("[");
+  if (bracketStart < 0) {
+    const single = readLooseString(source, key);
+    return single ? [single] : [];
+  }
+
+  const afterBracket = rest.slice(bracketStart + 1);
+  const bracketEnd = afterBracket.indexOf("]");
+  const block = bracketEnd >= 0 ? afterBracket.slice(0, bracketEnd) : afterBracket;
+  const quotedItems = [...block.matchAll(/["']([^"']+)["']/g)].map((match) => match[1].trim()).filter(Boolean);
+  if (quotedItems.length) return quotedItems;
+
+  return block
+    .split(/[,，;；\n]/)
+    .map((item) => item.replace(/^["'\s]+|["'\s]+$/g, "").trim())
+    .filter(Boolean);
+};
+
+const parseLooseStructuredResume = (content: string): StructuredResume => {
+  const source = normalizeJsonCandidate(content);
+  const parsed = {
+    name: readLooseString(source, "name"),
+    education: readLooseArray(source, "education"),
+    internships: readLooseArray(source, "internships"),
+    projects: readLooseArray(source, "projects"),
+    campus: readLooseArray(source, "campus"),
+    honors: readLooseArray(source, "honors"),
+    skills: readLooseArray(source, "skills"),
+    targetRoles: readLooseArray(source, "targetRoles"),
+    summary: readLooseString(source, "summary"),
+  };
+
+  if (!parsed.summary && source.length > 20) {
+    parsed.summary = source.replace(/[{}\[\]"]/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+  }
+
+  return parsed;
+};
+
 export function parseStructuredResume(content: string): StructuredResume {
-  const data = JSON.parse(extractJsonText(content)) as Partial<StructuredResume>;
+  let data: Partial<StructuredResume>;
+  try {
+    data = parseJsonWithBasicRepair<Partial<StructuredResume>>(content);
+  } catch {
+    data = parseLooseStructuredResume(content);
+  }
   return {
     name: typeof data.name === "string" ? data.name.trim() : "",
     education: asStringArray(data.education),
@@ -125,7 +223,7 @@ export function parseStructuredResume(content: string): StructuredResume {
 }
 
 export function parseModelJobs(content: string): Job[] {
-  const data = JSON.parse(extractJsonText(content)) as Array<Partial<Job>>;
+  const data = parseJsonWithBasicRepair<Array<Partial<Job>>>(content);
   if (!Array.isArray(data)) return [];
   return data
     .map((item, index) => ({
@@ -147,7 +245,7 @@ export function parseModelJobs(content: string): Job[] {
 }
 
 export function parseJdAnalysis(content: string): JdAnalysis {
-  const data = JSON.parse(extractJsonText(content)) as Partial<JdAnalysis>;
+  const data = parseJsonWithBasicRepair<Partial<JdAnalysis>>(content);
   return {
     title: typeof data.title === "string" && data.title.trim() ? data.title.trim() : "意向岗位",
     priority: data.priority === "高" || data.priority === "中" || data.priority === "低" ? data.priority : "中",

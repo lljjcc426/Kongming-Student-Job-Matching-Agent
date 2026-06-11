@@ -64,6 +64,28 @@ const interviewRulesOf = (type: InterviewType) => {
   ].join("\n");
 };
 
+const fallbackQuestionOf = (type: InterviewType, round: number) => {
+  const questions = fallbackQuestionsByType[type];
+  return questions[Math.max(0, round - 1) % questions.length];
+};
+
+const normalizeInterviewReply = (content: string, input: InterviewModelInput) => {
+  const clean = content
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/^#+\s*/gm, "")
+    .trim();
+
+  if (!clean) return fallbackQuestionOf(input.interviewType, input.currentRound);
+
+  const looksLikeFeedback = /本次.*(面试)?(结束|完成)|总体评分|综合评分|评分[:：]|改进建议|面试反馈|总结如下|overallScore/i.test(clean);
+  if (looksLikeFeedback) {
+    return fallbackQuestionOf(input.interviewType, input.currentRound);
+  }
+
+  const firstLine = clean.split(/\n+/).map((line) => line.trim()).find(Boolean) || clean;
+  return firstLine.length > 180 ? `${firstLine.slice(0, 180)}？` : firstLine;
+};
+
 const extractJson = (content: string) => {
   const trimmed = content.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -108,7 +130,7 @@ export class DoubaoInterviewProvider implements InterviewModelProvider {
   async generateInterviewReply(input: InterviewModelInput) {
     const latestStudent = [...input.messages].reverse().find((message) => message.role === "student")?.content;
     if (!latestStudent && input.currentRound <= 1) {
-      return fallbackQuestionsByType[input.interviewType][0];
+      return fallbackQuestionOf(input.interviewType, input.currentRound);
     }
 
     const response = await callArkAgent(
@@ -137,10 +159,9 @@ export class DoubaoInterviewProvider implements InterviewModelProvider {
     );
 
     if (!response.ok || !response.content) {
-      const fallbacks = fallbackQuestionsByType[input.interviewType];
-      return fallbacks[Math.min(input.currentRound - 1, fallbacks.length - 1)];
+      return fallbackQuestionOf(input.interviewType, input.currentRound);
     }
-    return response.content.trim();
+    return normalizeInterviewReply(response.content, input);
   }
 
   async generateFeedback(input: InterviewModelInput) {
