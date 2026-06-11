@@ -8047,8 +8047,8 @@ textarea {
   min-height: 0;
   height: 100%;
   background:
-    linear-gradient(180deg, rgba(232, 244, 255, 0.28), rgba(6, 34, 73, 0.1)),
-    url("/avatars/interviewer/interview-room.svg") center / cover no-repeat;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(219, 234, 254, 0.08)),
+    url("/avatars/interviewer/interview-room.png") center / cover no-repeat;
 }
 
 .avatar-panel::before {
@@ -8056,10 +8056,10 @@ textarea {
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(circle at 50% 42%, rgba(37, 99, 235, 0.14), transparent 34%),
-    linear-gradient(120deg, transparent 0 45%, rgba(125, 211, 252, 0.16) 46%, transparent 54% 100%);
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.1), transparent 34%),
+    linear-gradient(120deg, transparent 0 45%, rgba(255, 255, 255, 0.1) 46%, transparent 54% 100%);
   background-size: 100% 100%;
-  opacity: 0.8;
+  opacity: 0.45;
   pointer-events: none;
 }
 
@@ -8938,6 +8938,90 @@ input {
   color: #334155;
   font-size: 13px;
   line-height: 1.7;
+}
+
+.model-insight-markdown {
+  display: grid;
+  gap: 10px;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.72;
+}
+
+.model-insight-markdown :is(p, h1, h2, h3, h4, ul, ol, li, blockquote, table, pre) {
+  margin: 0;
+}
+
+.model-insight-markdown :is(h1, h2, h3, h4) {
+  color: #0f3f9e;
+  font-weight: 950;
+  line-height: 1.35;
+}
+
+.model-insight-markdown h1 {
+  font-size: 16px;
+}
+
+.model-insight-markdown h2 {
+  font-size: 15px;
+}
+
+.model-insight-markdown h3,
+.model-insight-markdown h4 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  border: 1px solid rgba(147, 197, 253, 0.72);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(255, 255, 255, 0.76));
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.08);
+  font-size: 13px;
+}
+
+.model-insight-markdown h3::before,
+.model-insight-markdown h4::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.78);
+}
+
+.model-insight-markdown ol,
+.model-insight-markdown ul {
+  display: grid;
+  gap: 8px;
+  padding-left: 20px;
+}
+
+.model-insight-markdown li {
+  padding-left: 2px;
+}
+
+.model-insight-markdown p {
+  white-space: normal;
+}
+
+.model-insight-markdown li::marker {
+  color: #2563eb;
+  font-weight: 900;
+}
+
+.model-insight-markdown strong {
+  color: #1d4ed8;
+  font-size: inherit;
+}
+
+.model-insight-markdown code {
+  border-radius: 6px;
+  padding: 1px 5px;
+  background: #e0f2fe;
+  color: #075985;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
 }
 
 .model-insight.error {

@@ -26,6 +26,8 @@ import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { animate, stagger } from "animejs";
 import { gsap } from "gsap";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Job } from "./data";
 import { callArkAgent } from "./arkClient";
 import { buildCareerOpsEvaluation } from "./careerOps";
@@ -61,6 +63,14 @@ function FontAwesomeShapeIcon({ icon, size = 16 }: { icon: IconDefinition; size?
         <path key={`${icon.iconName}-${index}`} d={path} />
       ))}
     </svg>
+  );
+}
+
+function ModelInsightMarkdown({ content }: { content: string }) {
+  return (
+    <div className="model-insight-markdown">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    </div>
   );
 }
 
@@ -1061,7 +1071,7 @@ function App() {
                   <InfoBlock title="模型增强结果">
                     <div className={`model-insight ${modelStatus}`}>
                       {modelMessage ? <strong>{modelMessage}</strong> : null}
-                      {modelInsight ? <p>{modelInsight}</p> : null}
+                      {modelInsight ? <ModelInsightMarkdown content={modelInsight} /> : null}
                     </div>
                   </InfoBlock>
                 )}
