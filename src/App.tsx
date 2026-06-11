@@ -90,13 +90,17 @@ type SpeechRecognitionResultLike = {
 type SpeechRecognitionEventLike = {
   results: ArrayLike<SpeechRecognitionResultLike>;
 };
+type SpeechRecognitionErrorEventLike = {
+  error?: string;
+};
 type BrowserSpeechRecognition = {
   lang: string;
   interimResults: boolean;
+  continuous: boolean;
   maxAlternatives: number;
   onstart: (() => void) | null;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
   start: () => void;
 };
@@ -693,30 +697,37 @@ function App() {
     }
 
     const recognition = new Recognition();
+    let transcript = "";
+    let committed = false;
     recognition.lang = "zh-CN";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
+    recognition.continuous = true;
     recognition.maxAlternatives = 1;
     recognition.onstart = () => {
       setInterviewStatus("listening");
       setInterviewMessage("正在收听回答，结束后会自动写入文本框。");
     };
     recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
+      transcript = Array.from(event.results)
         .map((result) => result[0]?.transcript ?? "")
         .join("")
         .trim();
-      if (transcript) {
-        setInterviewAnswer((current) => [current, transcript].filter(Boolean).join("\n"));
-      }
-      setInterviewStatus("idle");
-      setInterviewMessage(transcript ? "已完成语音转写，可继续补充后提交反馈。" : "未识别到有效语音，请重试或直接输入文本。");
+      if (transcript) setInterviewMessage("已识别到语音，结束后会写入文本框。");
     };
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
+      if (transcript || event.error === "no-speech" || event.error === "aborted") return;
       setInterviewStatus("error");
       setInterviewMessage("语音转写未完成，请检查浏览器麦克风权限。");
     };
     recognition.onend = () => {
       setInterviewStatus((current) => (current === "listening" ? "idle" : current));
+      if (transcript && !committed) {
+        committed = true;
+        setInterviewAnswer((current) => [current, transcript].filter(Boolean).join("\n"));
+        setInterviewMessage("已完成语音转写，可继续补充后提交反馈。");
+      } else if (!transcript) {
+        setInterviewMessage("未识别到有效语音，请重试或直接输入文本。");
+      }
     };
     recognition.start();
   };
@@ -786,30 +797,37 @@ function App() {
     }
 
     const recognition = new Recognition();
+    let transcript = "";
+    let committed = false;
     recognition.lang = "zh-CN";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
+    recognition.continuous = true;
     recognition.maxAlternatives = 1;
     recognition.onstart = () => {
       setChatStatus("listening");
       setChatMessage("正在收听，结束后会写入输入框。");
     };
     recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
+      transcript = Array.from(event.results)
         .map((item) => item[0]?.transcript ?? "")
         .join("")
         .trim();
-      if (transcript) {
-        setChatInput((current) => [current, transcript].filter(Boolean).join(current.trim() ? "\n" : ""));
-      }
-      setChatStatus("idle");
-      setChatMessage(transcript ? "已完成语音转写，可以继续编辑或发送。" : "未识别到有效语音，请重试或直接输入文字。");
+      if (transcript) setChatMessage("已识别到语音，结束后会写入输入框。");
     };
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
+      if (transcript || event.error === "no-speech" || event.error === "aborted") return;
       setChatStatus("error");
       setChatMessage("语音转写未完成，请检查浏览器麦克风权限。");
     };
     recognition.onend = () => {
       setChatStatus((current) => (current === "listening" ? "idle" : current));
+      if (transcript && !committed) {
+        committed = true;
+        setChatInput((current) => [current, transcript].filter(Boolean).join(current.trim() ? "\n" : ""));
+        setChatMessage("已完成语音转写，可以继续编辑或发送。");
+      } else if (!transcript) {
+        setChatMessage("未识别到有效语音，请重试或直接输入文字。");
+      }
     };
     recognition.start();
   };

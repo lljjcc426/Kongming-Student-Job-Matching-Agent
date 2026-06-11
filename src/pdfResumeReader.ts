@@ -18,7 +18,47 @@ const MIN_TEXT_LENGTH = 70;
 const MIN_PAGE_TEXT_CHARS = 12;
 const MIN_TEXT_QUALITY = 0.56;
 const MIN_TEXT_COVERAGE = 0.35;
-const MAX_PAGE_IMAGE_CHARS = 760_000;
+const MAX_PAGE_IMAGE_CHARS = 950_000;
+const PDF_CMAP_URL = "/vendor/pdfjs/cmaps/";
+
+const RESUME_SIGNAL_TERMS = [
+  "姓名",
+  "教育",
+  "学历",
+  "本科",
+  "硕士",
+  "博士",
+  "学校",
+  "学院",
+  "专业",
+  "绩点",
+  "排名",
+  "实习",
+  "项目",
+  "经历",
+  "校园",
+  "社团",
+  "学生会",
+  "竞赛",
+  "荣誉",
+  "证书",
+  "技能",
+  "求职",
+  "意向",
+  "邮箱",
+  "电话",
+  "GPA",
+  "Education",
+  "Experience",
+  "Internship",
+  "Project",
+  "Skills",
+  "Awards",
+  "Certificate",
+  "Email",
+  "Phone",
+  "GitHub",
+];
 
 const normalizeText = (text: string) =>
   text
@@ -45,6 +85,33 @@ const getTextQuality = (text: string) => {
   return Math.max(0, Math.min(1, base - penalty));
 };
 
+const getResumeSignalScore = (text: string) => {
+  const compact = text.replace(/\s/g, "");
+  const cjkCount = (compact.match(/[\u3400-\u9fff]/g) ?? []).length;
+  const signalCount = RESUME_SIGNAL_TERMS.reduce((count, term) => {
+    const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), /[A-Za-z]/.test(term) ? "i" : "");
+    return count + (pattern.test(text) ? 1 : 0);
+  }, 0);
+  const meaningfulLines = text.split(/\n+/).filter((line) => line.replace(/\s/g, "").length >= 8).length;
+  const contactSignals = Number(/1[3-9]\d{9}/.test(text)) + Number(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(text));
+
+  return {
+    cjkCount,
+    signalCount,
+    meaningfulLines,
+    contactSignals,
+  };
+};
+
+const isTextLayerCompleteEnough = (text: string, quality: number, coverage: number) => {
+  if (text.length < MIN_TEXT_LENGTH || quality < MIN_TEXT_QUALITY || coverage < MIN_TEXT_COVERAGE) return false;
+  const signal = getResumeSignalScore(text);
+  if (signal.signalCount >= 4 && signal.meaningfulLines >= 6) return true;
+  if (signal.cjkCount >= 80 && signal.signalCount >= 2) return true;
+  if (signal.signalCount >= 3 && signal.contactSignals >= 1 && signal.meaningfulLines >= 8) return true;
+  return false;
+};
+
 const compressCanvas = (canvas: HTMLCanvasElement) => {
   const attempts = [
     { type: "image/jpeg", quality: 0.72 },
@@ -63,8 +130,8 @@ const compressCanvas = (canvas: HTMLCanvasElement) => {
 
 const renderPageToImage = async (page: PDFPageProxy) => {
   const baseViewport = page.getViewport({ scale: 1 });
-  const maxSide = 1280;
-  const scale = Math.min(1.25, maxSide / Math.max(baseViewport.width, baseViewport.height));
+  const maxSide = 1600;
+  const scale = Math.min(1.5, maxSide / Math.max(baseViewport.width, baseViewport.height));
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
@@ -99,7 +166,7 @@ const extractPageText = async (page: PDFPageProxy) => {
 
 export async function readPdfResume(file: File): Promise<PdfReadResult> {
   const data = await file.arrayBuffer();
-  const pdf = await getDocument({ data }).promise;
+  const pdf = await getDocument({ data, cMapUrl: PDF_CMAP_URL, cMapPacked: true }).promise;
   const pageTexts: string[] = [];
   const imageDataUrls: string[] = [];
 
@@ -113,7 +180,7 @@ export async function readPdfResume(file: File): Promise<PdfReadResult> {
   const readablePageCount = pageTexts.filter((text) => text.replace(/\s/g, "").length >= MIN_PAGE_TEXT_CHARS && getTextQuality(text) >= MIN_TEXT_QUALITY).length;
   const coverage = pdf.numPages > 0 ? readablePageCount / pdf.numPages : 0;
 
-  if (normalized.length >= MIN_TEXT_LENGTH && quality >= MIN_TEXT_QUALITY && coverage >= MIN_TEXT_COVERAGE) {
+  if (isTextLayerCompleteEnough(normalized, quality, coverage)) {
     return {
       text: normalized,
       method: "text-layer",
