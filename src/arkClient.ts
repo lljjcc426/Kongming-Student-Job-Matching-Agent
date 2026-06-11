@@ -30,9 +30,11 @@ export type ArkResponse = {
   error?: string;
 };
 
+const DEFAULT_TIMEOUT_MS = 75_000;
+
 export async function callArkAgent(payload: ArkRequest, options: { timeoutMs?: number } = {}): Promise<ArkResponse> {
   const controller = new AbortController();
-  const timeoutId = options.timeoutMs ? window.setTimeout(() => controller.abort(), options.timeoutMs) : 0;
+  const timeoutId = window.setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   let response: Response;
   const endpoint = import.meta.env.VITE_ARK_API_URL || "/api/ark";
 

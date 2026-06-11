@@ -42,7 +42,7 @@ import InterviewPage from "./pages/InterviewPage";
 import LoadingScreen from "./LoadingScreen";
 import homeHeroVideo from "./assets/home-hero-video.mp4";
 
-const MAX_UPLOAD_BYTES = 4_000_000;
+const MAX_UPLOAD_BYTES = 8_000_000;
 const INTRO_CELLS = Array.from({ length: 112 }, (_, index) => index);
 const INTRO_PARTICLES = Array.from({ length: 228 }, (_, index) => index);
 const INTRO_RESUME_LINES = Array.from({ length: 16 }, (_, index) => index);
@@ -206,7 +206,7 @@ const readImageAsCompressedDataUrl = (file: File) =>
     const objectUrl = URL.createObjectURL(file);
     const image = new Image();
     image.onload = () => {
-      const maxSide = 1600;
+      const maxSide = 1280;
       const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
@@ -219,7 +219,7 @@ const readImageAsCompressedDataUrl = (file: File) =>
       canvas.height = Math.max(1, Math.round(image.height * scale));
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(objectUrl);
-      resolve(canvas.toDataURL("image/jpeg", 0.78));
+      resolve(canvas.toDataURL("image/jpeg", 0.7));
     };
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl);
@@ -227,6 +227,11 @@ const readImageAsCompressedDataUrl = (file: File) =>
     };
     image.src = objectUrl;
   });
+
+const RESUME_VISION_TIMEOUT_MS = 72_000;
+const RESUME_VISION_PARALLEL_LIMIT = 2;
+
+const isUsableResumeText = (text: string) => text.replace(/\s/g, "").length >= 30;
 
 const buildJobDiscoveryAgents = (resume: StructuredResume) => {
   const targets = resume.targetRoles.slice(0, 3).join("、") || "学生简历中最匹配的岗位";
@@ -513,12 +518,50 @@ function App() {
     window.setTimeout(() => setCopyStatus("复制优化稿"), 1600);
   };
 
+  const recognizeResumeVisionPages = async (imageDataUrls: string[], extractedText = "") => {
+    const pages = imageDataUrls.map((imageDataUrl, index) => ({ imageDataUrl, index }));
+    const pageResults: string[] = [];
+    const errors: string[] = [];
+
+    for (let start = 0; start < pages.length; start += RESUME_VISION_PARALLEL_LIMIT) {
+      const batch = pages.slice(start, start + RESUME_VISION_PARALLEL_LIMIT);
+      setModelMessage(`正在识别简历图片第 ${batch[0].index + 1}-${batch[batch.length - 1].index + 1} 页`);
+      const responses = await Promise.allSettled(
+        batch.map((page) =>
+          callArkAgent(
+            {
+              task: "resume-vision",
+              imageDataUrls: [page.imageDataUrl],
+              resumeText: extractedText,
+            },
+            { timeoutMs: RESUME_VISION_TIMEOUT_MS },
+          ),
+        ),
+      );
+
+      responses.forEach((response, offset) => {
+        const pageNumber = batch[offset].index + 1;
+        if (response.status === "fulfilled" && response.value.ok && response.value.content?.trim()) {
+          pageResults.push(`【视觉识别第 ${pageNumber} 页】\n${response.value.content.trim()}`);
+        } else {
+          errors.push(response.status === "fulfilled" ? response.value.error || `第 ${pageNumber} 页识别失败` : `第 ${pageNumber} 页识别失败`);
+        }
+      });
+    }
+
+    return {
+      ok: pageResults.length > 0,
+      content: pageResults.join("\n\n"),
+      error: errors[0],
+    };
+  };
+
   const handleResumeUpload = async (file?: File) => {
     if (!file) return;
     if (file.size > MAX_UPLOAD_BYTES) {
       setModelStatus("error");
       setPipelineStep("error");
-      setModelMessage("文件超过 4MB，请压缩或精简后再上传。");
+      setModelMessage("文件超过 8MB，请压缩或精简后再上传。");
       return;
     }
     if (file.type.startsWith("image/")) {
@@ -526,7 +569,7 @@ function App() {
       setPipelineStep("intake");
       setModelMessage("正在识别图片简历");
       const imageDataUrl = await readImageAsCompressedDataUrl(file);
-      const response = await callArkAgent({ task: "resume-vision", imageDataUrl });
+      const response = await callArkAgent({ task: "resume-vision", imageDataUrl }, { timeoutMs: RESUME_VISION_TIMEOUT_MS });
       if (response.ok && response.content) {
         setResumeText(response.content);
         setModelInsight(response.content);
@@ -559,15 +602,25 @@ function App() {
       }
 
       if (pdfResult.imageDataUrls.length > 0) {
-        const response = await callArkAgent({ task: "resume-vision", imageDataUrls: pdfResult.imageDataUrls, resumeText: pdfResult.text });
+        const response = await recognizeResumeVisionPages(pdfResult.imageDataUrls, pdfResult.text);
         if (response.ok && response.content) {
-          setResumeText(response.content);
+          const combinedText = [isUsableResumeText(pdfResult.text) ? pdfResult.text : "", response.content].filter(Boolean).join("\n\n");
+          setResumeText(combinedText);
           setModelInsight(response.content);
           setModelStatus("ready");
           setModelMessage("PDF 文本层质量较低，已完成视觉识别");
           setUploadMessage(`已识别 ${file.name}，画像、岗位排序和匹配结果已更新。`);
           setResumeSource(`PDF 视觉识别，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
-          await runModelPipeline(response.content);
+          await runModelPipeline(combinedText);
+          return;
+        }
+        if (isUsableResumeText(pdfResult.text)) {
+          setResumeText(pdfResult.text);
+          setModelStatus("ready");
+          setModelMessage("PDF 视觉识别未完成，已使用可读取文本层继续分析");
+          setUploadMessage(`已读取 ${file.name} 的 PDF 文本层，视觉识别不稳定，已继续生成岗位和建议。`);
+          setResumeSource(`PDF 文本层兜底，质量 ${Math.round(pdfResult.quality * 100)}%`);
+          await runModelPipeline(pdfResult.text);
           return;
         }
         setModelStatus("error");
@@ -575,6 +628,16 @@ function App() {
         setModelMessage(response.error || "PDF 文本层质量较低，视觉识别未完成。");
         setUploadMessage(`未能稳定识别 ${file.name}，请尝试上传清晰图片或可复制文字的 PDF。`);
         setResumeSource(`PDF 识别失败，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
+        return;
+      }
+
+      if (isUsableResumeText(pdfResult.text)) {
+        setResumeText(pdfResult.text);
+        setModelStatus("ready");
+        setModelMessage("PDF 页面渲染失败，已使用可读取文本层继续分析");
+        setUploadMessage(`已读取 ${file.name} 的 PDF 文本层，页面渲染不稳定，已继续生成岗位和建议。`);
+        setResumeSource(`PDF 文本层兜底，质量 ${Math.round(pdfResult.quality * 100)}%`);
+        await runModelPipeline(pdfResult.text);
         return;
       }
 

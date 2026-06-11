@@ -3,7 +3,7 @@ import { runArkCompletion } from "../server/arkCore.js";
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "8mb",
+      sizeLimit: "10mb",
     },
   },
 };
