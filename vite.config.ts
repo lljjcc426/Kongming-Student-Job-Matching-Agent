@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { runArkCompletion } from "./api/arkCore.js";
+import { runArkCompletion } from "./server/arkCore.js";
 
 const MAX_DEV_BODY_BYTES = 8_000_000;
 
