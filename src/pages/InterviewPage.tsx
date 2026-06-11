@@ -70,7 +70,6 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
   const [messages, setMessages] = useState<InterviewMessage[]>([]);
   const [turns, setTurns] = useState<InterviewTurn[]>([]);
   const [answer, setAnswer] = useState("");
-  const [subtitle, setSubtitle] = useState("选择面试类型并开始后，AI 面试官会围绕当前岗位进行提问。");
   const [currentQuestion, setCurrentQuestion] = useState("等待开始面试");
   const [speechStatus, setSpeechStatus] = useState<"idle" | "recording" | "recognizing" | "unsupported" | "error">("idle");
   const [feedback, setFeedback] = useState<InterviewFeedbackReport | null>(null);
@@ -99,7 +98,6 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
   }, []);
 
   const speakAsAvatar = useCallback(async (text: string, nextStatus: InterviewStatus = "listening") => {
-    setSubtitle(text);
     setStatus(nextStatus === "listening" ? "asking" : nextStatus);
     await ttsRef.current.speak(text);
     setStatus(nextStatus);
@@ -248,10 +246,6 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
           </div>
           <InterviewerAvatar state={avatarState} />
           <StudentCameraPreview status={camera.status} videoRef={camera.videoRef} onStart={() => void camera.startCamera()} onStop={camera.stopCamera} />
-          <div className="avatar-subtitle">
-            <span>面试官字幕</span>
-            <p>{subtitle}</p>
-          </div>
           {adapterNotice ? <div className="avatar-adapter-notice">{adapterNotice}</div> : null}
         </section>
 
