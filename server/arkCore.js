@@ -4,9 +4,9 @@ const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-struct
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_CHAT_CHARS = 6000;
-const MAX_IMAGE_DATA_URL_CHARS = 8_000_000;
+const MAX_IMAGE_DATA_URL_CHARS = 10_000_000;
 const MAX_IMAGE_COUNT = 4;
-const REQUEST_TIMEOUT_MS = 60000;
+const REQUEST_TIMEOUT_MS = Number(process.env.ARK_REQUEST_TIMEOUT_MS || 65000);
 const SEARCH_TIMEOUT_MS = 5000;
 const SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; StudentJobMatcher/0.1)";
 
@@ -19,6 +19,11 @@ const asCount = (value, fallback = 6) => {
   const count = Number(value);
   if (!Number.isFinite(count)) return fallback;
   return Math.max(1, Math.min(6, Math.round(count)));
+};
+
+const imageCountOf = (body) => {
+  if (Array.isArray(body.imageDataUrls)) return body.imageDataUrls.length;
+  return body.imageDataUrl ? 1 : 0;
 };
 
 const validateRequest = (body) => {
@@ -460,7 +465,7 @@ export async function runArkCompletion(body) {
         thinking: {
           type: "disabled",
         },
-        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? 2200 : 1200,
+        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? (imageCountOf(body) > 1 ? 2200 : 1500) : 1200,
       }),
     });
   } catch (error) {

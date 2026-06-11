@@ -10,21 +10,22 @@ export type PdfReadResult = {
   quality: number;
   coverage: number;
   imageDataUrls: string[];
+  pageTexts: string[];
 };
 
 const MAX_VISION_PAGES = 4;
-const MIN_TEXT_LENGTH = 120;
-const MIN_PAGE_TEXT_CHARS = 24;
-const MIN_TEXT_QUALITY = 0.76;
-const MIN_TEXT_COVERAGE = 0.72;
-const MAX_PAGE_IMAGE_CHARS = 1_050_000;
+const MIN_TEXT_LENGTH = 70;
+const MIN_PAGE_TEXT_CHARS = 12;
+const MIN_TEXT_QUALITY = 0.56;
+const MIN_TEXT_COVERAGE = 0.35;
+const MAX_PAGE_IMAGE_CHARS = 760_000;
 
 const normalizeText = (text: string) =>
   text
     .replace(/\r/g, "\n")
     .replace(/[ \t\f\v]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
-    .replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, "$1$2")
+    .replace(/([\u4e00-\u9fff])\s+([\u4e00-\u9fff])/g, "$1$2")
     .trim();
 
 const normalizePageText = (text: string) =>
@@ -36,19 +37,20 @@ const getTextQuality = (text: string) => {
   const compact = text.replace(/\s/g, "");
   if (!compact) return 0;
 
-  const readableChars = (compact.match(/[\u4e00-\u9fa5A-Za-z0-9，。；：、？！《》（）【】{}[\].,:;!?%/+\-#@_&()]/g) ?? []).length;
-  const replacementChars = (compact.match(/[�□■◆◇●○▲△▼▽]/g) ?? []).length;
-  const weirdChars = (compact.match(/[^\u4e00-\u9fa5A-Za-z0-9，。；：、？！《》（）【】{}[\].,:;!?%/+\-#@_&()]/g) ?? []).length;
+  const readableChars = (compact.match(/[\u3400-\u9fffA-Za-z0-9，。；：、？！《》（）【】「」"'“”‘’·•\[\].,:;!?%/+\-#@_&()]/g) ?? []).length;
+  const replacementChars = (compact.match(/[�锟]/g) ?? []).length;
+  const weirdChars = (compact.match(/[^\u3400-\u9fffA-Za-z0-9，。；：、？！《》（）【】「」"'“”‘’·•\[\].,:;!?%/+\-#@_&()]/g) ?? []).length;
   const base = readableChars / compact.length;
-  const penalty = Math.min(0.62, (replacementChars * 2 + weirdChars * 0.6) / compact.length);
+  const penalty = Math.min(0.58, (replacementChars * 2.2 + weirdChars * 0.35) / compact.length);
   return Math.max(0, Math.min(1, base - penalty));
 };
 
 const compressCanvas = (canvas: HTMLCanvasElement) => {
   const attempts = [
-    { type: "image/jpeg", quality: 0.78 },
-    { type: "image/jpeg", quality: 0.66 },
-    { type: "image/jpeg", quality: 0.54 },
+    { type: "image/jpeg", quality: 0.72 },
+    { type: "image/jpeg", quality: 0.6 },
+    { type: "image/jpeg", quality: 0.5 },
+    { type: "image/jpeg", quality: 0.42 },
   ];
 
   for (const attempt of attempts) {
@@ -56,13 +58,13 @@ const compressCanvas = (canvas: HTMLCanvasElement) => {
     if (dataUrl.length <= MAX_PAGE_IMAGE_CHARS) return dataUrl;
   }
 
-  return canvas.toDataURL("image/jpeg", 0.46);
+  return canvas.toDataURL("image/jpeg", 0.36);
 };
 
 const renderPageToImage = async (page: PDFPageProxy) => {
   const baseViewport = page.getViewport({ scale: 1 });
-  const maxSide = 1600;
-  const scale = Math.min(1.45, maxSide / Math.max(baseViewport.width, baseViewport.height));
+  const maxSide = 1280;
+  const scale = Math.min(1.25, maxSide / Math.max(baseViewport.width, baseViewport.height));
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
@@ -76,6 +78,25 @@ const renderPageToImage = async (page: PDFPageProxy) => {
   return compressCanvas(canvas);
 };
 
+const extractPageText = async (page: PDFPageProxy) => {
+  const textContent = await page.getTextContent();
+  const lines: string[] = [];
+  let currentLine = "";
+
+  textContent.items.forEach((item) => {
+    const value = "str" in item ? item.str : "";
+    if (!value) return;
+    currentLine = currentLine ? `${currentLine} ${value}` : value;
+    if ("hasEOL" in item && item.hasEOL) {
+      lines.push(currentLine);
+      currentLine = "";
+    }
+  });
+
+  if (currentLine) lines.push(currentLine);
+  return normalizePageText(lines.join("\n"));
+};
+
 export async function readPdfResume(file: File): Promise<PdfReadResult> {
   const data = await file.arrayBuffer();
   const pdf = await getDocument({ data }).promise;
@@ -84,11 +105,7 @@ export async function readPdfResume(file: File): Promise<PdfReadResult> {
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
-    const textContent = await page.getTextContent();
-    const text = textContent.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ");
-    pageTexts.push(normalizePageText(text));
+    pageTexts.push(await extractPageText(page));
   }
 
   const normalized = normalizeText(pageTexts.map((text, index) => `【第 ${index + 1} 页】\n${text}`).join("\n\n"));
@@ -104,6 +121,7 @@ export async function readPdfResume(file: File): Promise<PdfReadResult> {
       quality,
       coverage,
       imageDataUrls,
+      pageTexts,
     };
   }
 
@@ -120,5 +138,6 @@ export async function readPdfResume(file: File): Promise<PdfReadResult> {
     quality,
     coverage,
     imageDataUrls,
+    pageTexts,
   };
 }
