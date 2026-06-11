@@ -8291,7 +8291,7 @@ textarea {
   position: absolute;
   z-index: 5;
   left: 18px;
-  bottom: 96px;
+  bottom: 18px;
   width: min(210px, 46%);
   border: 1px solid rgba(191, 219, 254, 0.72);
   border-radius: 14px;
@@ -8360,21 +8360,6 @@ textarea {
   cursor: pointer;
 }
 
-.avatar-subtitle {
-  position: absolute;
-  z-index: 4;
-  left: 18px;
-  right: 18px;
-  bottom: 18px;
-  padding: 14px 16px;
-  border: 1px solid rgba(191, 219, 254, 0.5);
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.46);
-  color: #eff6ff;
-  backdrop-filter: blur(14px);
-}
-
-.avatar-subtitle span,
 .interview-console-head span {
   display: block;
   margin-bottom: 6px;
@@ -8382,12 +8367,6 @@ textarea {
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.08em;
-}
-
-.avatar-subtitle p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.65;
 }
 
 .avatar-adapter-notice {
