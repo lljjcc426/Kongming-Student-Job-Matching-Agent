@@ -65,7 +65,7 @@ export class BrowserSpeechRecognitionAdapter implements SpeechToTextAdapter {
     this.recognition = new Constructor();
     this.recognition.lang = "zh-CN";
     this.recognition.interimResults = true;
-    this.recognition.continuous = false;
+    this.recognition.continuous = true;
     this.recognition.maxAlternatives = 1;
     this.recognition.onresult = (event) => {
       const text = Array.from(event.results)
