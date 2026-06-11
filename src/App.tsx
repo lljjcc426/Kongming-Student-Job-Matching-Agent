@@ -559,7 +559,7 @@ function App() {
       }
 
       if (pdfResult.imageDataUrls.length > 0) {
-        const response = await callArkAgent({ task: "resume-vision", imageDataUrls: pdfResult.imageDataUrls });
+        const response = await callArkAgent({ task: "resume-vision", imageDataUrls: pdfResult.imageDataUrls, resumeText: pdfResult.text });
         if (response.ok && response.content) {
           setResumeText(response.content);
           setModelInsight(response.content);

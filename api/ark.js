@@ -1,5 +1,13 @@
 import { runArkCompletion } from "./arkCore.js";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "8mb",
+    },
+  },
+};
+
 const setSecurityHeaders = (response) => {
   response.setHeader("Cache-Control", "no-store, private");
   response.setHeader("X-Content-Type-Options", "nosniff");
@@ -18,7 +26,7 @@ export default async function handler(request, response) {
   try {
     const result = await runArkCompletion(request.body || {});
     response.status(result.status).json(result.payload);
-  } catch (error) {
+  } catch {
     response.status(500).json({
       ok: false,
       error: "模型代理服务异常，请稍后重试。",
