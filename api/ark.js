@@ -1,4 +1,4 @@
-import { runArkCompletion } from "./arkCore.js";
+import { runArkCompletion } from "../server/arkCore.js";
 
 export const config = {
   api: {
