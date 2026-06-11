@@ -97,10 +97,13 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
     });
   }, []);
 
-  const speakAsAvatar = useCallback(async (text: string, nextStatus: InterviewStatus = "listening") => {
-    setStatus(nextStatus === "listening" ? "asking" : nextStatus);
-    await ttsRef.current.speak(text);
-    setStatus(nextStatus);
+  const speakAsAvatar = useCallback(async (text: string, nextStatus: InterviewStatus = "listening", speakingStatus: InterviewStatus = "asking") => {
+    setStatus(speakingStatus);
+    try {
+      await ttsRef.current.speak(text);
+    } finally {
+      setStatus(nextStatus);
+    }
   }, []);
 
   useEffect(() => {
@@ -150,7 +153,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
     const openingMessage = createMessage("interviewer", opening);
     setMessages([openingMessage]);
     setCurrentQuestion("开场介绍");
-    await speakAsAvatar(opening, "thinking");
+    await speakAsAvatar(opening, "thinking", "opening");
     await askQuestion([openingMessage], []);
   };
 
@@ -207,10 +210,15 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
     }
     sttRef.current = adapter;
     adapter.onPartialResult = setAnswer;
-    adapter.onError = () => setSpeechStatus("error");
+    adapter.onError = () => {
+      if (!answer.trim()) setSpeechStatus("error");
+    };
     setSpeechStatus("recording");
     setStatus("listening");
-    await adapter.start().catch(() => setSpeechStatus("error"));
+    await adapter.start().catch(() => {
+      setSpeechStatus("error");
+      setStatus(messages.length ? "listening" : "idle");
+    });
   };
 
   const handleFinish = async () => {
@@ -366,7 +374,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
                 <SkipForward size={16} />
                 跳过问题
               </button>
-              <button type="button" className="secondary-action compact-action" onClick={() => void handleFinish()} disabled={status === "idle" || status === "feedback"}>
+              <button type="button" className="secondary-action compact-action" onClick={() => void handleFinish()} disabled={status === "idle" || status === "feedback" || turns.length === 0}>
                 <Square size={14} />
                 结束面试
               </button>

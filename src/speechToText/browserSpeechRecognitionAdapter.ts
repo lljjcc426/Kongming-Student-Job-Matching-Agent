@@ -17,13 +17,17 @@ type SpeechRecognitionEventLike = {
   results: ArrayLike<SpeechRecognitionResultLike>;
 };
 
+type SpeechRecognitionErrorEventLike = {
+  error?: string;
+};
+
 type BrowserSpeechRecognition = {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
   maxAlternatives: number;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -44,6 +48,7 @@ export class BrowserSpeechRecognitionAdapter implements SpeechToTextAdapter {
   onError?: (error: Error) => void;
   private recognition: BrowserSpeechRecognition | null = null;
   private transcript = "";
+  private stopping = false;
 
   isSupported() {
     return typeof window !== "undefined" && Boolean(getSpeechRecognition());
@@ -56,10 +61,11 @@ export class BrowserSpeechRecognitionAdapter implements SpeechToTextAdapter {
     }
 
     this.transcript = "";
+    this.stopping = false;
     this.recognition = new Constructor();
     this.recognition.lang = "zh-CN";
     this.recognition.interimResults = true;
-    this.recognition.continuous = true;
+    this.recognition.continuous = false;
     this.recognition.maxAlternatives = 1;
     this.recognition.onresult = (event) => {
       const text = Array.from(event.results)
@@ -69,7 +75,9 @@ export class BrowserSpeechRecognitionAdapter implements SpeechToTextAdapter {
       this.transcript = text;
       this.onPartialResult?.(text);
     };
-    this.recognition.onerror = () => {
+    this.recognition.onerror = (event) => {
+      if (this.stopping || this.transcript.trim()) return;
+      if (event.error === "no-speech" || event.error === "aborted") return;
       this.onError?.(new Error("语音识别失败，请重新录制或改用文字输入。"));
     };
     this.recognition.start();
@@ -79,11 +87,13 @@ export class BrowserSpeechRecognitionAdapter implements SpeechToTextAdapter {
     if (!this.recognition) return this.transcript;
     const current = this.recognition;
     this.recognition = null;
+    this.stopping = true;
     await new Promise<void>((resolve) => {
       current.onend = () => resolve();
-      window.setTimeout(resolve, 450);
+      window.setTimeout(resolve, 800);
       current.stop();
     });
+    this.stopping = false;
     return this.transcript;
   }
 }

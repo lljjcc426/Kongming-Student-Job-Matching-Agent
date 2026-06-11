@@ -465,7 +465,7 @@ export async function runArkCompletion(body) {
         thinking: {
           type: "disabled",
         },
-        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? (imageCountOf(body) > 1 ? 2200 : 1500) : 1200,
+        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? (imageCountOf(body) > 1 ? 2200 : 1500) : body.task === "resume-structure" ? 2400 : 1200,
       }),
     });
   } catch (error) {
