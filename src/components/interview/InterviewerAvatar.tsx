@@ -1,10 +1,10 @@
 import type { AvatarSpeechState } from "../../types/interview";
-import TwoDInterviewerAvatar from "./TwoDInterviewerAvatar";
+import Live2DInterviewerAvatar from "./Live2DInterviewerAvatar";
 
 type InterviewerAvatarProps = {
   state: AvatarSpeechState;
 };
 
 export default function InterviewerAvatar({ state }: InterviewerAvatarProps) {
-  return <TwoDInterviewerAvatar status={state} className="interviewer-avatar" />;
+  return <Live2DInterviewerAvatar status={state} className="interviewer-avatar" />;
 }
