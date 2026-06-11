@@ -4,8 +4,8 @@ const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-struct
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_CHAT_CHARS = 6000;
-const MAX_IMAGE_DATA_URL_CHARS = 4_500_000;
-const MAX_IMAGE_COUNT = 2;
+const MAX_IMAGE_DATA_URL_CHARS = 8_000_000;
+const MAX_IMAGE_COUNT = 4;
 const REQUEST_TIMEOUT_MS = 60000;
 const SEARCH_TIMEOUT_MS = 5000;
 const SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; StudentJobMatcher/0.1)";
@@ -104,17 +104,19 @@ const buildTextPrompt = (body) => {
 
   if (body.task === "resume-structure") {
     return [
-      "你是简历结构化解析智能体。请只基于用户上传的简历文本提取事实，不要编造。",
+      "你是简历结构化解析智能体。请只基于用户上传的简历文本提取事实，不要编造、补全或润色不存在的信息。",
       "即使简历文本较短，也必须提取其中明确出现的信息；不要因为内容不完整就返回全空结构。",
+      "如果文本包含“未识别”“看不清”“无法确认”等不确定信息，对应字段保持空数组或空字符串，不要自行猜测。",
       "请输出严格 JSON，不要输出 Markdown，不要解释。",
       "JSON 结构如下：",
       '{"name":"","education":[],"internships":[],"projects":[],"campus":[],"honors":[],"skills":[],"targetRoles":[],"summary":""}',
       "字段要求：",
       "1. name 提取学生姓名；没有明确姓名时填空字符串，不要写候选人。",
       "2. education/internships/projects/campus/honors 每项为字符串数组。",
-      "3. targetRoles 优先读取求职意向、目标岗位、应聘方向；没有就根据简历谨慎推断 1-3 个方向。",
+      "3. targetRoles 只读取简历中明确写出的求职意向、目标岗位、应聘方向；没有明确内容就返回空数组，不要推断。",
       "4. skills 只提取简历中明确出现的能力、工具、语言、证书或方法。",
-      "5. 如果文本中出现学校、专业、学历、项目、求职意向等字样，应放入对应字段。",
+      "5. summary 只能概括已出现的事实，不要添加评价性或想象性的经历。",
+      "6. 如果文本中出现学校、专业、学历、项目、求职意向等字样，应放入对应字段。",
       `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
     ].join("\n\n");
   }
@@ -183,17 +185,30 @@ const buildTextPrompt = (body) => {
 const buildMessages = (body) => {
   if (body.task === "resume-vision") {
     const images = Array.isArray(body.imageDataUrls) ? body.imageDataUrls : [body.imageDataUrl];
+    const extractedText = asText(body.resumeText, MAX_RESUME_CHARS);
     return [
       {
         role: "system",
-        content: "你是简历信息识别智能体。请从图片中提取简历信息，并整理成可用于求职匹配的中文纯文本。",
+        content: [
+          "你是简历信息识别智能体，只负责从用户上传的简历图片/PDF 页面中做事实提取。",
+          "禁止补全、推测、润色或编造图片里看不到的信息；看不清或未出现的信息必须写“未识别”。",
+          "如果同一信息在图片和已提取文本中冲突，以图片中清晰可见的信息为准，并保留不确定标记。",
+          "输出中文纯文本，按姓名、教育背景、实习经历、项目经历、校园经历、荣誉证书、技能、求职方向、其他信息分段。",
+          "不要添加简历中不存在的学校、公司、岗位、项目、技能、奖项或时间。",
+        ].join("\n"),
       },
       {
         role: "user",
         content: [
           {
             type: "text",
-            text: "请识别这份简历图片，保留姓名可写为候选人，重点提取教育背景、项目经历、实习经历、技能、求职方向和可量化成果。",
+            text: [
+              `请逐页识别这份简历。共有 ${images.length} 张页面图片。`,
+              "必须尽量完整覆盖每一页，尤其不要漏掉第二页及后续页面的项目、证书、经历和技能。",
+              "只提取画面中真实存在的文字和可明确理解的信息；不要根据专业或岗位常识补写不存在内容。",
+              "姓名如果清晰出现就提取真实姓名；如果未出现或看不清，写“未识别”，不要写“候选人”。",
+              extractedText ? `PDF 文本层初步提取如下，仅作为交叉校验，不可替代图片识别：\n${extractedText}` : "",
+            ].filter(Boolean).join("\n\n"),
           },
           ...images.map((imageDataUrl) => ({
             type: "image_url",
@@ -445,7 +460,7 @@ export async function runArkCompletion(body) {
         thinking: {
           type: "disabled",
         },
-        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : 1200,
+        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? 2200 : 1200,
       }),
     });
   } catch (error) {
