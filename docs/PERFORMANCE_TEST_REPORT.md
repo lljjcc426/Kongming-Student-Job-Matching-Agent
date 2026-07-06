@@ -2,6 +2,8 @@
 
 当前文件为性能测试报告模板。提交前需要根据最终运行环境补充真实测试结果，不能使用估算数字或编造数据。
 
+最终性能测试结果完成后，同时需要同步更新 `docs/EVIDENCE_INDEX.md` 和 `docs/FINAL_SUBMISSION_PACKAGE.md`。
+
 ## 1. 测试目标
 
 验证 Kongming Student Job Matching Agent 在评审环境中的可用性、响应速度和稳定性，重点关注：

@@ -2,6 +2,8 @@
 
 本文用于记录 Kongming Student Job Matching Agent 涉及的开源参考来源、使用范围和原创性说明。提交前维护者应根据最终代码、素材和依赖再次核对 License。
 
+第三方依赖和素材 License 的集中核对表见 `docs/THIRD_PARTY_LICENSES.md`。
+
 ## 1. 项目原创性说明
 
 孔明职配不是对某个开源项目的直接复制或简单改名。当前仓库采用自研的 React/Vite Web 工作台、轻量智能体运行时、岗位匹配评分逻辑、简历优化输出、JD 分析流程和模拟面试交互。

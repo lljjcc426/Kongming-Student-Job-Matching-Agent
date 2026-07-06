@@ -1,10 +1,10 @@
 # Issue 开发记录建议
 
-本文用于指导后续在 GitLink Issue 中补充 Kongming Student Job Matching Agent 的开发记录。本文只提供建议和模板，不代表这些 Issue 已经存在。
+本文用于指导后续在 GitLink Issue 中可选补充 Kongming Student Job Matching Agent 的开发记录。本文只提供建议和模板，不代表这些 Issue 已经存在，也不要求本轮创建 Issue。
 
 ## 1. Issue 记录目标
 
-建议通过 Issue 记录以下内容：
+如比赛平台强制要求或团队希望补充平台化开发记录，可通过 Issue 记录以下内容：
 
 - 功能设计。
 - 模型接口调用问题。

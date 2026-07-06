@@ -2,6 +2,8 @@
 
 本文说明 Kongming Student Job Matching Agent 的运行日志整理方式、脱敏规则和提交建议。当前仓库未包含可公开的真实模型调用日志，本文件提供模板和生成规范。
 
+脱敏日志生成后，需要将日志路径同步写入 `docs/EVIDENCE_INDEX.md` 和 `docs/FINAL_SUBMISSION_PACKAGE.md`。
+
 ## 1. 日志类型
 
 建议区分以下日志：

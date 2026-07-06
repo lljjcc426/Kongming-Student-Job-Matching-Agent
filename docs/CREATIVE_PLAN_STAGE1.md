@@ -113,7 +113,7 @@ flowchart LR
 - 运行截图。
 - 真实性能测试结果。
 - 真实模型调用脱敏日志。
-- GitLink Issue 开发记录。
+- Codex QA 过程记录；GitLink Issue 如平台要求再补充。
 
 ## 11. 后续规划
 

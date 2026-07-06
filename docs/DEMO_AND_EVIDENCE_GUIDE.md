@@ -2,6 +2,8 @@
 
 本文用于整理 Kongming Student Job Matching Agent 的演示材料、运行截图、调用日志和评审查看顺序。当前文件不包含虚假的视频链接或截图路径，提交前需要维护者补充真实材料。
 
+所有演示材料的最终路径统一汇总到 `docs/EVIDENCE_INDEX.md`，后续只需要在该索引中补充真实视频链接、截图路径和日志路径。
+
 ## 1. Demo 视频链接
 
 提交前补充：
@@ -127,7 +129,7 @@ docs/PERFORMANCE_TEST_REPORT.md
 7. 运行截图。
 8. 脱敏真实调用日志。
 9. 性能测试报告。
-10. GitLink Issue 和 Commit 历史。
+10. Commit 历史和 Codex QA 过程记录；GitLink Issue 如平台要求再补充。
 
 ## 8. 脱敏提醒
 

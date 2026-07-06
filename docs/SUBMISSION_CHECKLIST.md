@@ -33,6 +33,9 @@
 - [ ] 项目架构与理解文档  
   当前对应路径：`docs/PROJECT_ARCHITECTURE_AND_UNDERSTANDING.md`。
 
+- [ ] 比赛收尾总控文档
+  当前对应路径：`docs/COMPETITION_FINALIZATION_BACKLOG.md`。
+
 ## 三、演示材料
 
 - [ ] Demo 演示视频链接  
@@ -53,16 +56,16 @@
 
 ## 四、开发记录
 
-- [ ] Issue 记录  
-  当前建议模板：`docs/ISSUE_RECORD_GUIDE.md`。  
-  待补充：GitLink 平台真实 Issue。
+- [ ] 开发过程记录
+  当前主要依据：GitHub commit 历史、commit message、变更文件列表、验证结果和 `docs/CODEX_QA_PROCESS.md`。
+  说明：本轮不创建 GitLink Issue；如比赛平台强制要求，可在最终提交前补充。
 
 - [ ] Commit 历史  
   当前仓库已有 Git commit 历史。提交平台应以仓库历史为准。
 
-- [ ] 功能开发记录  
-  当前已有部分文档：`docs/00-project-charter.md` 至 `docs/10-solution-brief.md`。  
-  待补充：GitLink Issue 中按功能模块整理开发记录。
+- [ ] 功能开发记录
+  当前已有部分文档：`docs/00-project-charter.md` 至 `docs/10-solution-brief.md`，并通过 `docs/CODEX_QA_PROCESS.md` 记录后续 Codex 检查、修改和验证过程。
+  说明：GitLink Issue 当前为可选补充项，不写成必须创建。
 
 ## 五、开源代码使用与原创说明
 
