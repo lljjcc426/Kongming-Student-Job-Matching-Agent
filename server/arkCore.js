@@ -26,6 +26,61 @@ const imageCountOf = (body) => {
   return body.imageDataUrl ? 1 : 0;
 };
 
+const isOpenAiCompatibleProvider = (baseUrl) => /ai\.gitee\.com/i.test(baseUrl);
+
+const maxTokensForTask = (body) => {
+  if (body.task === "job-recommendations") return Math.max(700, asCount(body.jobCount) * 420);
+  if (body.task === "jd-analysis") return 1400;
+  if (body.task === "career-chat") return 1600;
+  if (body.task === "resume-vision") return imageCountOf(body) > 1 ? 2200 : 1500;
+  if (body.task === "resume-structure") return 2400;
+  return 1200;
+};
+
+const buildCompletionPayload = (body, baseUrl, model) => {
+  const payload = {
+    model,
+    messages: buildMessages(body),
+    temperature: 0.25,
+  };
+
+  const maxTokens = maxTokensForTask(body);
+  if (isOpenAiCompatibleProvider(baseUrl)) {
+    payload.max_tokens = maxTokens;
+    return payload;
+  }
+
+  payload.thinking = {
+    type: "disabled",
+  };
+  payload.max_completion_tokens = maxTokens;
+  return payload;
+};
+
+const modelForTask = (body) => {
+  if (body.task === "resume-vision" && process.env.ARK_VISION_MODEL) {
+    return process.env.ARK_VISION_MODEL;
+  }
+  return process.env.ARK_MODEL || DEFAULT_MODEL;
+};
+
+const buildProviderHeaders = (apiKey) => {
+  const headers = {
+    "Content-Type": "application/json; charset=utf-8",
+    Authorization: `Bearer ${apiKey}`,
+  };
+
+  if (process.env.ARK_PACKAGE) {
+    headers["X-Package"] = process.env.ARK_PACKAGE;
+  }
+
+  if (process.env.ARK_FAILOVER_ENABLED) {
+    headers["X-Failover-Enabled"] = process.env.ARK_FAILOVER_ENABLED;
+  }
+
+  return headers;
+};
+
 const validateRequest = (body) => {
   if (!body || typeof body !== "object") {
     return "请求内容格式不正确。";
@@ -448,25 +503,14 @@ export async function runArkCompletion(body) {
   }
 
   const baseUrl = process.env.ARK_BASE_URL || DEFAULT_BASE_URL;
-  const model = DEFAULT_MODEL;
+  const model = modelForTask(body);
   let response;
   try {
     response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: buildMessages(body),
-        temperature: 0.25,
-        thinking: {
-          type: "disabled",
-        },
-        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? (imageCountOf(body) > 1 ? 2200 : 1500) : body.task === "resume-structure" ? 2400 : 1200,
-      }),
+      headers: buildProviderHeaders(apiKey),
+      body: JSON.stringify(buildCompletionPayload(body, baseUrl, model)),
     });
   } catch (error) {
     return {

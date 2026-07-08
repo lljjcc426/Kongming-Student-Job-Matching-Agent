@@ -1,6 +1,6 @@
 # 部署指南
 
-本文说明 Kongming Student Job Matching Agent 的本地运行、构建验证和评审环境部署方式。当前项目是 React + TypeScript + Vite 应用，并包含 Vercel API 入口。
+本文说明 Kongming Student Job Matching Agent 的本地运行、构建验证和公开部署方式。当前项目是 React + TypeScript + Vite 应用，并包含 Vercel API 入口。
 
 ## 1. 环境要求
 
@@ -35,6 +35,9 @@ npm install
 ```bash
 ARK_API_KEY=your_model_api_key
 ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+ARK_MODEL=Qwen3-4B
+ARK_VISION_MODEL=Qwen3-VL-8B-Instruct
+ARK_PACKAGE=1492
 ARK_REQUEST_TIMEOUT_MS=65000
 ```
 
@@ -49,11 +52,11 @@ VITE_AVATAR_MODE=static
 
 - 不要提交 `.env.local`。
 - 不要在 README、Issue、日志或截图中暴露真实 Key。
-- 当前仓库未提供 `.env.example`，以上内容仅为部署配置示例。
+- 当前仓库提供 `.env.example` 占位模板，不包含真实密钥。
 
 ### 模型服务说明
 
-当前 `server/arkCore.js` 默认按 Ark 兼容的 `chat/completions` 接口调用模型。若最终提交需要使用 Gitee.AI/沐曦资源包 API 或沐曦算力卡，需要在提交前完成接口适配，并同步更新配置说明和调用日志。
+当前 `server/arkCore.js` 按 OpenAI 兼容的 `chat/completions` 接口调用模型，并已完成 Gitee AI / 沐曦 Token 资源包适配。配置 `ARK_BASE_URL=https://ai.gitee.com/v1`、`ARK_PACKAGE=1492`、`ARK_MODEL=Qwen3-4B`、`ARK_VISION_MODEL=Qwen3-VL-8B-Instruct` 后，可通过 `/api/ark` 完成真实模型调用。真实调用证据见 `docs/REAL_MODEL_CALL_EVIDENCE.md`。
 
 ## 4. 本地运行
 
@@ -124,7 +127,7 @@ npm run dev
 npm run verify:ui
 ```
 
-脚本会输出截图到 `artifacts/`。该目录已被 `.gitignore` 排除，提交前如需公开截图，应复制脱敏后的截图到文档指定目录或上传到提交平台。
+脚本会输出截图到 `artifacts/`。该目录已被 `.gitignore` 排除，如需公开截图，应复制脱敏后的截图到文档指定目录或单独提供。
 
 ## 7. Vercel 部署建议
 
@@ -154,7 +157,7 @@ ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 ARK_REQUEST_TIMEOUT_MS=65000
 ```
 
-## 8. 生产或评审环境验证路径
+## 8. 生产环境验证路径
 
 部署后建议按以下顺序验证：
 
@@ -211,8 +214,8 @@ ARK_REQUEST_TIMEOUT_MS=65000
 
 - 本地使用 `.env.local` 保存密钥。
 - Vercel 使用 Project Settings 中的 Environment Variables。
-- 不要在 Git 仓库、Issue、截图、运行日志或演示视频中公开真实密钥。
-- 真实调用日志提交前必须脱敏。
+- 不要在 Git 仓库、截图、运行日志或演示视频中公开真实密钥。
+- 真实调用日志公开前必须脱敏。
 
 ## 11. 当前未提供的部署能力
 
@@ -224,4 +227,4 @@ ARK_REQUEST_TIMEOUT_MS=65000
 - 数据库部署配置。
 - 对象存储配置。
 
-如比赛提交需要一键容器化部署，需要后续补充。
+如需一键容器化部署，需要后续补充。

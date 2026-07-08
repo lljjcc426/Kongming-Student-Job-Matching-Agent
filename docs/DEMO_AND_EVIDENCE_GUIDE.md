@@ -1,12 +1,12 @@
 # 演示材料与证据指南
 
-本文用于整理 Kongming Student Job Matching Agent 的演示材料、运行截图、调用日志和评审查看顺序。当前文件不包含虚假的视频链接或截图路径，提交前需要维护者补充真实材料。
+本文用于整理 Kongming Student Job Matching Agent 的演示材料、运行截图、调用日志和公开查看顺序。当前文件只记录可公开材料和待补充项，不包含虚假的视频链接或截图路径。
 
 所有演示材料的最终路径统一汇总到 `docs/EVIDENCE_INDEX.md`，后续只需要在该索引中补充真实视频链接、截图路径和日志路径。
 
 ## 1. Demo 视频链接
 
-提交前补充：
+后续补充：
 
 ```text
 Demo 视频链接：待补充
@@ -16,9 +16,9 @@ Demo 视频链接：待补充
 
 ## 2. 运行截图路径
 
-当前仓库未提交正式运行截图目录。
+当前仓库未包含正式运行截图目录。
 
-建议提交前补充以下截图：
+建议后续补充以下截图：
 
 | 截图 | 建议内容 | 建议文件名 |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ Demo 视频链接：待补充
 | 面试反馈 | 评分、改进点和优化回答 | `screenshots/07-interview-feedback.png` |
 | AI 助手 | 多轮求职问答 | `screenshots/08-ai-assistant.png` |
 
-如果使用 `npm run verify:ui` 生成截图，默认输出目录为 `artifacts/`。该目录已被 `.gitignore` 排除，提交前需要复制合适截图并确认不含隐私信息。
+如果使用 `npm run verify:ui` 生成截图，默认输出目录为 `artifacts/`。该目录已被 `.gitignore` 排除，公开使用前需要复制合适截图并确认不含隐私信息。
 
 ## 3. 核心功能演示步骤
 
@@ -81,15 +81,15 @@ Demo 视频链接：待补充
 
 ## 5. 真实调用日志路径
 
-当前仓库未包含可公开的真实模型调用日志。
+当前仓库已补充可公开的 Gitee AI / 沐曦 Token 资源包调用证据。
 
-提交前建议补充：
+如后续需要追加 JSONL 日志，可补充：
 
 ```text
 logs/runtime-sanitized.jsonl
 ```
 
-或在提交平台上传脱敏后的日志文件。
+或单独提供脱敏后的日志文件。
 
 日志格式和脱敏规则见：
 
@@ -99,13 +99,13 @@ docs/RUNTIME_LOG_GUIDE.md
 
 ## 6. 性能测试报告路径
 
-当前仓库提供模板：
+当前仓库记录已验证结果和待追加测试项：
 
 ```text
 docs/PERFORMANCE_TEST_REPORT.md
 ```
 
-提交前需要维护者根据最终部署环境补充真实数据，例如：
+后续可根据最终部署环境继续补充真实数据，例如：
 
 - 首屏加载时间。
 - 简历结构化耗时。
@@ -116,20 +116,20 @@ docs/PERFORMANCE_TEST_REPORT.md
 
 不要使用估算数据或未经验证的数据。
 
-## 7. 评审查看顺序
+## 7. 资料查看顺序
 
-建议评审按以下顺序查看材料：
+建议按以下顺序查看材料：
 
 1. `README.md`
-2. `docs/CREATIVE_PLAN_STAGE1.md`
-3. `docs/PROJECT_ARCHITECTURE_AND_UNDERSTANDING.md`
-4. `docs/TECHNICAL_DESIGN.md`
-5. `docs/DEPLOYMENT_GUIDE.md`
-6. Demo 视频链接。
-7. 运行截图。
-8. 脱敏真实调用日志。
-9. 性能测试报告。
-10. Commit 历史和 Codex QA 过程记录；GitLink Issue 如平台要求再补充。
+2. `docs/PROJECT_ARCHITECTURE_AND_UNDERSTANDING.md`
+3. `docs/TECHNICAL_DESIGN.md`
+4. `docs/DEPLOYMENT_GUIDE.md`
+5. `docs/EVIDENCE_INDEX.md`
+6. `docs/REAL_MODEL_CALL_EVIDENCE.md`
+7. `docs/PERFORMANCE_TEST_REPORT.md`
+8. Demo 视频链接和运行截图。
+9. 脱敏真实调用日志。
+10. Git commit 历史。
 
 ## 8. 脱敏提醒
 
@@ -141,4 +141,4 @@ docs/PERFORMANCE_TEST_REPORT.md
 - 真实招聘账号、Cookie 或登录态。
 - 未脱敏的模型请求体和响应体。
 
-如需展示真实调用，可使用摘要化字段，例如输入字符数、任务类型、模型名、耗时、成功状态和脱敏输出片段。
+当前已补充 Gitee AI / 沐曦 Token 资源包真实调用证据，见 `docs/REAL_MODEL_CALL_EVIDENCE.md` 和 `docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png`。后续展示真实调用时仍应使用摘要化字段，例如输入字符数、任务类型、模型名、耗时、成功状态和脱敏输出片段。

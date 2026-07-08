@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { runArkCompletion } from "./server/arkCore.js";
 
@@ -57,17 +57,26 @@ const arkDevProxy = (): Plugin => ({
   },
 });
 
-export default defineConfig({
-  plugins: [react(), arkDevProxy()],
-  build: {
-    sourcemap: false,
-    minify: "esbuild",
-    rollupOptions: {
-      output: {
-        entryFileNames: "assets/[hash].js",
-        chunkFileNames: "assets/[hash].js",
-        assetFileNames: "assets/[hash][extname]",
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  for (const [key, value] of Object.entries(env)) {
+    if (key.startsWith("ARK_") && process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+
+  return {
+    plugins: [react(), arkDevProxy()],
+    build: {
+      sourcemap: false,
+      minify: "esbuild",
+      rollupOptions: {
+        output: {
+          entryFileNames: "assets/[hash].js",
+          chunkFileNames: "assets/[hash].js",
+          assetFileNames: "assets/[hash][extname]",
+        },
       },
     },
-  },
+  };
 });

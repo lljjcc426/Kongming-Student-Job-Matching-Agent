@@ -1,8 +1,8 @@
 # 真实调用日志说明
 
-本文说明 Kongming Student Job Matching Agent 的运行日志整理方式、脱敏规则和提交建议。当前仓库未包含可公开的真实模型调用日志，本文件提供模板和生成规范。
+本文说明 Kongming Student Job Matching Agent 的运行日志整理方式、脱敏规则和公开建议。当前仓库已补充 Gitee AI / 沐曦 Token 资源包的可公开脱敏调用记录，详见 `docs/REAL_MODEL_CALL_EVIDENCE.md`。
 
-脱敏日志生成后，需要将日志路径同步写入 `docs/EVIDENCE_INDEX.md` 和 `docs/FINAL_SUBMISSION_PACKAGE.md`。
+脱敏日志生成后，需要将日志路径同步写入 `docs/EVIDENCE_INDEX.md`。
 
 ## 1. 日志类型
 
@@ -25,20 +25,20 @@
 - `scripts/verify-ui.cjs` 的 UI 验证 JSON 输出和截图。
 - 部署平台可能提供的函数日志。
 
-因此，提交前如果需要真实调用日志，应从最终部署环境、模型代理层或人工记录中整理脱敏版本。
+当前已从 Gitee AI 控制台“最近调用”页面整理脱敏版本；后续如增加服务端持久化日志，也应继续遵循本文脱敏规则。
 
 ## 3. 建议日志保存路径
 
-如需将脱敏日志纳入提交材料，可使用：
+如需将脱敏日志纳入公开材料，可使用：
 
 ```text
 logs/runtime-sanitized.jsonl
 logs/model-calls-sanitized.jsonl
 ```
 
-注意：当前 `.gitignore` 会忽略 `*.log`，但不会默认忽略 `.jsonl`。提交前请确认日志已经脱敏。
+注意：当前 `.gitignore` 会忽略 `*.log`，但不会默认忽略 `.jsonl`。公开前请确认日志已经脱敏。
 
-如果日志中包含任何隐私或密钥，不要提交到仓库，可改为在提交平台上传脱敏文件。
+如果日志中包含任何隐私或密钥，不要提交到仓库，可改为单独提供脱敏文件。
 
 ## 4. 日志字段模板
 
@@ -68,7 +68,7 @@ logs/model-calls-sanitized.jsonl
 }
 ```
 
-以上为日志模板，不是真实调用记录。
+以上为日志模板；当前真实调用记录见 `docs/REAL_MODEL_CALL_EVIDENCE.md`。
 
 ## 5. 日志生成方式建议
 
@@ -93,7 +93,7 @@ logs/model-calls-sanitized.jsonl
 
 - API Key、token、Authorization header。
 - 用户姓名、手机号、邮箱、身份证号。
-- 学校、公司、住址等可识别个人身份的信息，按提交需要决定是否保留泛化描述。
+- 学校、公司、住址等可识别个人身份的信息，按公开需要决定是否保留泛化描述。
 - 完整简历原文。
 - 完整模型响应原文中包含的个人信息。
 
@@ -139,7 +139,7 @@ logs/model-calls-sanitized.jsonl
 ```text
 Authorization
 ARK_API_KEY
-完整 prompt
+完整模型输入
 完整简历
 完整 JD
 浏览器 Cookie
@@ -147,9 +147,9 @@ ARK_API_KEY
 未脱敏模型响应
 ```
 
-## 9. 评审查看方式
+## 9. 公开查看方式
 
-建议提交材料中提供：
+建议公开材料中提供：
 
 - 一份脱敏 JSONL 日志文件或截图。
 - 一份性能测试报告。

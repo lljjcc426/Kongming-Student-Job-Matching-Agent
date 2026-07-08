@@ -46,14 +46,14 @@ ARK_API_KEY=your_model_api_key
 ARK_REQUEST_TIMEOUT_MS=65000
 ```
 
-默认模型常量为 `doubao-seed-2-0-lite-260215`。仓库目前未发现已经完成的 Gitee.AI/沐曦资源包 API 专用适配代码。若用于需要国产 GPU 算力真实调用的提交，提交前应完成 Gitee.AI/沐曦接口适配、真实调用验证、脱敏日志和性能数据补充。
+默认模型常量为 `doubao-seed-2-0-lite-260215`，同时已支持通过环境变量切换到 Gitee AI / 沐曦 Token 资源包。当前真实调用环境使用 `https://ai.gitee.com/v1`、资源包 `1492`、文本模型 `Qwen3-4B` 和视觉模型 `Qwen3-VL-8B-Instruct`，并已补充脱敏调用记录与截图证据。
 
 ## 仓库结构
 
 ```text
 .
 ├── api/                         Vercel API 入口，转发模型请求
-├── docs/                        项目方案、架构、部署、提交材料文档
+├── docs/                        项目架构、技术说明、部署、证据与运行文档
 ├── public/                      静态资源、Live2D/2D 面试官、PDF.js CMap
 ├── scripts/                     解析器与 UI 验证脚本
 ├── server/                      服务端模型代理核心逻辑
@@ -110,6 +110,9 @@ npm run preview
 | --- | --- | --- | --- |
 | `ARK_API_KEY` | 模型能力必填 | 服务端模型代理鉴权 | `your_model_api_key` |
 | `ARK_BASE_URL` | 否 | 覆盖默认 Ark 兼容接口地址 | `https://ark.cn-beijing.volces.com/api/v3` |
+| `ARK_MODEL` | 否 | 文本任务模型名称 | `Qwen3-4B` |
+| `ARK_VISION_MODEL` | 否 | 图片/PDF 视觉兜底模型名称 | `Qwen3-VL-8B-Instruct` |
+| `ARK_PACKAGE` | 否 | Gitee AI / 沐曦 Token 资源包编号 | `1492` |
 | `ARK_REQUEST_TIMEOUT_MS` | 否 | 服务端模型请求超时时间 | `65000` |
 | `VITE_ARK_API_URL` | 否 | 前端覆盖模型代理地址 | `/api/ark` |
 | `VITE_AVATAR_MODE` | 否 | 数字人模式标记 | `static` |
@@ -168,12 +171,13 @@ npm run preview
 
 ## 演示材料
 
-当前仓库未包含正式 Demo 视频链接和运行截图目录。提交前需要补充：
+当前仓库已补充 Gitee AI / 沐曦 Token 资源包真实调用证据。Demo 视频链接与核心页面截图可继续补充到证据索引中：
 
 - Demo 演示视频链接。
 - 核心页面运行截图。
 - 模型真实调用日志的脱敏样例。
 - 性能测试报告中的真实测试结果。
+- Gitee AI 真实调用记录截图。
 
 整理方式见 [演示材料与证据指南](docs/DEMO_AND_EVIDENCE_GUIDE.md)。
 
@@ -184,20 +188,21 @@ npm run preview
 - `scripts/verify-parsers.cjs`：解析器验证脚本。
 - `scripts/verify-ui.cjs`：Playwright UI 验证脚本，使用 Mock `/api/ark` 响应。
 
-仓库当前未包含可公开的真实性能测试结果和真实模型调用日志。相关模板见：
+仓库已补充 Gitee AI / 沐曦 Token 资源包真实调用证据。调用记录已脱敏，不包含访问令牌、Authorization header、完整 IP、Cookie、完整简历原文或完整模型响应。相关材料见：
 
 - [性能测试报告](docs/PERFORMANCE_TEST_REPORT.md)
 - [真实调用日志说明](docs/RUNTIME_LOG_GUIDE.md)
+- [Gitee AI 真实调用证据](docs/REAL_MODEL_CALL_EVIDENCE.md)
+- [真实调用记录截图](docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png)
 
 ## 开源代码参考来源
 
-项目已有开源参考调研，详见：
+项目开源参考与第三方依赖说明详见：
 
-- [开源项目参考与能力对比](docs/01-open-source-benchmark.md)
-- [开源项目能力选择矩阵](docs/05-open-source-selection-matrix.md)
 - [开源来源说明](docs/OPEN_SOURCE_ATTRIBUTION.md)
+- [第三方依赖与素材 License 汇总](docs/THIRD_PARTY_LICENSES.md)
 
-当前仓库根目录包含 Apache-2.0 许可证。提交前应再次确认第三方素材、Live2D 资源、PDF.js CMap、前端依赖和参考项目的 License 说明完整。
+当前仓库根目录包含 Apache-2.0 许可证。公开发布前应再次确认第三方素材、Live2D 资源、PDF.js CMap、前端依赖和参考项目的 License 说明完整。
 
 ## 安全边界
 
@@ -206,24 +211,18 @@ npm run preview
 - API 响应设置 `Cache-Control: no-store`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`。
 - `.gitignore` 已排除 `.env`、`.env.*`、日志文件和构建产物。
 - 用户简历内容当前主要保存在浏览器运行状态中，仓库未实现数据库持久化。
-- 公开演示和日志提交前需要对姓名、手机号、邮箱、学校、证件号、API Key 等信息脱敏。
+- 公开演示和日志发布前需要对姓名、手机号、邮箱、学校、证件号、API Key 等信息脱敏。
 
 ## 文档索引
 
 - [项目架构与理解文档](docs/PROJECT_ARCHITECTURE_AND_UNDERSTANDING.md)
 - [技术说明文档](docs/TECHNICAL_DESIGN.md)
 - [部署指南](docs/DEPLOYMENT_GUIDE.md)
-- [比赛提交材料清单](docs/SUBMISSION_CHECKLIST.md)
-- [比赛最终提交收尾清单](docs/COMPETITION_FINALIZATION_BACKLOG.md)
-- [最终提交材料索引](docs/FINAL_SUBMISSION_PACKAGE.md)
 - [证据材料索引](docs/EVIDENCE_INDEX.md)
+- [Gitee AI 真实调用证据](docs/REAL_MODEL_CALL_EVIDENCE.md)
+- [真实调用记录截图](docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png)
 - [开源来源说明](docs/OPEN_SOURCE_ATTRIBUTION.md)
 - [第三方依赖与素材 License 汇总](docs/THIRD_PARTY_LICENSES.md)
 - [演示材料与证据指南](docs/DEMO_AND_EVIDENCE_GUIDE.md)
 - [性能测试报告](docs/PERFORMANCE_TEST_REPORT.md)
 - [真实调用日志说明](docs/RUNTIME_LOG_GUIDE.md)
-- [创意规划 PPT 内容骨架](docs/CREATIVE_PLAN_STAGE1.md)
-- [Codex QA 过程记录](docs/CODEX_QA_PROCESS.md)
-- [Issue 开发记录建议](docs/ISSUE_RECORD_GUIDE.md)
-- [项目任务书](docs/00-project-charter.md)
-- [多智能体与多模态架构设计](docs/08-multi-agent-multimodal-architecture.md)

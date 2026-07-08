@@ -1,6 +1,6 @@
 # 项目架构与理解文档
 
-本文用于帮助后续维护者、评审和开发者快速理解 Kongming Student Job Matching Agent 的真实代码结构、运行链路和可扩展边界。
+本文用于帮助后续维护者和开发者快速理解 Kongming Student Job Matching Agent 的真实代码结构、运行链路和可扩展边界。
 
 ## 1. 项目简介
 
@@ -52,7 +52,7 @@
 | 路径 | 内容 | 运行链路关系 | 维护重点 |
 | --- | --- | --- | --- |
 | `api/` | Vercel Serverless API 入口 | 生产环境 `/api/ark` 请求入口 | `api/ark.js` 的请求方法、安全头、body 限制 |
-| `server/` | 模型代理核心逻辑 | 本地 Vite 代理和 Vercel API 共同调用 | 任务校验、Prompt、模型请求、搜索链接补充 |
+| `server/` | 模型代理核心逻辑 | 本地 Vite 代理和 Vercel API 共同调用 | 任务校验、模型请求、搜索链接补充 |
 | `src/` | 前端应用主代码 | 用户交互、状态流、智能体结果展示 | `App.tsx`、智能体、解析器、页面模块 |
 | `src/components/` | 首页、加载页、面试页、AI 助手组件 | 展示层和交互控件 | 视觉表现、响应式和组件状态 |
 | `src/pages/` | 首页、AI 助手、模拟面试页 | 路由式页面切换由 `App.tsx` 控制 | 页面入参和事件回调 |
@@ -62,7 +62,7 @@
 | `public/avatars/` | 2D/Live2D 面试官素材 | 模拟面试数字人展示 | 模型路径、fallback 资源和素材授权说明 |
 | `public/vendor/pdfjs/` | PDF.js CMap 资源 | PDF 文本层读取 | CMap 完整性和 License |
 | `scripts/` | 验证脚本 | 解析器测试和 UI Mock 验证 | 运行前需要 dev server 或依赖环境 |
-| `docs/` | 项目调研、设计、提交材料文档 | 评审和维护说明 | 保持和真实实现一致 |
+| `docs/` | 架构、技术、部署、证据和合规文档 | 公开说明和维护说明 | 保持和真实实现一致 |
 
 ## 3. 核心模块说明
 
@@ -75,7 +75,7 @@
 | 简历结构解析 | `src/modelParsers.ts` | 解析模型返回的简历 JSON、岗位 JSON、JD 分析 JSON，并提供宽松修复 | 模型文本结果 | `StructuredResume`、`Job[]`、`JdAnalysis` | 被 `App.tsx` 调用 |
 | PDF 简历读取 | `src/pdfResumeReader.ts` | 使用 PDF.js 读取文本层，必要时渲染页面图片供视觉模型识别 | PDF 文件 | 文本、质量分、页数、图片 DataURL | 被 `App.tsx` 动态导入 |
 | 模型客户端 | `src/arkClient.ts` | 前端统一请求模型代理，处理超时和错误 | `ArkRequest` | `ArkResponse` | 被主流程和面试 Provider 调用 |
-| 模型代理核心 | `server/arkCore.js` | 校验任务、构建 Prompt、调用 chat/completions、补充招聘搜索链接 | HTTP body、环境变量 | HTTP 状态和 JSON payload | 被 `api/ark.js` 和 `vite.config.ts` 调用 |
+| 模型代理核心 | `server/arkCore.js` | 校验任务、构建模型请求、调用 chat/completions、补充招聘搜索链接 | HTTP body、环境变量 | HTTP 状态和 JSON payload | 被 `api/ark.js` 和 `vite.config.ts` 调用 |
 | Vercel API | `api/ark.js` | 生产环境 API 入口和安全头 | POST 请求 | JSON 响应 | 调用 `runArkCompletion` |
 | Vite 本地代理 | `vite.config.ts` | 本地开发时挂载 `/api/ark` | 本地 POST 请求 | JSON 响应 | 调用 `runArkCompletion` |
 | JD 规则解析 | `src/jobParser.ts` | 在模型 JD 分析前生成本地岗位草稿 | 岗位名称、JD 文本 | `Job` 草稿 | 被 `App.tsx` 调用 |
@@ -169,9 +169,9 @@ flowchart TD
 | Interview Coach Agent | 目标岗位、匹配风险 | 生成面试问题和考察重点 | 模拟面试计划 |
 | Supervisor Agent | 所有智能体产物 | 汇总结论和交接关系 | 协作汇总结论 |
 
-### Prompt 与输出格式
+### 模型任务与输出格式
 
-`server/arkCore.js` 为每类模型任务构建 Prompt，要求若干任务返回严格 JSON：
+`server/arkCore.js` 为每类模型任务构建请求内容，要求若干任务返回严格 JSON：
 
 - `resume-structure`
 - `job-recommendations`
@@ -192,13 +192,13 @@ flowchart TD
 
 | 接口/模型 | 调用位置 | 配置项 | 输入 | 输出 | 是否需要密钥 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- |
-| Ark 兼容 chat/completions | `server/arkCore.js` | `ARK_API_KEY`、`ARK_BASE_URL`、`ARK_REQUEST_TIMEOUT_MS` | messages、model、temperature、max_completion_tokens | OpenAI 风格 choices | 是 | 默认 base URL 为火山方舟 Ark，默认模型为 `doubao-seed-2-0-lite-260215` |
+| OpenAI 兼容 chat/completions | `server/arkCore.js` | `ARK_API_KEY`、`ARK_BASE_URL`、`ARK_MODEL`、`ARK_VISION_MODEL`、`ARK_PACKAGE`、`ARK_REQUEST_TIMEOUT_MS` | messages、model、temperature、max_tokens 或 max_completion_tokens | OpenAI 风格 choices | 是 | 默认保留 Ark/Doubao；Gitee AI / 沐曦环境使用 `Qwen3-4B` 与 `Qwen3-VL-8B-Instruct` |
 | 前端模型代理 | `src/arkClient.ts` | `VITE_ARK_API_URL` | `ArkRequest` | `ArkResponse` | 否，前端不持有密钥 | 默认请求 `/api/ark` |
 | Vercel API | `api/ark.js` | 部署平台环境变量 | POST JSON body | JSON payload | 服务端读取密钥 | 仅支持 POST |
 | 本地 Vite API | `vite.config.ts` | 本地环境变量 | POST JSON body | JSON payload | 服务端读取密钥 | 开发环境代理 |
 | Bing 公开搜索 | `server/arkCore.js` | 无 | 岗位标题、方向、关键词 | 招聘入口候选链接 | 否 | 仅用于补充公开招聘入口，失败时返回空列表 |
 
-当前仓库中未发现已经落地的 Gitee.AI/沐曦资源包 API 专用调用实现。相关能力需要在最终提交前按目标算力环境补充或适配。
+当前仓库已落地 Gitee AI / 沐曦 Token 资源包调用实现，并补充真实调用证据。`server/arkCore.js` 会根据 `ARK_BASE_URL` 自动选择 Gitee AI 兼容参数或原 Ark/Doubao 兼容参数。
 
 ## 7. 配置文件与环境变量说明
 
@@ -213,7 +213,7 @@ flowchart TD
 | `MAX_UPLOAD_BYTES` | `src/App.tsx` 常量 | 是 | 前端上传文件上限 | `8000000` |
 | `MAX_IMAGE_COUNT` | `server/arkCore.js` 常量 | 是 | 视觉识别图片页数上限 | `4` |
 
-仓库当前没有 `.env.example` 文件。维护者可以根据 README 和部署指南自行创建 `.env.local`，但不要提交真实密钥。
+仓库当前提供 `.env.example` 占位模板。维护者可以根据 README 和部署指南创建 `.env.local`，但不要提交真实密钥。
 
 ## 8. 依赖清单说明
 
@@ -310,19 +310,19 @@ flowchart TD
 | 本地配置文件 | `.gitignore` 排除 `.env` 和 `.env.*`，允许未来维护 `.env.example`。 |
 | 用户简历信息 | 当前主要保存在浏览器状态和模型请求体中，未实现数据库持久化。 |
 | 岗位数据 | 岗位由模型返回、自定义 JD 或本地草稿生成，公开搜索仅补充招聘入口候选链接。 |
-| 日志脱敏 | 仓库当前未实现持久化日志，提交真实调用日志前需要人工脱敏。 |
+| 日志脱敏 | 仓库当前未实现持久化日志，公开真实调用日志前需要人工脱敏。 |
 | 外部写入 | 当前不做自动投递，也不登录招聘平台。 |
 | 错误处理 | 使用请求校验、超时、错误提示和 fallback 问题，避免页面直接崩溃。 |
 
 ## 11. 后续扩展方向
 
-以下内容属于设计规划和展望，不应在提交材料中写成已完成能力：
+以下内容属于设计规划和展望，不应写成已完成能力：
 
-- 接入 Gitee.AI/沐曦资源包 API 或沐曦算力卡，并补充真实调用日志。
-- 增加模型 Provider 抽象，让 Ark、Gitee.AI、其他 OpenAI 兼容模型可配置切换。
+- 扩展更多 Gitee AI / 沐曦资源包可用模型，并补充更多真实调用日志。
+- 继续完善模型 Provider 抽象，让 Ark、Gitee AI 和其他 OpenAI 兼容模型可配置切换。
 - 增加持久化运行日志、延迟统计、成功率统计和脱敏导出。
 - 增加真实岗位数据源或可导入岗位库。
 - 增加评测集，衡量简历解析完整性、岗位推荐相关性和 JD 分析准确性。
 - 增加 Dockerfile、CI、端到端测试报告和部署脚本。
-- 增加演示视频、运行截图和评审查看路径。
+- 增加演示视频、运行截图和公开查看路径。
 - 强化隐私模式，例如本地处理、字段脱敏和日志采样。
