@@ -34,6 +34,7 @@
 .
 ├── README.md
 ├── LICENSE
+├── NOTICE
 ├── api/
 │   └── ark.js
 ├── docs/

@@ -1,0 +1,21 @@
+Kongming Student Job Matching Agent
+Copyright 2026 Nanshan von Neumann Team / Jiachen Li
+
+This product includes software developed by the project contributors.
+Original repository:
+https://www.gitlink.org.cn/puygob236/Kongming-Student-Job-Matching-Agent
+
+Any redistributed or modified version should retain this NOTICE and the
+Apache License 2.0 text.
+
+Competition originality statement:
+
+This project is an AI agent demo developed by Nanshan von Neumann Team for
+the student job matching scenario. Its core features include resume parsing,
+job recommendation, JD analysis, matching explanation, resume optimization,
+mock interview, and an AI job-seeking assistant.
+
+The repository is made public for this competition submission, review,
+reproduction, and learning reference. The original source, Apache License 2.0
+text, and author/team attribution should be retained for competition review,
+public demonstration, redistribution, or modified versions.

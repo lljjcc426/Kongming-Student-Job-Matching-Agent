@@ -200,10 +200,15 @@ npm run preview
 
 项目开源参考与第三方依赖说明详见：
 
+- [NOTICE](NOTICE)
 - [开源来源说明](docs/OPEN_SOURCE_ATTRIBUTION.md)
 - [第三方依赖与素材 License 汇总](docs/THIRD_PARTY_LICENSES.md)
 
-当前仓库根目录包含 Apache-2.0 许可证。
+当前仓库根目录包含 Apache-2.0 许可证和 NOTICE 文件。原创代码按 Apache License 2.0 开源；第三方依赖、运行时资源和素材仍遵循其各自许可证或授权边界，不能仅用本仓库 License 覆盖。
+
+本项目为 Nanshan von Neumann Team 面向学生求职匹配场景开发的 AI 智能体 Demo。项目核心包括简历解析、岗位推荐、JD 分析、匹配解释、简历优化、模拟面试和 AI 求职助手等功能。
+
+本仓库当前公开发布目的为本次竞赛提交、评审展示、可复现检查和学习参考。参赛、评审、商业展示、二次分发或修改版本应保留原始项目来源、Apache License 2.0 文本、NOTICE 文件和作者/团队署名。项目名称、截图、文档、PPT、演示材料、品牌标识和非代码素材不因代码采用 Apache-2.0 而自动放弃署名权或其他未明确授予的权利。
 
 ## 安全边界
 
@@ -219,6 +224,7 @@ npm run preview
 - [项目架构与理解文档](docs/PROJECT_ARCHITECTURE_AND_UNDERSTANDING.md)
 - [技术说明文档](docs/TECHNICAL_DESIGN.md)
 - [部署指南](docs/DEPLOYMENT_GUIDE.md)
+- [NOTICE](NOTICE)
 - [证据材料索引](docs/EVIDENCE_INDEX.md)
 - [Gitee AI 真实调用证据](docs/REAL_MODEL_CALL_EVIDENCE.md)
 - [真实调用记录截图](docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png)
