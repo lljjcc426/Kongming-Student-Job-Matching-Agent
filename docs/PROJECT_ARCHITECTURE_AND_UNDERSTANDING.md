@@ -33,7 +33,6 @@
 ```text
 .
 ├── README.md
-├── AGENTS.md
 ├── LICENSE
 ├── api/
 │   └── ark.js

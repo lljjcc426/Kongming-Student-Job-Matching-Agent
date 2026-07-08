@@ -169,7 +169,9 @@ npm run preview
 
 详细步骤见 [部署指南](docs/DEPLOYMENT_GUIDE.md)。
 
- 
+## 证据材料
+
+仓库已补充核心页面运行截图、模型真实调用证据、脱敏日志说明和性能测试记录。材料清单见 [证据材料索引](docs/EVIDENCE_INDEX.md)，整理说明见 [演示材料与证据指南](docs/DEMO_AND_EVIDENCE_GUIDE.md)。
 
 ## 性能测试与运行日志
 
@@ -211,6 +213,11 @@ npm run preview
 - [证据材料索引](docs/EVIDENCE_INDEX.md)
 - [Gitee AI 真实调用证据](docs/REAL_MODEL_CALL_EVIDENCE.md)
 - [真实调用记录截图](docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png)
+- [首页运行截图](docs/evidence-screenshots/app-home-job-matching-20260708.png)
+- [简历解析截图](docs/evidence-screenshots/app-resume-analysis-summary-20260708.png)
+- [岗位推荐截图](docs/evidence-screenshots/app-job-recommendation-cards-20260708.png)
+- [模拟面试截图](docs/evidence-screenshots/app-interview-simulation-20260708.png)
+- [AI 助手截图](docs/evidence-screenshots/app-ai-assistant-20260708.png)
 - [开源来源说明](docs/OPEN_SOURCE_ATTRIBUTION.md)
 - [第三方依赖与素材 License 汇总](docs/THIRD_PARTY_LICENSES.md)
 - [演示材料与证据指南](docs/DEMO_AND_EVIDENCE_GUIDE.md)

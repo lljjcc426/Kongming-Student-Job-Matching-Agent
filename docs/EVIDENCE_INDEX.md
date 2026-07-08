@@ -15,13 +15,14 @@
 
 | 截图 | 路径 | 说明 | 状态 |
 | --- | --- | --- | --- |
-| 首页 | 后续补充 | 项目定位和入口 | 待补充 |
-| 简历解析 | 后续补充 | 学生画像和结构化信息 | 待补充 |
-| 岗位推荐 | 后续补充 | 推荐岗位和匹配评分 | 待补充 |
-| JD 分析 | 后续补充 | 目标岗位分析结果 | 待补充 |
-| 模拟面试 | 后续补充 | 面试问题和回答输入 | 待补充 |
-| 面试反馈 | 后续补充 | 评分、建议和优化回答 | 待补充 |
-| AI 助手 | 后续补充 | 多轮求职问答 | 待补充 |
+| 首页 - 岗位推荐展示 | `docs/evidence-screenshots/app-home-job-matching-20260708.png` | 项目定位、入口和岗位推荐卡片 | 已补充 |
+| 首页 - 能力图谱展示 | `docs/evidence-screenshots/app-home-ability-radar-20260708.png` | 首页能力图谱和核心功能入口 | 已补充 |
+| 简历解析 | `docs/evidence-screenshots/app-resume-analysis-summary-20260708.png` | 学生画像、识别进度和模型增强结果 | 已补充 |
+| 简历优化建议 | `docs/evidence-screenshots/app-resume-optimization-suggestions-20260708.png` | 经历结构化、优化简历片段和投递清单 | 已补充 |
+| 岗位推荐列表 | `docs/evidence-screenshots/app-job-recommendation-cards-20260708.png` | 推荐岗位列表、匹配分数和优先级 | 已补充 |
+| 岗位详情与匹配评分 | `docs/evidence-screenshots/app-job-detail-match-score-20260708.png` | 岗位深度评估、要求匹配表和五维评分 | 已补充 |
+| 模拟面试 | `docs/evidence-screenshots/app-interview-simulation-20260708.png` | AI 数字人面试官、面试模式和回答输入 | 已补充 |
+| AI 助手 | `docs/evidence-screenshots/app-ai-assistant-20260708.png` | 多轮求职问答入口和智能体上下文 | 已补充 |
 
 ## 3. 性能测试证据
 

@@ -16,20 +16,15 @@ Demo 视频链接：待补充
 
 ## 2. 运行截图路径
 
-当前仓库未包含正式运行截图目录。
+当前仓库已补充核心页面运行截图：
 
-建议后续补充以下截图：
-
-| 截图 | 建议内容 | 建议文件名 |
+| 截图 | 内容 | 文件 |
 | --- | --- | --- |
-| 首页 | 产品名称、入口和核心定位 | `screenshots/01-home.png` |
-| 简历解析 | 上传简历后的学生画像 | `screenshots/02-resume-profile.png` |
-| 岗位推荐 | 推荐岗位和匹配评分 | `screenshots/03-job-matching.png` |
-| JD 分析 | 自定义 JD 分析结果 | `screenshots/04-jd-analysis.png` |
-| 报告导出 | Markdown 报告下载或内容预览 | `screenshots/05-report.png` |
-| 模拟面试 | AI 面试官、问题和回答输入 | `screenshots/06-interview.png` |
-| 面试反馈 | 评分、改进点和优化回答 | `screenshots/07-interview-feedback.png` |
-| AI 助手 | 多轮求职问答 | `screenshots/08-ai-assistant.png` |
+| 首页 | 项目定位、入口、岗位推荐和能力图谱展示 | `docs/evidence-screenshots/app-home-job-matching-20260708.png`；`docs/evidence-screenshots/app-home-ability-radar-20260708.png` |
+| 简历解析 | 学生画像、识别进度、模型增强结果和优化建议 | `docs/evidence-screenshots/app-resume-analysis-summary-20260708.png`；`docs/evidence-screenshots/app-resume-optimization-suggestions-20260708.png` |
+| 岗位推荐 | 推荐岗位列表、岗位详情、要求匹配表和五维评分 | `docs/evidence-screenshots/app-job-recommendation-cards-20260708.png`；`docs/evidence-screenshots/app-job-detail-match-score-20260708.png` |
+| 模拟面试 | AI 数字人面试官、面试模式和回答输入 | `docs/evidence-screenshots/app-interview-simulation-20260708.png` |
+| AI 助手 | 多轮求职问答入口和智能体上下文 | `docs/evidence-screenshots/app-ai-assistant-20260708.png` |
 
 如果使用 `npm run verify:ui` 生成截图，默认输出目录为 `artifacts/`。该目录已被 `.gitignore` 排除，公开使用前需要复制合适截图并确认不含隐私信息。
 
