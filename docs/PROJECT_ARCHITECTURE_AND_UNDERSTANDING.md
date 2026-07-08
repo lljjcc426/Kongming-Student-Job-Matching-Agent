@@ -62,7 +62,7 @@
 | `public/avatars/` | 2D/Live2D 面试官素材 | 模拟面试数字人展示 | 模型路径、fallback 资源和素材授权说明 |
 | `public/vendor/pdfjs/` | PDF.js CMap 资源 | PDF 文本层读取 | CMap 完整性和 License |
 | `scripts/` | 验证脚本 | 解析器测试和 UI Mock 验证 | 运行前需要 dev server 或依赖环境 |
-| `docs/` | 架构、技术、部署、证据和合规文档 | 公开说明和维护说明 | 保持和真实实现一致 |
+| `docs/` | 架构、技术、部署、证据、PPT 和合规文档 | 公开说明和维护说明 | 保持和真实实现一致 |
 
 ## 3. 核心模块说明
 

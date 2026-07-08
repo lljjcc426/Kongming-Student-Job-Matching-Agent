@@ -1,6 +1,6 @@
 # 演示材料与证据指南
 
-本文用于整理 Kongming Student Job Matching Agent 的演示材料、运行截图、调用日志和公开查看顺序。当前文件只记录可公开材料和待补充项，不包含虚假的视频链接或截图路径。
+本文用于整理 Kongming Student Job Matching Agent 的演示材料、项目展示 PPT、运行截图、调用日志和公开查看顺序。当前文件只记录可公开材料和待补充项，不包含虚假的视频链接或截图路径。
 
 所有演示材料的最终路径统一汇总到 `docs/EVIDENCE_INDEX.md`，后续只需要在该索引中补充真实视频链接、截图路径和日志路径。
 
@@ -14,7 +14,13 @@ Demo 视频链接：待补充
 
 建议视频时长控制在 3 分钟以内，优先展示完整求职闭环，而不是只展示首页动效。
 
-## 2. 运行截图路径
+## 2. 文档材料
+
+| 材料 | 文件 | 说明 |
+| --- | --- | --- |
+| 项目展示 PPT | `docs/materials/kongming.pptx` | 项目场景、功能设计、架构与效果展示 |
+
+## 3. 运行截图路径
 
 当前仓库已补充核心页面运行截图：
 
@@ -28,7 +34,7 @@ Demo 视频链接：待补充
 
 如果使用 `npm run verify:ui` 生成截图，默认输出目录为 `artifacts/`。该目录已被 `.gitignore` 排除，公开使用前需要复制合适截图并确认不含隐私信息。
 
-## 3. 核心功能演示步骤
+## 4. 核心功能演示步骤
 
 建议演示顺序：
 
@@ -43,7 +49,7 @@ Demo 视频链接：待补充
 9. 输入或语音转写一段回答，展示面试反馈。
 10. 进入 AI 助手页面，基于当前简历和岗位提出求职问题。
 
-## 4. 示例输入输出
+## 5. 示例输入输出
 
 ### 示例简历输入
 
@@ -74,7 +80,7 @@ Demo 视频链接：待补充
 - 模拟面试问题和反馈。
 - AI 助手求职建议。
 
-## 5. 真实调用日志路径
+## 6. 真实调用日志路径
 
 当前仓库已补充可公开的 Gitee AI / 沐曦 Token 资源包调用证据。
 
@@ -92,7 +98,7 @@ logs/runtime-sanitized.jsonl
 docs/RUNTIME_LOG_GUIDE.md
 ```
 
-## 6. 性能测试报告路径
+## 7. 性能测试报告路径
 
 当前仓库记录已验证结果和待追加测试项：
 
@@ -111,22 +117,23 @@ docs/PERFORMANCE_TEST_REPORT.md
 
 不要使用估算数据或未经验证的数据。
 
-## 7. 资料查看顺序
+## 8. 资料查看顺序
 
 建议按以下顺序查看材料：
 
 1. `README.md`
 2. `docs/PROJECT_ARCHITECTURE_AND_UNDERSTANDING.md`
 3. `docs/TECHNICAL_DESIGN.md`
-4. `docs/DEPLOYMENT_GUIDE.md`
-5. `docs/EVIDENCE_INDEX.md`
-6. `docs/REAL_MODEL_CALL_EVIDENCE.md`
-7. `docs/PERFORMANCE_TEST_REPORT.md`
-8. Demo 视频链接和运行截图。
-9. 脱敏真实调用日志。
-10. Git commit 历史。
+4. `docs/materials/kongming.pptx`
+5. `docs/DEPLOYMENT_GUIDE.md`
+6. `docs/EVIDENCE_INDEX.md`
+7. `docs/REAL_MODEL_CALL_EVIDENCE.md`
+8. `docs/PERFORMANCE_TEST_REPORT.md`
+9. Demo 视频链接和运行截图。
+10. 脱敏真实调用日志。
+11. Git commit 历史。
 
-## 8. 脱敏提醒
+## 9. 脱敏提醒
 
 演示材料中不得出现：
 

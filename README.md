@@ -180,7 +180,7 @@ npm run preview
 
 ## 证据材料
 
-仓库已补充核心页面运行截图、模型真实调用证据、脱敏日志说明和性能测试记录。材料清单见 [证据材料索引](docs/EVIDENCE_INDEX.md)，整理说明见 [演示材料与证据指南](docs/DEMO_AND_EVIDENCE_GUIDE.md)。
+仓库已补充项目展示 PPT、核心页面运行截图、模型真实调用证据、脱敏日志说明和性能测试记录。材料清单见 [证据材料索引](docs/EVIDENCE_INDEX.md)，整理说明见 [演示材料与证据指南](docs/DEMO_AND_EVIDENCE_GUIDE.md)。
 
 ## 性能测试与运行日志
 
@@ -225,6 +225,7 @@ npm run preview
 - [技术说明文档](docs/TECHNICAL_DESIGN.md)
 - [部署指南](docs/DEPLOYMENT_GUIDE.md)
 - [NOTICE](NOTICE)
+- [项目展示 PPT](docs/materials/kongming.pptx)
 - [证据材料索引](docs/EVIDENCE_INDEX.md)
 - [Gitee AI 真实调用证据](docs/REAL_MODEL_CALL_EVIDENCE.md)
 - [真实调用记录截图](docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png)
