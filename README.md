@@ -119,41 +119,51 @@ npm run preview
 
 不要将真实 API Key、token、cookie 或账号密码提交到仓库。建议本地使用 `.env.local`，生产环境使用部署平台的环境变量管理功能。
 
-## 示例输入输出
+## 示例输入输出与运行流程
 
-### 示例一：简历上传与岗位推荐
+以下示例基于已脱敏的演示数据，展示从首页入口到简历分析、岗位推荐、模拟面试和 AI 助手的完整使用链路。
 
-输入：
+示例输入：脱敏学生简历 PDF、图片或文本内容，以及可选的目标岗位名称/JD。
 
-```text
-姓名：陈雨
-华东师范大学 心理学 本科
-求职意向：用户研究实习生 / 心理测评产品实习生
-项目经历：完成大学生压力与睡眠质量调查项目，使用 SPSS 分析 286 份问卷。
-技能：SPSS、问卷设计、访谈、数据分析。
-```
+示例输出：结构化学生画像、岗位推荐列表、岗位匹配评分、简历优化建议、模拟面试追问和 AI 助手多轮问答回复。
 
-预期输出：
+### 1. 首页与能力入口
 
-- 学生画像：学历、经历、技能、目标岗位。
-- 推荐岗位：岗位名称、方向、职责、要求、关键词和优先级。
-- 匹配分析：总分、五维评分、已覆盖关键词、待补强关键词、简历优化动作。
+首页展示项目定位、核心能力入口和岗位推荐/能力图谱预览。
 
-### 示例二：目标 JD 分析
+![首页 - 岗位推荐展示](docs/evidence-screenshots/app-home-job-matching-20260708.png)
 
-输入：
+![首页 - 能力图谱展示](docs/evidence-screenshots/app-home-ability-radar-20260708.png)
 
-```text
-岗位名称：用户研究实习生
-岗位 JD：负责用户访谈、问卷设计、需求洞察和调研报告输出，要求具备数据分析能力。
-```
+### 2. 简历解析与优化建议
 
-预期输出：
+用户上传或粘贴简历后，系统提取学生画像、项目经历、技能关键词和求职方向，并基于目标岗位生成简历优化建议。
 
-- 岗位结构化信息。
-- 投递优先级。
-- 与当前简历匹配的优势和风险。
-- 面向该 JD 的简历补强动作。
+![简历解析结果](docs/evidence-screenshots/app-resume-analysis-summary-20260708.png)
+
+![简历优化建议](docs/evidence-screenshots/app-resume-optimization-suggestions-20260708.png)
+
+### 3. 岗位推荐与匹配解释
+
+系统根据学生画像生成岗位推荐列表，给出匹配分数、优先级、岗位职责、岗位要求和五维匹配评分。
+
+![岗位推荐列表](docs/evidence-screenshots/app-job-recommendation-cards-20260708.png)
+
+![岗位详情与匹配评分](docs/evidence-screenshots/app-job-detail-match-score-20260708.png)
+
+### 4. 模拟面试与 AI 助手
+
+用户可以进入综合面、技术面或 HR 面模拟面试，也可以在 AI 助手中围绕简历诊断、岗位澄清、面试准备进行多轮问答。
+
+![模拟面试](docs/evidence-screenshots/app-interview-simulation-20260708.png)
+
+![AI 求职助手](docs/evidence-screenshots/app-ai-assistant-20260708.png)
+
+### 5. 模型真实调用记录
+
+项目已通过 Gitee AI / 沐曦 Token 资源包完成真实模型调用。下图为脱敏后的控制台调用记录，不包含访问令牌、Authorization header、Cookie 或完整 IP。
+
+![Gitee AI 真实调用记录](docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png)
 
 ## 部署方法
 
