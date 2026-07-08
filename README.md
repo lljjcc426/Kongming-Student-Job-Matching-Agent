@@ -117,13 +117,12 @@ npm run preview
 | `VITE_ARK_API_URL` | 否 | 前端覆盖模型代理地址 | `/api/ark` |
 | `VITE_AVATAR_MODE` | 否 | 数字人模式标记 | `static` |
 
-不要将真实 API Key、token、cookie 或账号密码提交到仓库。建议本地使用 `.env.local`，生产环境使用部署平台的环境变量管理功能。
 
 ## 示例输入输出与运行流程
 
 以下示例基于已脱敏的演示数据，展示从首页入口到简历分析、岗位推荐、模拟面试和 AI 助手的完整使用链路。
 
-示例输入：脱敏学生简历 PDF、图片或文本内容，以及可选的目标岗位名称/JD。
+示例输入：学生简历 PDF、图片或文本内容，以及可选的目标岗位名称/JD。
 
 示例输出：结构化学生画像、岗位推荐列表、岗位匹配评分、简历优化建议、模拟面试追问和 AI 助手多轮问答回复。
 
@@ -190,7 +189,7 @@ npm run preview
 - `scripts/verify-parsers.cjs`：解析器验证脚本。
 - `scripts/verify-ui.cjs`：Playwright UI 验证脚本，使用 Mock `/api/ark` 响应。
 
-仓库已补充 Gitee AI / 沐曦 Token 资源包真实调用证据。调用记录已脱敏，不包含访问令牌、Authorization header、完整 IP、Cookie、完整简历原文或完整模型响应。相关材料见：
+仓库已补充 Gitee AI / 沐曦 Token 资源包真实调用证据。相关材料见：
 
 - [性能测试报告](docs/PERFORMANCE_TEST_REPORT.md)
 - [真实调用日志说明](docs/RUNTIME_LOG_GUIDE.md)
@@ -204,7 +203,7 @@ npm run preview
 - [开源来源说明](docs/OPEN_SOURCE_ATTRIBUTION.md)
 - [第三方依赖与素材 License 汇总](docs/THIRD_PARTY_LICENSES.md)
 
-当前仓库根目录包含 Apache-2.0 许可证。公开发布前应再次确认第三方素材、Live2D 资源、PDF.js CMap、前端依赖和参考项目的 License 说明完整。
+当前仓库根目录包含 Apache-2.0 许可证。
 
 ## 安全边界
 
