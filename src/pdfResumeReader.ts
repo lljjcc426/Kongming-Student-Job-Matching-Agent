@@ -19,7 +19,7 @@ const MIN_PAGE_TEXT_CHARS = 12;
 const MIN_TEXT_QUALITY = 0.56;
 const MIN_TEXT_COVERAGE = 0.35;
 const MAX_PAGE_IMAGE_CHARS = 950_000;
-const PDF_CMAP_URL = "/vendor/pdfjs/cmaps/";
+const PDF_CMAP_URL = `${import.meta.env.BASE_URL}vendor/pdfjs/cmaps/`;
 
 const RESUME_SIGNAL_TERMS = [
   "姓名",

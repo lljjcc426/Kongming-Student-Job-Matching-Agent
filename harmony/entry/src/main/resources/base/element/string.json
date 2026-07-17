@@ -1,0 +1,7 @@
+{
+  "string": [
+    { "name": "module_desc", "value": "孔明职配学生求职智能工作台 HarmonyOS 版" },
+    { "name": "EntryAbility_label", "value": "孔明职配" },
+    { "name": "camera_permission_reason", "value": "用于用户主动开启模拟面试时显示本机摄像头预览" }
+  ]
+}

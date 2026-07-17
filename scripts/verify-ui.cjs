@@ -90,14 +90,14 @@ async function main() {
 
   await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
   const introStage = await page.locator(".loading-screen").count();
-  const introProgress = await page.locator(".loading-progress-track").count();
-  const introProgressCard = await page.locator(".loading-progress-card").count();
-  const introParticles = await page.locator(".loading-stars > i").count();
-  const introVideoBackdrop = await page.locator(".loading-video-backdrop video").count();
+  const introProgress = await page.locator(".loading-brand-progress-track").count();
+  const introProgressCard = await page.locator(".loading-brand-progress").count();
+  const introVideoBackdrop = await page.locator(".loading-video-stage video").count();
+  const introStartButton = await page.locator(".loading-start-button").count();
   await page.screenshot({ path: "artifacts/check-intro.png", fullPage: false });
   await page.waitForTimeout(1400);
-  const introProgressAfterWheel = Number(await page.locator(".loading-progress-track").getAttribute("aria-valuenow"));
-  await page.dblclick(".loading-screen").catch(() => {});
+  const introProgressAfterPlayback = Number(await page.locator(".loading-brand-progress-track").getAttribute("aria-valuenow"));
+  await page.locator(".loading-start-button").click();
   await page.locator(".loading-screen").waitFor({ state: "detached", timeout: 5000 }).catch(async () => {
     await page.waitForFunction(() => !document.querySelector(".loading-screen"), null, { timeout: 5000 });
   });
@@ -152,14 +152,11 @@ async function main() {
   await page.screenshot({ path: "artifacts/check-assistant.png", fullPage: false });
   await browser.close();
 
-  if (introStage !== 1 || introProgress !== 1 || introProgressCard !== 1 || introVideoBackdrop !== 1) {
-    throw new Error(`Expected intro video loading screen, found stage=${introStage}, progress=${introProgress}, card=${introProgressCard}, video=${introVideoBackdrop}`);
+  if (introStage !== 1 || introProgress !== 1 || introProgressCard !== 1 || introVideoBackdrop !== 1 || introStartButton !== 1) {
+    throw new Error(`Expected intro video loading screen, found stage=${introStage}, progress=${introProgress}, card=${introProgressCard}, video=${introVideoBackdrop}, start=${introStartButton}`);
   }
-  if (introParticles < 180 || introParticles > 320) {
-    throw new Error(`Expected 180-320 background particles, found ${introParticles}`);
-  }
-  if (introProgressAfterWheel <= 0) {
-    throw new Error(`Expected loading progress to advance, found ${introProgressAfterWheel}`);
+  if (introProgressAfterPlayback <= 0) {
+    throw new Error(`Expected loading progress to advance during playback, found ${introProgressAfterPlayback}`);
   }
   if (!title.includes("孔明职配")) {
     throw new Error(`Unexpected home title: ${title}`);
@@ -212,9 +209,9 @@ async function main() {
     introStage,
     introProgress,
     introProgressCard,
-    introParticles,
     introVideoBackdrop,
-    introProgressAfterWheel,
+    introStartButton,
+    introProgressAfterPlayback,
     initialJobCards,
     uploadControl,
     uploadMessage,

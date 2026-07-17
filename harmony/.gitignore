@@ -1,0 +1,12 @@
+/node_modules
+/oh_modules
+/.hvigor
+/.idea
+/.preview
+/build
+/**/build
+/local.properties
+*.p12
+*.cer
+*.p7b
+*.jks

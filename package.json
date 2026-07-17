@@ -7,9 +7,14 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
+    "build:web:harmony": "tsc -b && vite build --base ./",
+    "sync:harmony:web": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-harmony-web.ps1",
+    "build:harmony": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1",
+    "run:harmony:emulator": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-harmony-emulator.ps1",
     "preview": "vite preview --host 0.0.0.0",
     "verify:parsers": "node scripts/verify-parsers.cjs",
     "verify:jobs": "node scripts/verify-job-collector.cjs",
+    "verify:harmony": "node scripts/verify-harmony-project.cjs",
     "verify:ui": "node scripts/verify-ui.cjs"
   },
   "dependencies": {

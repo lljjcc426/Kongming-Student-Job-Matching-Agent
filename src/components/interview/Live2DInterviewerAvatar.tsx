@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { AvatarSpeechState } from "../../types/interview";
 
-const CUBISM_CORE_SRC = "/vendor/live2d/live2dcubismcore.min.js";
-const FALLBACK_AVATAR_SRC = "/avatars/interviewer-2d/interviewer.png";
+const PUBLIC_BASE = import.meta.env.BASE_URL;
+const CUBISM_CORE_SRC = `${PUBLIC_BASE}vendor/live2d/live2dcubismcore.min.js`;
+const FALLBACK_AVATAR_SRC = `${PUBLIC_BASE}avatars/interviewer-2d/interviewer.png`;
 const MODEL_CANDIDATES = [
-  "/avatars/interviewer-live2d/interviewer.model3.json",
-  "/avatars/interviewer-live2d/interviewer_live2d_v1.model3.json",
+  `${PUBLIC_BASE}avatars/interviewer-live2d/interviewer.model3.json`,
+  `${PUBLIC_BASE}avatars/interviewer-live2d/interviewer_live2d_v1.model3.json`,
 ];
 
 const mouthParameterIds = ["ParamMouthOpenY", "ParamMouthOpen"];

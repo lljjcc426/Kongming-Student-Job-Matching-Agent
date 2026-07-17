@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { ArrowUp, Brain, BriefcaseBusiness, Code2, Mic, MicOff, RotateCcw, SkipForward, Sparkles, Square, UsersRound, Video } from "lucide-react";
 import type { Job, StudentProfile } from "../data";
 import { getInterviewModelProvider } from "../modelProviders/interviewProvider";
@@ -21,6 +22,13 @@ const interviewTypes: Array<{ value: InterviewType; label: string; description: 
   { value: "技术面", label: "技术面", description: "专业能力、方案表达", icon: Code2 },
   { value: "HR面", label: "HR面", description: "稳定性、协作与规划", icon: UsersRound },
 ];
+
+const interviewRoomStyle = {
+  backgroundImage: `linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(219, 234, 254, 0.08)), url("${import.meta.env.BASE_URL}avatars/interviewer/interview-room.png")`,
+  backgroundPosition: "center",
+  backgroundSize: "cover",
+  backgroundRepeat: "no-repeat",
+} as CSSProperties;
 
 const createMessage = (role: InterviewMessage["role"], content: string, inputMode?: InterviewInputMode): InterviewMessage => ({
   id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -247,7 +255,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
   return (
     <section className="interview-panel">
       <div className="interview-page-grid">
-        <section className={`avatar-panel ${avatarState}`}>
+        <section className={`avatar-panel ${avatarState}`} style={interviewRoomStyle}>
           <div className="avatar-panel-top">
             <span>AI 面试官 · {interviewType}</span>
             <strong>{statusLabel[status]}</strong>

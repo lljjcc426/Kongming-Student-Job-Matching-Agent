@@ -1,5 +1,7 @@
 # Kongming Student Job Matching Agent
 
+> HarmonyOS 端正在 `harmony/` 中开发。当前优先复用现有 React/Vite 产品，通过 ArkWeb 将 UI、素材与核心交互随 HAP 本地打包，再逐步补充分享、文件、相机等必要原生桥接。构建说明见 [harmony/README.md](harmony/README.md)，比赛任务链见 [docs/HARMONYOS_COMPETITION_PLAN.md](docs/HARMONYOS_COMPETITION_PLAN.md)。
+
 孔明职配是面向学生求职场景的 AI 岗位匹配与简历优化智能体。项目通过简历解析、岗位推荐、JD 分析、匹配解释、简历优化建议、模拟面试和 AI 求职助手，帮助学生完成从“理解自身画像”到“准备投递材料”的求职分析闭环。
 
 ## 项目简介

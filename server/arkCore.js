@@ -1,6 +1,6 @@
 const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 const DEFAULT_MODEL = "doubao-seed-2-0-lite-260215";
-const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "jd-analysis", "interview-feedback", "career-chat"]);
+const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "resume-rewrite", "job-recommendations", "jd-analysis", "interview-feedback", "career-chat"]);
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_CHAT_CHARS = 6000;
@@ -34,6 +34,7 @@ const maxTokensForTask = (body) => {
   if (body.task === "career-chat") return 1600;
   if (body.task === "resume-vision") return imageCountOf(body) > 1 ? 2200 : 1500;
   if (body.task === "resume-structure") return 2400;
+  if (body.task === "resume-rewrite") return 1400;
   return 1200;
 };
 
@@ -159,6 +160,17 @@ const buildTextPrompt = (body) => {
       `当前匹配结果：${JSON.stringify(match, null, 2)}`,
       `历史对话：${JSON.stringify(safeMessages, null, 2)}`,
       `学生本轮输入：${asText(body.userMessage, MAX_CHAT_CHARS)}`,
+    ].join("\n\n");
+  }
+
+  if (body.task === "resume-rewrite") {
+    return [
+      "你是简历证据约束改写助手。只能使用候选人原文中明确出现的事实，不得编造公司、学校、项目、职位、技能、数字、结果或时间。",
+      "请围绕目标岗位优化表达，但不能把建议或岗位要求写成候选人已经具备的经历。缺失信息必须列为待补充问题，不能自行补齐。",
+      "输出中文纯文本，按以下结构：改写稿、事实依据、待补充问题。改写稿控制在 300 字内。",
+      `目标岗位：${asText(body.jobTitle, 120)}`,
+      `目标岗位公开信息：${asText(body.jdText, 3000)}`,
+      `候选人简历原文：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
     ].join("\n\n");
   }
 

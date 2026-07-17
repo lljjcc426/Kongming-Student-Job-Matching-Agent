@@ -1,7 +1,7 @@
 import type { Job } from "./data";
 import type { MatchResult } from "./matchEngine";
 
-export type ArkTask = "match-analysis" | "resume-vision" | "resume-structure" | "job-recommendations" | "jd-analysis" | "interview-feedback" | "career-chat";
+export type ArkTask = "match-analysis" | "resume-vision" | "resume-structure" | "resume-rewrite" | "job-recommendations" | "jd-analysis" | "interview-feedback" | "career-chat";
 
 export type ArkRequest = {
   task: ArkTask;
@@ -33,10 +33,18 @@ export type ArkResponse = {
 const DEFAULT_TIMEOUT_MS = 75_000;
 
 export async function callArkAgent(payload: ArkRequest, options: { timeoutMs?: number } = {}): Promise<ArkResponse> {
+  const configuredEndpoint = import.meta.env.VITE_ARK_API_URL?.trim();
+  const endpoint = configuredEndpoint || (window.location.protocol === "file:" ? "" : "/api/ark");
+  if (!endpoint) {
+    return {
+      ok: false,
+      error: "当前安装包尚未配置模型服务地址。请在构建 HAP 时设置 VITE_ARK_API_URL，模型密钥只保存在服务端。",
+    };
+  }
+
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   let response: Response;
-  const endpoint = import.meta.env.VITE_ARK_API_URL || "/api/ark";
 
   try {
     response = await fetch(endpoint, {

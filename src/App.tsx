@@ -1683,7 +1683,7 @@ function AssistantGalaxy() {
 function ProductAvatar({ compact = false }: { compact?: boolean }) {
   return (
     <span className={`product-avatar ${compact ? "compact" : ""}`}>
-      <img src="/kongming-ip.png" alt="" aria-hidden="true" />
+      <img src={`${import.meta.env.BASE_URL}kongming-ip.png`} alt="" aria-hidden="true" />
     </span>
   );
 }
