@@ -1,283 +1,229 @@
-const SEARCH_ENDPOINT = "https://cn.bing.com/search";
-const TENCENT_SEARCH_ENDPOINT = "https://careers.tencent.com/tencentcareer/api/post/Query";
-const SEARCH_TIMEOUT_MS = 7000;
-const VERIFY_TIMEOUT_MS = 3500;
+import { collectAshbyJobs } from "./jobs/adapters/ashby.js";
+import { collectGreenhouseJobs } from "./jobs/adapters/greenhouse.js";
+import { collectLeverJobs } from "./jobs/adapters/lever.js";
+import { collectMokaJobs } from "./jobs/adapters/moka.js";
+import { collectSearchDiscoveryJobs } from "./jobs/adapters/searchDiscovery.js";
+import { collectTencentJobs } from "./jobs/adapters/tencent.js";
+import { queryJobs, repositoryStats, upsertJobs } from "./jobs/jobRepository.js";
+import { getOfficialCareerSources, getStructuredJobSources, listJobSources } from "./jobs/sourceRegistry.js";
+import { sanitizeQuery } from "./jobs/utils.js";
+
 const CACHE_TTL_MS = 10 * 60 * 1000;
-const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) KongmingJobRadar/1.0";
-
-const INTERNET_CAREER_SOURCES = [
-  { company: "字节跳动", domains: ["jobs.bytedance.com"] },
-  { company: "腾讯", domains: ["join.qq.com", "careers.tencent.com"] },
-  { company: "阿里巴巴", domains: ["talent.alibaba.com", "campus.alibaba.com"] },
-  { company: "百度", domains: ["talent.baidu.com"] },
-  { company: "美团", domains: ["zhaopin.meituan.com"] },
-  { company: "京东", domains: ["campus.jd.com", "zhaopin.jd.com"] },
-  { company: "小米", domains: ["hr.xiaomi.com"] },
-  { company: "网易", domains: ["campus.163.com", "hr.163.com"] },
-  { company: "快手", domains: ["zhaopin.kuaishou.cn"] },
-  { company: "华为", domains: ["career.huawei.com"] },
-];
-
-const KEYWORD_DICTIONARY = [
-  "JavaScript", "TypeScript", "Java", "Python", "Go", "C++", "SQL", "React", "Vue", "Node.js",
-  "产品设计", "需求分析", "用户研究", "数据分析", "内容运营", "用户运营", "商业分析", "机器学习",
-  "大模型", "人工智能", "测试", "交互设计", "视觉设计", "项目管理", "市场营销", "供应链", "财务",
-];
-
-const CITY_NAMES = ["北京", "上海", "深圳", "广州", "杭州", "成都", "武汉", "南京", "西安", "苏州", "长沙", "重庆", "天津", "厦门", "珠海"];
+const SOURCE_CONCURRENCY = 4;
 const cache = new Map();
+const health = new Map();
 
-const decodeEntities = (value) => String(value || "")
-  .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-  .replace(/&quot;/g, '"')
-  .replace(/&#39;|&apos;/g, "'")
-  .replace(/&amp;/g, "&")
-  .replace(/&lt;/g, "<")
-  .replace(/&gt;/g, ">")
-  .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
-
-const stripHtml = (value) => decodeEntities(value)
-  .replace(/<script[\s\S]*?<\/script>/gi, " ")
-  .replace(/<style[\s\S]*?<\/style>/gi, " ")
-  .replace(/<[^>]+>/g, " ")
-  .replace(/\s+/g, " ")
-  .trim();
-
-const sanitizeText = (value, maxLength = 120) => stripHtml(value).replace(/[\u0000-\u001f]/g, " ").slice(0, maxLength);
-
-const sanitizeQuery = (value) => sanitizeText(value, 80)
-  .replace(/["'<>]/g, " ")
-  .replace(/\s+/g, " ")
-  .trim();
-
-const tagValue = (xml, tag) => {
-  const match = String(xml || "").match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
-  return match ? decodeEntities(match[1]).trim() : "";
+const ADAPTERS = {
+  ashby: collectAshbyJobs,
+  greenhouse: collectGreenhouseJobs,
+  lever: collectLeverJobs,
+  moka: collectMokaJobs,
+  tencent: collectTencentJobs,
 };
 
-const parseRssItems = (xml) => {
-  const items = [];
-  const pattern = /<item>([\s\S]*?)<\/item>/gi;
-  let match;
-  while ((match = pattern.exec(String(xml || ""))) && items.length < 20) {
-    items.push({
-      title: stripHtml(tagValue(match[1], "title")),
-      url: stripHtml(tagValue(match[1], "link")),
-      description: stripHtml(tagValue(match[1], "description")),
-      publishedAt: stripHtml(tagValue(match[1], "pubDate")),
-    });
-  }
-  return items;
+const errorMessage = (error) => error instanceof Error ? error.message.slice(0, 240) : "未知采集错误";
+
+const runWithConcurrency = async (tasks, concurrency) => {
+  const results = new Array(tasks.length);
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < tasks.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      try {
+        results[index] = { status: "fulfilled", value: await tasks[index]() };
+      } catch (error) {
+        results[index] = { status: "rejected", reason: error };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
+  return results;
 };
 
-const normalizeUrl = (value) => {
-  try {
-    const url = new URL(String(value || "").trim());
-    if (url.protocol !== "https:" && url.protocol !== "http:") return "";
-    ["utm_source", "utm_medium", "utm_campaign", "spm", "from"].forEach((key) => url.searchParams.delete(key));
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return "";
-  }
-};
-
-const hostMatches = (url, domains) => {
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
-  } catch {
-    return false;
-  }
-};
-
-const inferCity = (text, requestedCity) => CITY_NAMES.find((city) => text.includes(city)) || requestedCity || "地点见原岗位页";
-
-const inferLevel = (text) => {
-  if (/实习|intern/i.test(text)) return "实习";
-  if (/校招|校园|应届|graduate|campus/i.test(text)) return "校招";
-  return "初级/社招";
-};
-
-const inferKeywords = (text, query) => {
-  const detected = KEYWORD_DICTIONARY.filter((keyword) => text.toLowerCase().includes(keyword.toLowerCase()));
-  const queryTokens = sanitizeQuery(query).split(/\s+/).filter((item) => item.length >= 2);
-  return [...new Set([...detected, ...queryTokens])].slice(0, 8);
-};
-
-const parseChineseDate = (value) => {
-  const match = String(value || "").match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
-  if (!match) return null;
-  const parsed = new Date(`${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}T00:00:00+08:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
-};
-
-const cleanTitle = (title, company) => sanitizeText(title, 100)
-  .replace(new RegExp(`[-_|｜].*${company}.*$`, "i"), "")
-  .replace(/招聘官网|校园招聘|社会招聘/g, "")
-  .trim() || `${company}公开招聘岗位`;
-
-const fetchWithTimeout = async (fetchImpl, url, options, timeoutMs) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetchImpl(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
-};
-
-const collectTencentOfficialJobs = async (fetchImpl, query, city, limit) => {
-  const params = new URLSearchParams({
-    timestamp: String(Date.now()),
-    countryId: "",
-    cityId: "",
-    bgIds: "",
-    productId: "",
-    categoryId: "",
-    parentCategoryId: "",
-    attrId: "",
-    keyword: query,
-    pageIndex: "1",
-    pageSize: String(Math.max(10, Math.min(30, limit))),
-    language: "zh-cn",
-    area: "cn",
+const collectOneSource = async (source, context) => {
+  const startedAt = Date.now();
+  health.set(source.id, {
+    ...(health.get(source.id) || {}),
+    id: source.id,
+    company: source.company,
+    adapter: source.adapter,
+    sourceType: source.sourceType,
+    status: "running",
+    lastStartedAt: new Date(startedAt).toISOString(),
   });
+  const adapter = ADAPTERS[source.adapter];
+  if (!adapter) throw new Error(`Unsupported job adapter: ${source.adapter}`);
   try {
-    const response = await fetchWithTimeout(fetchImpl, `${TENCENT_SEARCH_ENDPOINT}?${params}`, {
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "application/json",
-        Referer: "https://careers.tencent.com/search.html",
-      },
-    }, SEARCH_TIMEOUT_MS);
-    if (!response.ok) return [];
-    const payload = await response.json();
-    const posts = Array.isArray(payload?.Data?.Posts) ? payload.Data.Posts : [];
-    return posts.filter((post) => post?.IsValid !== false && post?.PostId).map((post) => {
-      const title = sanitizeText(post.RecruitPostName, 100) || "腾讯公开招聘岗位";
-      const summary = sanitizeText(post.Responsibility, 360) || "请进入腾讯招聘官网查看完整岗位职责与任职要求。";
-      const combined = `${title} ${summary} ${post.CategoryName || ""} ${post.ProductName || ""}`;
-      const sourceUrl = normalizeUrl(post.PostURL || `https://careers.tencent.com/jobdesc.html?postId=${post.PostId}`)
-        .replace(/^http:/, "https:");
-      return {
-        id: `tencent-${post.PostId}`,
-        title,
-        company: "腾讯",
-        city: sanitizeText(post.LocationName, 24) || inferCity(combined, city),
-        level: inferLevel(`${combined} ${post.RequireWorkYearsName || ""}`),
-        summary,
-        keywords: inferKeywords(combined, query),
-        sourceUrl,
-        sourceDomain: "careers.tencent.com",
-        publishedAt: parseChineseDate(post.LastUpdateTime),
-        collectedAt: new Date().toISOString(),
-        verification: "official-live-api",
-      };
+    const jobs = await adapter({ ...context, source });
+    health.set(source.id, {
+      ...health.get(source.id),
+      status: "healthy",
+      jobCount: jobs.length,
+      durationMs: Date.now() - startedAt,
+      lastSuccessAt: new Date().toISOString(),
+      error: null,
     });
-  } catch {
-    return [];
+    return jobs;
+  } catch (error) {
+    health.set(source.id, {
+      ...health.get(source.id),
+      status: "failed",
+      jobCount: 0,
+      durationMs: Date.now() - startedAt,
+      lastFailureAt: new Date().toISOString(),
+      error: errorMessage(error),
+    });
+    throw error;
   }
 };
 
-const searchSource = async (fetchImpl, source, query, city) => {
-  const siteQuery = source.domains.map((domain) => `site:${domain}`).join(" OR ");
-  const searchQuery = `${query || "互联网岗位"} ${city || ""} (实习 OR 校招 OR 应届) (${siteQuery})`;
-  const url = `${SEARCH_ENDPOINT}?format=rss&count=12&q=${encodeURIComponent(searchQuery)}`;
-  try {
-    const response = await fetchWithTimeout(fetchImpl, url, { headers: { "User-Agent": USER_AGENT, Accept: "application/rss+xml,text/xml" } }, SEARCH_TIMEOUT_MS);
-    if (!response.ok) return [];
-    const xml = await response.text();
-    return parseRssItems(xml)
-      .map((item) => ({ ...item, url: normalizeUrl(item.url) }))
-      .filter((item) => item.url && hostMatches(item.url, source.domains))
-      .map((item) => {
-        const combined = `${item.title} ${item.description}`;
-        const parsedDate = item.publishedAt ? new Date(item.publishedAt) : null;
-        return {
-          id: Buffer.from(item.url).toString("base64url").slice(0, 24),
-          title: cleanTitle(item.title, source.company),
-          company: source.company,
-          city: inferCity(combined, city),
-          level: inferLevel(combined),
-          summary: sanitizeText(item.description, 240) || "请进入企业官方招聘页面查看完整岗位职责与任职要求。",
-          keywords: inferKeywords(combined, query),
-          sourceUrl: item.url,
-          sourceDomain: new URL(item.url).hostname,
-          publishedAt: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : null,
-          collectedAt: new Date().toISOString(),
-          verification: "official-indexed",
-        };
-      });
-  } catch {
-    return [];
-  }
+const sourceMatches = (source, query, company) => {
+  const companyNeedle = sanitizeQuery(company).toLowerCase();
+  if (companyNeedle) return source.company.toLowerCase().includes(companyNeedle);
+  const queryText = sanitizeQuery(query).toLowerCase();
+  const mentioned = getStructuredJobSources().filter((candidate) => queryText.includes(candidate.company.toLowerCase()));
+  return !mentioned.length || mentioned.some((candidate) => candidate.id === source.id);
 };
 
-const verifyJobUrl = async (fetchImpl, job) => {
-  try {
-    const response = await fetchWithTimeout(fetchImpl, job.sourceUrl, {
-      method: "GET",
-      redirect: "follow",
-      headers: { "User-Agent": USER_AGENT, Range: "bytes=0-2048" },
-    }, VERIFY_TIMEOUT_MS);
-    const reachable = response.status >= 200 && response.status < 500 && response.status !== 404 && response.status !== 410;
-    return { ...job, verification: reachable ? "official-reachable" : job.verification };
-  } catch {
-    return job;
-  }
-};
-
-const relevanceScore = (job, query, city) => {
-  const text = `${job.title} ${job.summary} ${job.keywords.join(" ")}`.toLowerCase();
-  const tokens = sanitizeQuery(query).toLowerCase().split(/\s+/).filter((item) => item.length >= 2);
-  const hits = tokens.filter((token) => text.includes(token)).length;
-  return hits * 12 + (city && job.city.includes(city) ? 8 : 0)
-    + (job.verification === "official-live-api" ? 10 : 0)
-    + (job.verification === "official-reachable" ? 5 : 0);
+const discoveryTargetsFor = (query, company) => {
+  const targets = getOfficialCareerSources();
+  const needle = sanitizeQuery(company).toLowerCase();
+  if (needle) return targets.filter((target) => target.company.toLowerCase().includes(needle));
+  const queryText = sanitizeQuery(query).toLowerCase();
+  const mentioned = targets.filter((target) => queryText.includes(target.company.toLowerCase()));
+  return mentioned.length ? mentioned : targets;
 };
 
 export async function collectPublicJobs(options = {}) {
   const fetchImpl = options.fetchImpl || fetch;
   const query = sanitizeQuery(options.query || "产品 技术 运营");
-  const city = sanitizeQuery(options.city || "").slice(0, 12);
-  const limit = Math.max(1, Math.min(30, Number(options.limit) || 20));
-  const cacheKey = `${query}|${city}|${limit}`;
+  const city = sanitizeQuery(options.city || "").slice(0, 24);
+  const company = sanitizeQuery(options.company || "").slice(0, 80);
+  const employmentType = sanitizeQuery(options.employmentType || "").slice(0, 32);
+  const sourceType = sanitizeQuery(options.sourceType || "").slice(0, 40);
+  const updatedAfter = sanitizeQuery(options.updatedAfter || "").slice(0, 40);
+  const cursor = sanitizeQuery(options.cursor || "").slice(0, 120);
+  const limit = Math.max(1, Math.min(100, Number(options.limit) || 20));
+  const refresh = options.refresh !== false;
+  const cacheKey = JSON.stringify({ query, city, company, employmentType, sourceType, updatedAfter, cursor, limit });
   const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return cached.value;
+  if (refresh && cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return cached.value;
 
-  const preferredSources = INTERNET_CAREER_SOURCES.filter((source) => query.includes(source.company));
-  const sources = (preferredSources.length ? preferredSources : INTERNET_CAREER_SOURCES).slice(0, 8);
-  const groups = await Promise.all([
-    collectTencentOfficialJobs(fetchImpl, query, city, limit),
-    ...sources.map((source) => searchSource(fetchImpl, source, query, city)),
-  ]);
-  const used = new Set();
-  const indexedJobs = groups.flat().filter((job) => {
-    const key = `${job.company}|${job.title}|${job.sourceUrl}`.toLowerCase();
-    if (used.has(key)) return false;
-    used.add(key);
-    return true;
-  });
+  let collectedJobs = [];
+  let attempted = 0;
+  let succeeded = 0;
+  let failed = 0;
 
-  const verified = await Promise.all(indexedJobs.slice(0, Math.max(limit, 12)).map((job) => (
-    job.verification === "official-live-api" ? job : verifyJobUrl(fetchImpl, job)
-  )));
-  const jobs = verified
-    .sort((a, b) => relevanceScore(b, query, city) - relevanceScore(a, query, city))
-    .slice(0, limit);
+  if (refresh) {
+    const structuredSources = getStructuredJobSources().filter((source) => sourceMatches(source, query, company));
+    const targets = discoveryTargetsFor(query, company);
+    const structuredTasks = structuredSources.map((source) => async () => collectOneSource(source, {
+      fetchImpl,
+      query,
+      city,
+      limit,
+    }));
+    const discoverySource = listJobSources().find((source) => source.adapter === "search-discovery");
+    const tasks = [...structuredTasks];
+    if (targets.length && discoverySource) {
+      tasks.push(async () => {
+        const startedAt = Date.now();
+        health.set(discoverySource.id, {
+          id: discoverySource.id,
+          company: discoverySource.company,
+          adapter: discoverySource.adapter,
+          sourceType: discoverySource.sourceType,
+          status: "running",
+          lastStartedAt: new Date(startedAt).toISOString(),
+        });
+        try {
+          const jobs = await collectSearchDiscoveryJobs({ fetchImpl, source: discoverySource, targets, query, city, limit });
+          health.set(discoverySource.id, {
+            ...health.get(discoverySource.id),
+            status: "healthy",
+            jobCount: jobs.length,
+            durationMs: Date.now() - startedAt,
+            lastSuccessAt: new Date().toISOString(),
+            error: null,
+          });
+          return jobs;
+        } catch (error) {
+          health.set(discoverySource.id, {
+            ...health.get(discoverySource.id),
+            status: "failed",
+            jobCount: 0,
+            durationMs: Date.now() - startedAt,
+            lastFailureAt: new Date().toISOString(),
+            error: errorMessage(error),
+          });
+          throw error;
+        }
+      });
+    }
 
-  const value = {
-    ok: true,
-    live: jobs.length > 0,
+    attempted = tasks.length;
+    const settled = await runWithConcurrency(tasks, SOURCE_CONCURRENCY);
+    collectedJobs = settled.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+    succeeded = settled.filter((result) => result.status === "fulfilled").length;
+    failed = settled.length - succeeded;
+    await upsertJobs(collectedJobs);
+  }
+
+  const result = await queryJobs({
     query,
     city,
+    company,
+    employmentType,
+    sourceType,
+    updatedAfter,
+    cursor,
+    limit,
+  });
+  const stats = await repositoryStats();
+  const value = {
+    ok: true,
+    live: result.jobs.length > 0,
+    stale: refresh && collectedJobs.length === 0 && result.jobs.length > 0,
+    query,
+    city,
+    company,
     collectedAt: new Date().toISOString(),
-    sourcePolicy: "仅收集企业官方招聘接口与公开招聘页面中的岗位信息，不采集求职者或招聘人员个人信息。",
-    jobs,
+    sourcePolicy: "仅收集企业官方招聘接口、公开 ATS 与公开招聘页面中的岗位信息；不使用登录 Cookie，不绕过验证码，不采集求职者或招聘人员个人信息。",
+    collection: { attempted, succeeded, failed, collected: collectedJobs.length },
+    pagination: { total: result.total, nextCursor: result.nextCursor },
+    repository: stats,
+    jobs: result.jobs,
   };
-  cache.set(cacheKey, { createdAt: Date.now(), value });
+  if (refresh) cache.set(cacheKey, { createdAt: Date.now(), value });
   return value;
 }
 
-export { INTERNET_CAREER_SOURCES };
+export async function getJobSourceStatus() {
+  const sources = listJobSources().map((source) => ({
+    id: source.id,
+    company: source.company,
+    adapter: source.adapter,
+    sourceType: source.sourceType,
+    domains: source.domains,
+    ...(health.get(source.id) || { status: "idle", jobCount: 0 }),
+  }));
+  return {
+    ok: true,
+    checkedAt: new Date().toISOString(),
+    sourceCount: sources.length,
+    companyCoverage: new Set([
+      ...getStructuredJobSources().map((source) => source.company),
+      ...getOfficialCareerSources().map((source) => source.company),
+    ]).size,
+    repository: await repositoryStats(),
+    sources,
+  };
+}
+
+export const resetJobCollectorCacheForTests = () => {
+  cache.clear();
+  health.clear();
+};
+
+export const INTERNET_CAREER_SOURCES = getOfficialCareerSources();

@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { runArkCompletion } from "./server/arkCore.js";
+import { collectPublicJobs, getJobSourceStatus } from "./server/jobCollector.js";
 
 const MAX_DEV_BODY_BYTES = 8_000_000;
 
@@ -57,6 +58,58 @@ const arkDevProxy = (): Plugin => ({
   },
 });
 
+const writeJson = (response: import("node:http").ServerResponse, status: number, payload: unknown) => {
+  response.statusCode = status;
+  response.setHeader("Content-Type", "application/json; charset=utf-8");
+  response.setHeader("Access-Control-Allow-Origin", "*");
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  response.setHeader("Referrer-Policy", "no-referrer");
+  response.end(JSON.stringify(payload));
+};
+
+const jobDevProxy = (): Plugin => ({
+  name: "job-dev-proxy",
+  configureServer(server) {
+    server.middlewares.use("/api/jobs", async (request, response) => {
+      if (request.method !== "GET") {
+        writeJson(response, 405, { ok: false, error: "只支持 GET 请求。" });
+        return;
+      }
+      try {
+        const url = new URL(request.url || "/", "http://localhost");
+        const payload = await collectPublicJobs({
+          query: url.searchParams.get("q"),
+          city: url.searchParams.get("city"),
+          company: url.searchParams.get("company"),
+          employmentType: url.searchParams.get("employmentType"),
+          sourceType: url.searchParams.get("sourceType"),
+          updatedAfter: url.searchParams.get("updatedAfter"),
+          cursor: url.searchParams.get("cursor"),
+          limit: url.searchParams.get("limit"),
+          refresh: url.searchParams.get("refresh") !== "false",
+        });
+        response.setHeader("Cache-Control", "public, max-age=60");
+        writeJson(response, 200, payload);
+      } catch (error) {
+        console.error("[job-dev-proxy]", error);
+        writeJson(response, 502, { ok: false, error: "公开岗位采集暂时不可用。" });
+      }
+    });
+    server.middlewares.use("/api/job-sources", async (request, response) => {
+      if (request.method !== "GET") {
+        writeJson(response, 405, { ok: false, error: "只支持 GET 请求。" });
+        return;
+      }
+      try {
+        writeJson(response, 200, await getJobSourceStatus());
+      } catch (error) {
+        console.error("[job-source-dev-proxy]", error);
+        writeJson(response, 500, { ok: false, error: "岗位来源状态暂时不可用。" });
+      }
+    });
+  },
+});
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   for (const [key, value] of Object.entries(env)) {
@@ -66,7 +119,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react(), arkDevProxy()],
+    plugins: [react(), arkDevProxy(), jobDevProxy()],
     build: {
       sourcemap: false,
       minify: "esbuild",

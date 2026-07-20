@@ -61,6 +61,15 @@ npm run run:harmony:emulator
 
 该命令通过 DevEco Studio 自带的 Emulator 与 HDC 安装并启动 HAP，不依赖 IDE 图形操作。
 
+本机联调真实岗位接口时，先保持 `npm run dev` 运行，再使用：
+
+```powershell
+npm run build:harmony:local
+npm run run:harmony:emulator
+```
+
+本地构建只把 `http://127.0.0.1:5173/api/jobs` 和 `/api/ark` 写入当前 HAP；运行脚本通过 HDC reverse port 将模拟器的 5173 端口转发到电脑上的 Vite 服务，因此不依赖固定局域网 IP。正式 HAP 仍应在构建时配置公网 HTTPS 的 `VITE_JOBS_API_URL` 与 `VITE_ARK_API_URL`。
+
 ## DevEco Studio
 
 若使用 IDE，只需打开本目录 `harmony/`。从仓库根目录修改 Web 源码后，先执行：
@@ -78,4 +87,5 @@ npm run sync:harmony:web
 - ArkWeb 文件上传已验证能打开系统选择面板；仍需用实际 PDF/图片验证读取、解析和取消选择回调。
 - 当前只为用户主动开启的面试摄像头申请相机权限；麦克风和通知等能力要按实际功能逐项接入，不提前申请无关权限。
 - AI 请求仍依赖仓库的 `/api/ark` 服务和服务端 `ARK_API_KEY`。构建 HAP 时通过 `VITE_ARK_API_URL` 注入公开 HTTPS 代理地址；未配置时页面会立即说明模型服务不可用，密钥不会打入 HAP。
+- 真实岗位请求依赖 `/api/jobs`；本机模拟器可使用 `build:harmony:local`，真机或比赛安装包需要配置可访问的公网 HTTPS `VITE_JOBS_API_URL`。
 - `setPathAllowingUniversalAccess` 只传入本应用的 `resourceDir`，用于本地 ES module、样式与资源加载。

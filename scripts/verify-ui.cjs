@@ -88,6 +88,39 @@ async function main() {
     });
   });
 
+  await page.route("**/api/jobs**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        stale: false,
+        collection: { attempted: 6, succeeded: 5, failed: 1, collected: 24 },
+        pagination: { total: 1, nextCursor: null },
+        jobs: [{
+          id: "official-frontend-1",
+          title: "前端开发实习生",
+          company: "示例互联网企业",
+          city: "上海",
+          level: "实习",
+          employmentType: "intern",
+          department: "研发部",
+          summary: "参与招聘产品前端开发与体验优化。",
+          description: "岗位职责\n使用 React 与 TypeScript 完成功能开发。\n任职要求\n具备前端项目经验。",
+          keywords: ["React", "TypeScript"],
+          sourceType: "official-ats",
+          sourceName: "示例互联网企业",
+          sourceUrl: "https://example.com/jobs/1",
+          applyUrl: "https://example.com/jobs/1/apply",
+          publishedAt: "2026-07-20T00:00:00.000Z",
+          updatedAt: "2026-07-20T01:00:00.000Z",
+          lastSeenAt: "2026-07-20T02:00:00.000Z",
+          verification: "official-ats",
+          confidence: 0.98,
+        }],
+      }),
+    });
+  });
+
   await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
   const introStage = await page.locator(".loading-screen").count();
   const introProgress = await page.locator(".loading-brand-progress-track").count();
@@ -103,6 +136,10 @@ async function main() {
   });
 
   const title = await page.locator("h1").first().innerText();
+  await page.locator(".app-nav > div button").nth(2).click();
+  await page.waitForFunction(() => document.querySelector(".job-source-bar")?.classList.contains("ready"));
+  const publicJobCards = await page.locator(".job-card").count();
+  const publicSourceText = await page.locator(".job-source-bar p").innerText();
   await page.locator(".app-nav > div button").nth(1).click();
   const initialJobCards = await page.locator(".job-card").count();
   const uploadControl = await page.locator(".upload-control").count();
@@ -161,8 +198,11 @@ async function main() {
   if (!title.includes("孔明职配")) {
     throw new Error(`Unexpected home title: ${title}`);
   }
-  if (initialJobCards !== 0) {
-    throw new Error(`Initial page should not show preset job cards, found ${initialJobCards}`);
+  if (publicJobCards !== 1 || !publicSourceText.includes("5/6 个来源可用")) {
+    throw new Error(`Official job feed did not render correctly: cards=${publicJobCards}, source=${publicSourceText}`);
+  }
+  if (initialJobCards !== 1) {
+    throw new Error(`Expected the verified official job to remain available before resume analysis, found ${initialJobCards}`);
   }
   if (uploadControl !== 1) {
     throw new Error(`Expected resume upload control, found ${uploadControl}`);
@@ -206,6 +246,8 @@ async function main() {
 
   console.log(JSON.stringify({
     title,
+    publicJobCards,
+    publicSourceText,
     introStage,
     introProgress,
     introProgressCard,

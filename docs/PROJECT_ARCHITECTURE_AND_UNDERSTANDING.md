@@ -197,6 +197,8 @@ flowchart TD
 | Vercel API | `api/ark.js` | 部署平台环境变量 | POST JSON body | JSON payload | 服务端读取密钥 | 仅支持 POST |
 | 本地 Vite API | `vite.config.ts` | 本地环境变量 | POST JSON body | JSON payload | 服务端读取密钥 | 开发环境代理 |
 | Bing 公开搜索 | `server/arkCore.js` | 无 | 岗位标题、方向、关键词 | 招聘入口候选链接 | 否 | 仅用于补充公开招聘入口，失败时返回空列表 |
+| 真实岗位聚合 API | `api/jobs.js`、`server/jobCollector.js` | `JOB_SOURCE_CONFIG_JSON`、`JOB_STORE_PATH` | 关键词、城市、企业、用工类型、游标 | 规范化官方岗位、来源证明、分页 | 否 | 腾讯、Moka、Greenhouse、Lever、Ashby，官网搜索只作兜底 |
+| 岗位来源健康 API | `api/job-sources.js` | 无 | GET | 来源状态、耗时、最近成功/失败、仓库统计 | 否 | 用于演示和运维检查 |
 
 当前仓库已落地 Gitee AI / 沐曦 Token 资源包调用实现，并补充真实调用证据。`server/arkCore.js` 会根据 `ARK_BASE_URL` 自动选择 Gitee AI 兼容参数或原 Ark/Doubao 兼容参数。
 
@@ -208,6 +210,9 @@ flowchart TD
 | `ARK_BASE_URL` | 环境变量 | 否 | 覆盖默认模型接口地址 | `https://ark.cn-beijing.volces.com/api/v3` |
 | `ARK_REQUEST_TIMEOUT_MS` | 环境变量 | 否 | 服务端模型请求超时 | `65000` |
 | `VITE_ARK_API_URL` | 环境变量 | 否 | 前端模型代理 URL | `/api/ark` |
+| `VITE_JOBS_API_URL` | 环境变量 | HAP 联网岗位必填 | 前端岗位聚合 API | `https://example.com/api/jobs` |
+| `JOB_STORE_PATH` | 环境变量 | 否 | 长驻服务的岗位 JSON 快照 | `E:\KongMing-Job-Matching-Agent\.runtime\jobs.json` |
+| `JOB_SOURCE_CONFIG_JSON` | 环境变量 | 否 | 追加 ATS 来源配置 | `[]` |
 | `VITE_AVATAR_MODE` | 环境变量 | 否 | 数字人模式标记 | `static` |
 | `MAX_DEV_BODY_BYTES` | `vite.config.ts` 常量 | 是 | 本地 API 请求体上限 | `8000000` |
 | `MAX_UPLOAD_BYTES` | `src/App.tsx` 常量 | 是 | 前端上传文件上限 | `8000000` |
@@ -321,7 +326,7 @@ flowchart TD
 - 扩展更多 Gitee AI / 沐曦资源包可用模型，并补充更多真实调用日志。
 - 继续完善模型 Provider 抽象，让 Ark、Gitee AI 和其他 OpenAI 兼容模型可配置切换。
 - 增加持久化运行日志、延迟统计、成功率统计和脱敏导出。
-- 增加真实岗位数据源或可导入岗位库。
+- 将当前可选 JSON 快照升级为生产数据库，并增加独立定时采集任务和关闭岗位全量对账。
 - 增加评测集，衡量简历解析完整性、岗位推荐相关性和 JD 分析准确性。
 - 增加 Dockerfile、CI、端到端测试报告和部署脚本。
 - 增加演示视频、运行截图和公开查看路径。

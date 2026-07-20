@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
   [string]$DevEcoRoot = 'E:\Program Files\Huawei\DevEco Studio',
-  [string]$PnpmBin = 'E:\npm-global'
+  [string]$PnpmBin = 'E:\npm-global',
+  [string]$LocalDevApiBaseUrl = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,6 +20,13 @@ foreach ($requiredPath in @($harmonyRoot, $nodeBin, $ohpm, $hvigor, $sdkRoot)) {
   if (-not (Test-Path -LiteralPath $requiredPath)) {
     throw "Required HarmonyOS path not found: $requiredPath"
   }
+}
+
+if ($LocalDevApiBaseUrl) {
+  $normalizedApiBase = $LocalDevApiBaseUrl.TrimEnd('/')
+  $env:VITE_JOBS_API_URL = "$normalizedApiBase/api/jobs"
+  $env:VITE_ARK_API_URL = "$normalizedApiBase/api/ark"
+  Write-Output "Embedding local development API base: $normalizedApiBase"
 }
 
 & powershell -NoProfile -ExecutionPolicy Bypass -File $webSyncScript

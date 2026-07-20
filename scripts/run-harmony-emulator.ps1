@@ -6,6 +6,8 @@ param(
   [string]$ImageRoot = 'D:\HarmonyOS-Emulator\images',
   [ValidateRange(10000, 16555)]
   [int]$HdcPort = 15555,
+  [ValidateRange(1024, 65535)]
+  [int]$LocalDevPort = 5173,
   [string]$BundleName = 'cn.kongming.jobmatch',
   [string]$AbilityName = 'EntryAbility'
 )
@@ -66,6 +68,12 @@ if (-not $connected) {
   throw "Emulator did not expose a connected local hdc target (preferred port: $HdcPort)."
 }
 
+$reverseResult = @(& $hdc -t $target rport "tcp:$LocalDevPort" "tcp:$LocalDevPort" 2>&1)
+$reverseText = $reverseResult -join "`n"
+if ($LASTEXITCODE -ne 0 -and $reverseText -notmatch 'Repeat|exist|already') {
+  throw "Unable to configure emulator development API reverse port: $reverseText"
+}
+
 $installResult = @(& $hdc -t $target install -r $hapPath 2>&1)
 $installResult | Write-Output
 $installText = $installResult -join "`n"
@@ -89,4 +97,5 @@ if ($LASTEXITCODE -ne 0 -or $launchText -match '\[Fail\]|failed to start ability
   Target = $target
   Bundle = $BundleName
   HAP = $hapPath
+  LocalDevApi = "http://127.0.0.1:$LocalDevPort/api"
 }

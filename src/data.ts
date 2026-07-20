@@ -34,6 +34,13 @@ export type Job = {
     url: string;
     note: string;
   }>;
+  sourceMetadata?: {
+    sourceType: string;
+    verification: string;
+    publishedAt: string | null;
+    updatedAt: string | null;
+    lastSeenAt: string | null;
+  };
   jdAnalysis?: {
     conclusion: string;
     strengths: string[];

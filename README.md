@@ -117,7 +117,23 @@ npm run preview
 | `ARK_PACKAGE` | 否 | Gitee AI / 沐曦 Token 资源包编号 | `1492` |
 | `ARK_REQUEST_TIMEOUT_MS` | 否 | 服务端模型请求超时时间 | `65000` |
 | `VITE_ARK_API_URL` | 否 | 前端覆盖模型代理地址 | `/api/ark` |
+| `VITE_JOBS_API_URL` | HAP 联网岗位必填 | 企业官方岗位聚合接口 | `https://example.com/api/jobs` |
+| `JOB_STORE_PATH` | 否 | 长驻服务的岗位 JSON 快照路径 | `E:\KongMing-Job-Matching-Agent\.runtime\jobs.json` |
+| `JOB_SOURCE_CONFIG_JSON` | 否 | 追加 ATS 来源的 JSON 配置 | `[]` |
 | `VITE_AVATAR_MODE` | 否 | 数字人模式标记 | `static` |
+
+## 真实岗位接口
+
+`GET /api/jobs` 聚合腾讯公开接口、Moka、Greenhouse、Lever、Ashby，以及企业官网索引和 `JobPosting` JSON-LD。支持 `q`、`city`、`company`、`employmentType`、`sourceType`、`updatedAfter`、`cursor`、`limit` 参数，并返回官方投递链接、来源类型、验证状态和分页信息。
+
+`GET /api/job-sources` 返回采集源健康状态、最近成功/失败时间、岗位数量与当前仓库统计。内置注册表覆盖 31 家互联网企业；可以通过 `JOB_SOURCE_CONFIG_JSON` 继续追加同类 ATS 来源。
+
+开发环境运行 `npm run dev` 后可直接访问：
+
+```text
+http://localhost:5173/api/jobs?q=前端&city=上海&limit=20
+http://localhost:5173/api/job-sources
+```
 
 
 ## 示例输入输出与运行流程

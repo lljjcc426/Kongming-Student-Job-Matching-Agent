@@ -34,7 +34,13 @@ export default async function handler(req, res) {
     const payload = await collectPublicJobs({
       query: req.query?.q,
       city: req.query?.city,
+      company: req.query?.company,
+      employmentType: req.query?.employmentType,
+      sourceType: req.query?.sourceType,
+      updatedAfter: req.query?.updatedAfter,
+      cursor: req.query?.cursor,
       limit: req.query?.limit,
+      refresh: req.query?.refresh !== "false",
     });
     res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=1200");
     return res.status(200).json(payload);

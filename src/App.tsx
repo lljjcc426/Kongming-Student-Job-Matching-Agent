@@ -32,6 +32,7 @@ import type { Job } from "./data";
 import { callArkAgent } from "./arkClient";
 import { buildCareerOpsEvaluation } from "./careerOps";
 import { parseCustomJob } from "./jobParser";
+import { fetchPublicJobs } from "./jobApi";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { parseJdAnalysis, parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
 import { buildMatchReport, downloadTextFile } from "./report";
@@ -295,6 +296,9 @@ function App() {
   const [customTitle, setCustomTitle] = useState("");
   const [customJdText, setCustomJdText] = useState("");
   const [customJobs, setCustomJobs] = useState<Job[]>([]);
+  const [publicJobs, setPublicJobs] = useState<Job[]>([]);
+  const [publicJobStatus, setPublicJobStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [publicJobMessage, setPublicJobMessage] = useState("等待读取企业官方岗位");
   const [structuredResume, setStructuredResume] = useState<StructuredResume | null>(null);
   const [modelJobs, setModelJobs] = useState<Job[]>([]);
   const [modelInsight, setModelInsight] = useState("");
@@ -319,14 +323,19 @@ function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const chatBodyRef = useRef<HTMLDivElement | null>(null);
+  const publicJobsLoadedRef = useRef(false);
 
   const activeProfile = useMemo(() => profileFromStructuredResume(structuredResume, resumeText), [structuredResume, resumeText]);
   const hasResume = resumeText.trim().length > 0;
-  const hasWorkspaceInput = hasResume || customJobs.length > 0;
   const availableJobs = useMemo(() => {
-    if (!hasWorkspaceInput) return [];
-    return [...customJobs, ...modelJobs];
-  }, [customJobs, hasWorkspaceInput, modelJobs]);
+    const used = new Set<string>();
+    return [...customJobs, ...publicJobs, ...modelJobs].filter((job) => {
+      const key = `${job.companyScenario}|${job.title}|${job.city}`.toLowerCase();
+      if (used.has(key)) return false;
+      used.add(key);
+      return true;
+    });
+  }, [customJobs, modelJobs, publicJobs]);
   const rankedJobs = useMemo(
     () =>
       [...availableJobs].sort(
@@ -345,6 +354,29 @@ function App() {
   useEffect(() => {
     chatBodyRef.current?.scrollTo({ top: chatBodyRef.current.scrollHeight, behavior: "smooth" });
   }, [chatMessages, chatStatus]);
+
+  const loadPublicJobFeed = useCallback(async () => {
+    setPublicJobStatus("loading");
+    setPublicJobMessage("正在从企业官网与公开招聘系统收集岗位…");
+    try {
+      const query = structuredResume?.targetRoles.slice(0, 3).join(" ") || customTitle.trim() || "产品 技术 运营";
+      const feed = await fetchPublicJobs({ query, city: activeProfile.cityPreference[0], limit: 36 });
+      setPublicJobs(feed.jobs);
+      setPublicJobStatus("ready");
+      setPublicJobMessage(feed.stale ? `${feed.message}；当前为最近一次有效快照` : feed.message);
+      publicJobsLoadedRef.current = true;
+      if (!selectedJobId && feed.jobs[0]) setSelectedJobId(feed.jobs[0].id);
+    } catch (error) {
+      setPublicJobStatus("error");
+      setPublicJobMessage(error instanceof Error ? error.message : "官方岗位暂时无法读取。");
+    }
+  }, [activeProfile.cityPreference, customTitle, selectedJobId, structuredResume]);
+
+  useEffect(() => {
+    if (activePage === "jobs" && !publicJobsLoadedRef.current && publicJobStatus === "idle") {
+      void loadPublicJobFeed();
+    }
+  }, [activePage, loadPublicJobFeed, publicJobStatus]);
 
   const runJobRecommendations = async (nextResumeText: string, nextResume: StructuredResume) => {
     setPipelineStep("jobs");
@@ -967,6 +999,16 @@ function App() {
 
         <section className="match-column">
           <Panel eyebrow="Matching" title="岗位匹配工作台" icon={<BriefcaseBusiness size={18} />}>
+            <div className={`job-source-bar ${publicJobStatus}`}>
+              <div>
+                <span>Official Job Radar</span>
+                <p>{publicJobMessage}</p>
+              </div>
+              <button type="button" className="secondary-action compact-action" onClick={() => void loadPublicJobFeed()} disabled={publicJobStatus === "loading"}>
+                <Search size={15} />
+                {publicJobStatus === "loading" ? "收集中" : "刷新真实岗位"}
+              </button>
+            </div>
             <div className="jd-lab">
               <div className="section-head compact">
                 <div>
@@ -1035,6 +1077,11 @@ function App() {
                       <span>{selectedJob.companyScenario}</span>
                       <h2>{selectedJob.title}</h2>
                       <p>{selectedJob.summary}</p>
+                      {selectedJob.sourceMetadata ? (
+                        <small className="job-source-proof">
+                          {selectedJob.sourceMetadata.sourceType} · {selectedJob.sourceMetadata.verification}
+                        </small>
+                      ) : null}
                     </div>
                     <div className={`score-badge ${toneOf(result.total)}`}>
                       <strong>{result.total}</strong>
