@@ -2956,6 +2956,60 @@ input {
   transform: translateX(4px);
 }
 
+.app-nav > div button.nav-account {
+  display: inline-flex;
+  border-color: rgba(14, 165, 233, 0.42);
+  background:
+    radial-gradient(circle at 16% 50%, rgba(56, 189, 248, 0.18), transparent 36%),
+    linear-gradient(180deg, rgba(240, 249, 255, 0.94), rgba(224, 242, 254, 0.76));
+  color: #0369a1;
+}
+
+.nav-account-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-nav > div button.nav-account.signed-in {
+  border-color: rgba(16, 185, 129, 0.52);
+  background:
+    radial-gradient(circle at 16% 50%, rgba(52, 211, 153, 0.2), transparent 36%),
+    linear-gradient(180deg, rgba(236, 253, 245, 0.96), rgba(209, 250, 229, 0.78));
+  color: #047857;
+}
+
+.app-nav > div button.nav-account:disabled {
+  cursor: wait;
+  opacity: 0.68;
+  transform: none;
+}
+
+.account-notice {
+  position: fixed;
+  right: clamp(14px, 2vw, 28px);
+  bottom: clamp(14px, 2vw, 28px);
+  z-index: 120;
+  max-width: min(420px, calc(100vw - 28px));
+  padding: 12px 16px;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  border-radius: 14px;
+  background: rgba(239, 246, 255, 0.96);
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.5;
+  box-shadow: 0 18px 44px rgba(30, 64, 175, 0.2);
+  backdrop-filter: blur(12px);
+}
+
+.account-notice.success {
+  border-color: rgba(16, 185, 129, 0.34);
+  background: rgba(236, 253, 245, 0.97);
+  color: #065f46;
+}
+
 .home-video-page {
   position: relative;
   min-height: calc(100vh - 48px);
@@ -10027,6 +10081,13 @@ input {
 
   .app-nav > div button::after {
     display: none;
+  }
+
+  .app-nav > div button.nav-account {
+    grid-column: 1 / -1;
+    display: inline-flex;
+    min-height: 42px;
+    justify-content: center;
   }
 
   .km-home-page {

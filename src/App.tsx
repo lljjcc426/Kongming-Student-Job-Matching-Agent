@@ -10,6 +10,8 @@ import {
   ExternalLink,
   FileText,
   Lightbulb,
+  LogIn,
+  LogOut,
   Mic,
   Plus,
   Search,
@@ -33,6 +35,13 @@ import { callArkAgent } from "./arkClient";
 import { buildCareerOpsEvaluation } from "./careerOps";
 import { parseCustomJob } from "./jobParser";
 import { fetchPublicJobs } from "./jobApi";
+import {
+  getHuaweiAuthState,
+  initialHuaweiAuthState,
+  loginWithHuawei,
+  logoutHuawei,
+  type HuaweiAuthState,
+} from "./harmonyBridge";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { parseJdAnalysis, parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
 import { buildMatchReport, downloadTextFile } from "./report";
@@ -291,6 +300,9 @@ const superviseRecommendedJobs = (jobs: Job[]) => {
 
 function App() {
   const [introVisible, setIntroVisible] = useState(true);
+  const [huaweiAuth, setHuaweiAuth] = useState<HuaweiAuthState>(initialHuaweiAuthState);
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountNotice, setAccountNotice] = useState("");
   const [selectedJobId, setSelectedJobId] = useState("");
   const [resumeText, setResumeText] = useState("");
   const [customTitle, setCustomTitle] = useState("");
@@ -324,6 +336,43 @@ function App() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const chatBodyRef = useRef<HTMLDivElement | null>(null);
   const publicJobsLoadedRef = useRef(false);
+
+  useEffect(() => {
+    void getHuaweiAuthState().then(setHuaweiAuth);
+  }, []);
+
+  useEffect(() => {
+    if (!accountNotice) return;
+    const timeoutId = window.setTimeout(() => setAccountNotice(""), 4600);
+    return () => window.clearTimeout(timeoutId);
+  }, [accountNotice]);
+
+  const handleHuaweiAccount = useCallback(async () => {
+    if (accountBusy) return;
+
+    if (huaweiAuth.signedIn) {
+      const shouldLogout = window.confirm("仅退出孔明职配，不会退出设备上的华为账号。确定继续吗？");
+      if (!shouldLogout) return;
+      setAccountBusy(true);
+      const nextState = await logoutHuawei();
+      setHuaweiAuth(nextState);
+      setAccountNotice(nextState.message || "已退出孔明职配账号。");
+      setAccountBusy(false);
+      return;
+    }
+
+    const consented = window.confirm(
+      "华为账号登录会向孔明职配提供账户唯一标识，仅用于登录与后续数据同步。孔明职配不会读取华为账号密码、手机号或简历内容。是否继续？",
+    );
+    if (!consented) return;
+
+    setAccountBusy(true);
+    setAccountNotice("正在打开华为账号登录…");
+    const nextState = await loginWithHuawei();
+    setHuaweiAuth(nextState);
+    setAccountNotice(nextState.message || (nextState.signedIn ? "华为账号登录成功。" : "华为账号登录未完成。"));
+    setAccountBusy(false);
+  }, [accountBusy, huaweiAuth.signedIn]);
 
   const activeProfile = useMemo(() => profileFromStructuredResume(structuredResume, resumeText), [structuredResume, resumeText]);
   const hasResume = resumeText.trim().length > 0;
@@ -930,7 +979,19 @@ function App() {
 
   return (
     <main className="app-shell">
-      <AppNav activePage={activePage} onChange={setActivePage} />
+      <AppNav
+        activePage={activePage}
+        onChange={setActivePage}
+        account={huaweiAuth}
+        accountBusy={accountBusy}
+        onAccount={() => void handleHuaweiAccount()}
+      />
+
+      {accountNotice ? (
+        <div className={`account-notice ${huaweiAuth.signedIn ? "success" : ""}`} role="status">
+          {accountNotice}
+        </div>
+      ) : null}
 
       {activePage === "home" ? (
         <>
@@ -1735,7 +1796,19 @@ function ProductAvatar({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function AppNav({ activePage, onChange }: { activePage: ActivePage; onChange: (page: ActivePage) => void }) {
+function AppNav({
+  activePage,
+  onChange,
+  account,
+  accountBusy,
+  onAccount,
+}: {
+  activePage: ActivePage;
+  onChange: (page: ActivePage) => void;
+  account: HuaweiAuthState;
+  accountBusy: boolean;
+  onAccount: () => void;
+}) {
   const items: Array<{ id: ActivePage; label: string; icon: ReactNode }> = [
     { id: "home", label: "首页", icon: <FontAwesomeShapeIcon icon={faUserAstronaut} size={16} /> },
     { id: "resume", label: "简历解析", icon: <FileText size={16} /> },
@@ -1763,6 +1836,18 @@ function AppNav({ activePage, onChange }: { activePage: ActivePage; onChange: (p
             {item.label}
           </button>
         ))}
+        <button
+          type="button"
+          className={`nav-account ${account.signedIn ? "signed-in" : ""}`}
+          onClick={onAccount}
+          disabled={accountBusy}
+          title={account.nativeAvailable ? account.message : "需在鸿蒙安装包中使用华为账号登录"}
+        >
+          {account.signedIn ? <LogOut size={16} /> : <LogIn size={16} />}
+          <span className="nav-account-label">
+            {accountBusy ? "登录中" : account.signedIn ? account.displayName || "华为用户" : "华为账号"}
+          </span>
+        </button>
       </div>
     </nav>
   );

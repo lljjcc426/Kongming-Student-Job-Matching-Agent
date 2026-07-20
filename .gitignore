@@ -16,6 +16,9 @@ output/
 .env.*
 !.env.example
 
+# Huawei AppGallery Connect local configuration
+harmony/entry/agconnect-services.json
+
 # Logs
 *.log
 npm-debug.log*
