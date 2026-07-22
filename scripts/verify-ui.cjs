@@ -141,11 +141,19 @@ async function main() {
   });
 
   const title = await page.locator("h1").first().innerText();
-  await page.locator(".app-nav > div button").nth(2).click();
-  await page.waitForFunction(() => document.querySelector(".job-source-bar")?.classList.contains("ready"));
+  await page.locator(".app-nav > div button").filter({ hasText: "岗位证据" }).click();
+  await page.waitForFunction(() => document.querySelector(".dashboard-jobs")?.getAttribute("hidden") === null);
+  await page.waitForFunction(() => {
+    const sourceBar = document.querySelector(".job-source-bar");
+    return sourceBar?.classList.contains("ready") || sourceBar?.classList.contains("error");
+  }, null, { timeout: 10000 });
+  const publicJobStatus = await page.locator(".job-source-bar").getAttribute("class");
+  if (!publicJobStatus?.includes("ready")) {
+    throw new Error(`Official job feed failed before rendering: ${await page.locator(".job-source-bar p").innerText()}`);
+  }
   const publicJobCards = await page.locator(".job-card").count();
   const publicSourceText = await page.locator(".job-source-bar p").innerText();
-  await page.locator(".app-nav > div button").nth(1).click();
+  await page.locator(".app-nav > div button").filter({ hasText: "简历解析" }).click();
   const initialJobCards = await page.locator(".job-card").count();
   const uploadControl = await page.locator(".upload-control").count();
   const uploadedResume = [

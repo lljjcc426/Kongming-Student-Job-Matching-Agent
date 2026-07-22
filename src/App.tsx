@@ -38,6 +38,15 @@ import {
   type ApplicationRecord,
   type ApplicationStage,
 } from "./core/tracking/applicationRepository";
+import {
+  buildProposalContextKey,
+  createResumeVersion,
+  fingerprintText,
+  loadCareerWorkspace,
+  saveCareerWorkspace,
+  type CareerWorkspace,
+  type ResumeVersion,
+} from "./core/workspace/workspaceRepository";
 import { callArkAgent, configureArkPrivacy } from "./arkClient";
 import { defaultPrivacyPreferences, type PrivacyPreferences } from "./core/privacy/redaction";
 import { buildCareerOpsEvaluation } from "./careerOps";
@@ -45,17 +54,20 @@ import { parseCustomJob } from "./jobParser";
 import { fetchPublicJobs } from "./jobApi";
 import {
   getHuaweiAuthState,
+  getHarmonyNativeCapabilities,
   initialHuaweiAuthState,
   loginWithHuawei,
   logoutHuawei,
   recognizeImageWithHarmony,
   shareTextWithHarmony,
+  updateApplicationFormWithHarmony,
   type HuaweiAuthState,
 } from "./harmonyBridge";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { parseJdAnalysis, parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
 import { buildMatchReport, downloadTextFile } from "./report";
-import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
+import { buildOptimizedResumeDraft, formatOptimizedResumeDraft, validateOptimizedResumeDraft } from "./resumeOptimizer";
+import { checkServiceHealth, initialServiceHealth } from "./serviceHealth";
 import HomePage from "./pages/HomePage";
 import LoadingScreen from "./LoadingScreen";
 import homeHeroVideo from "./assets/home-hero-video.mp4";
@@ -220,10 +232,17 @@ const emptyJob: Job = {
   priority: "低",
 };
 
-const toneOf = (score: number) => {
-  if (score >= 82) return "strong";
-  if (score >= 68) return "medium";
+const toneOf = (coverage: number) => {
+  if (coverage >= 82) return "strong";
+  if (coverage >= 68) return "medium";
   return "weak";
+};
+
+const recommendationPriority: Record<MatchResult["recommendation"], number> = {
+  "apply-now": 4,
+  "complete-evidence-first": 3,
+  "skill-gap-too-large": 2,
+  "hard-condition-failed": 1,
 };
 
 const readImageAsCompressedDataUrl = (file: File) =>
@@ -309,27 +328,31 @@ const superviseRecommendedJobs = (jobs: Job[]) => {
 };
 
 function App() {
+  const [initialWorkspace] = useState<CareerWorkspace>(() =>
+    typeof window === "undefined" ? loadCareerWorkspace({ getItem: () => null, setItem: () => undefined, removeItem: () => undefined }) : loadCareerWorkspace(window.localStorage),
+  );
   const [introVisible, setIntroVisible] = useState(true);
   const [huaweiAuth, setHuaweiAuth] = useState<HuaweiAuthState>(initialHuaweiAuthState);
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountNotice, setAccountNotice] = useState("");
-  const [selectedJobId, setSelectedJobId] = useState("");
-  const [resumeText, setResumeText] = useState("");
-  const [customTitle, setCustomTitle] = useState("");
-  const [customJdText, setCustomJdText] = useState("");
-  const [customJobs, setCustomJobs] = useState<Job[]>([]);
-  const [publicJobs, setPublicJobs] = useState<Job[]>([]);
-  const [activeJobTab, setActiveJobTab] = useState<JobKind>("verified-job");
-  const [resumeConfirmed, setResumeConfirmed] = useState(false);
+  const [serviceHealth, setServiceHealth] = useState(initialServiceHealth);
+  const [selectedJobId, setSelectedJobId] = useState(initialWorkspace.selectedJobId);
+  const [resumeText, setResumeText] = useState(initialWorkspace.resumeText);
+  const [customTitle, setCustomTitle] = useState(initialWorkspace.customTitle);
+  const [customJdText, setCustomJdText] = useState(initialWorkspace.customJdText);
+  const [customJobs, setCustomJobs] = useState<Job[]>(initialWorkspace.customJobs);
+  const [publicJobs, setPublicJobs] = useState<Job[]>(initialWorkspace.publicJobs);
+  const [activeJobTab, setActiveJobTab] = useState<JobKind>(initialWorkspace.activeJobTab);
+  const [resumeConfirmed, setResumeConfirmed] = useState(initialWorkspace.resumeConfirmed);
   const [externalModelConsent, setExternalModelConsent] = useState(false);
-  const [privacyPreferences, setPrivacyPreferences] = useState<PrivacyPreferences>(defaultPrivacyPreferences);
+  const [privacyPreferences, setPrivacyPreferences] = useState<PrivacyPreferences>(initialWorkspace.privacyPreferences);
   const [applications, setApplications] = useState<ApplicationRecord[]>(() =>
     typeof window === "undefined" ? [] : loadApplicationRecords(window.localStorage),
   );
   const [publicJobStatus, setPublicJobStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [publicJobMessage, setPublicJobMessage] = useState("等待读取企业官方岗位");
-  const [structuredResume, setStructuredResume] = useState<StructuredResume | null>(null);
-  const [modelJobs, setModelJobs] = useState<Job[]>([]);
+  const [structuredResume, setStructuredResume] = useState<StructuredResume | null>(initialWorkspace.structuredResume);
+  const [modelJobs, setModelJobs] = useState<Job[]>(initialWorkspace.modelJobs);
   const [modelInsight, setModelInsight] = useState("");
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [modelMessage, setModelMessage] = useState("");
@@ -347,8 +370,8 @@ function App() {
   const [chatStatus, setChatStatus] = useState<"idle" | "listening" | "loading" | "ready" | "error">("idle");
   const [chatMessage, setChatMessage] = useState("");
   const [activePage, setActivePage] = useState<ActivePage>("home");
-  const [uploadMessage, setUploadMessage] = useState("请上传简历文本/图片，或直接粘贴简历内容开始分析。");
-  const [resumeSource, setResumeSource] = useState("等待上传");
+  const [uploadMessage, setUploadMessage] = useState(initialWorkspace.resumeText ? "已恢复本机工作区，可继续核对和修改。" : "请上传简历文本/图片，或直接粘贴简历内容开始分析。");
+  const [resumeSource, setResumeSource] = useState(initialWorkspace.resumeSource);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const chatBodyRef = useRef<HTMLDivElement | null>(null);
@@ -356,7 +379,13 @@ function App() {
 
   useEffect(() => {
     void getHuaweiAuthState().then(setHuaweiAuth);
+    void checkServiceHealth().then(setServiceHealth);
   }, []);
+
+  const refreshServiceHealth = async () => {
+    setServiceHealth((current) => ({ ...current, status: "checking", message: "正在重新检查联网服务" }));
+    setServiceHealth(await checkServiceHealth());
+  };
 
   useEffect(() => {
     if (!accountNotice) return;
@@ -416,10 +445,12 @@ function App() {
   );
   const rankedJobs = useMemo(
     () =>
-      [...availableJobs].sort(
-        (left, right) =>
-          analyzeMatch(activeProfile, right, resumeText).total - analyzeMatch(activeProfile, left, resumeText).total,
-      ),
+      [...availableJobs].sort((left, right) => {
+        const leftResult = analyzeMatch(activeProfile, left, resumeText);
+        const rightResult = analyzeMatch(activeProfile, right, resumeText);
+        return recommendationPriority[rightResult.recommendation] - recommendationPriority[leftResult.recommendation]
+          || rightResult.evidenceCoverage - leftResult.evidenceCoverage;
+      }),
     [activeProfile, availableJobs, resumeText],
   );
   const selectedJob = rankedJobs.find((job) => job.id === selectedJobId) ?? rankedJobs[0] ?? emptyJob;
@@ -429,19 +460,75 @@ function App() {
   const careerOpsEvaluation = useMemo(() => buildCareerOpsEvaluation(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
   const trackedApplication = applications.find((application) => application.jobId === selectedJob.id) ?? null;
   const dailyApplicationActions = useMemo(() => buildDailyApplicationActions(applications), [applications]);
+  const nativeCapabilities = getHarmonyNativeCapabilities();
   const [copyStatus, setCopyStatus] = useState("复制优化稿");
+  const [resumeVersionStatus, setResumeVersionStatus] = useState("");
   const [shareStatus, setShareStatus] = useState("");
-  const [proposalDecisions, setProposalDecisions] = useState<Record<string, "accepted" | "rejected">>({});
-  const [proposalEdits, setProposalEdits] = useState<Record<string, string>>({});
+  const [proposalContextKey, setProposalContextKey] = useState(initialWorkspace.proposalContextKey);
+  const [proposalDecisions, setProposalDecisions] = useState<Record<string, "accepted" | "rejected">>(initialWorkspace.proposalDecisions);
+  const [proposalEdits, setProposalEdits] = useState<Record<string, string>>(initialWorkspace.proposalEdits);
+  const [resumeVersions, setResumeVersions] = useState<ResumeVersion[]>(initialWorkspace.resumeVersions);
+  const currentProposalContextKey = useMemo(
+    () => buildProposalContextKey(selectedJob.id, resumeText),
+    [resumeText, selectedJob.id],
+  );
+  const editedDraft = useMemo(() => ({
+    ...optimizedDraft,
+    proposals: optimizedDraft.proposals.map((proposal) => ({
+      ...proposal,
+      suggestedText: proposalEdits[proposal.id] ?? proposal.suggestedText,
+    })),
+  }), [optimizedDraft, proposalEdits]);
+  const acceptedProposalIds = useMemo(
+    () => Object.entries(proposalDecisions).filter(([, decision]) => decision === "accepted").map(([id]) => id),
+    [proposalDecisions],
+  );
+  const draftValidation = useMemo(
+    () => validateOptimizedResumeDraft(editedDraft, acceptedProposalIds, activeProfile.experiences.map((experience) => experience.id)),
+    [acceptedProposalIds, activeProfile.experiences, editedDraft],
+  );
 
   useEffect(() => {
+    if (proposalContextKey === currentProposalContextKey) return;
+    setProposalContextKey(currentProposalContextKey);
     setProposalDecisions({});
     setProposalEdits({});
-  }, [selectedJob.id, resumeText]);
+    setResumeVersionStatus("");
+  }, [currentProposalContextKey, proposalContextKey]);
 
   useEffect(() => {
     saveApplicationRecords(window.localStorage, applications);
-  }, [applications]);
+    const nextAction = dailyApplicationActions[0];
+    void updateApplicationFormWithHarmony({
+      trackedCount: applications.length,
+      pendingCount: dailyApplicationActions.length,
+      nextAction: nextAction?.action || "添加岗位后生成今日行动",
+      jobTitle: nextAction?.title || "孔明职配",
+      updatedAt: new Date().toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
+    });
+  }, [applications, dailyApplicationActions]);
+
+  useEffect(() => {
+    saveCareerWorkspace(window.localStorage, {
+      resumeText,
+      structuredResume,
+      resumeConfirmed,
+      resumeSource,
+      customTitle,
+      customJdText,
+      customJobs,
+      publicJobs,
+      modelJobs,
+      selectedJobId,
+      activeJobTab,
+      proposalContextKey,
+      proposalDecisions,
+      proposalEdits,
+      resumeVersions,
+      privacyPreferences,
+      savedAt: initialWorkspace.savedAt,
+    });
+  }, [activeJobTab, customJdText, customJobs, customTitle, initialWorkspace.savedAt, modelJobs, privacyPreferences, proposalContextKey, proposalDecisions, proposalEdits, publicJobs, resumeConfirmed, resumeSource, resumeText, resumeVersions, selectedJobId, structuredResume]);
 
   useEffect(() => {
     chatBodyRef.current?.scrollTo({ top: chatBodyRef.current.scrollHeight, behavior: "smooth" });
@@ -460,10 +547,15 @@ function App() {
       setActiveJobTab("verified-job");
       if (!selectedJobId && feed.jobs[0]) setSelectedJobId(feed.jobs[0].id);
     } catch (error) {
-      setPublicJobStatus("error");
-      setPublicJobMessage(error instanceof Error ? error.message : "官方岗位暂时无法读取。");
+      if (publicJobs.length) {
+        setPublicJobStatus("ready");
+        setPublicJobMessage(`联网更新失败，继续展示本机保存的 ${publicJobs.length} 条岗位快照；投递前请打开企业官网复核。`);
+      } else {
+        setPublicJobStatus("error");
+        setPublicJobMessage(error instanceof Error ? error.message : "官方岗位暂时无法读取。");
+      }
     }
-  }, [activeProfile.cityPreference, customTitle, selectedJobId, structuredResume]);
+  }, [activeProfile.cityPreference, customTitle, publicJobs.length, selectedJobId, structuredResume]);
 
   useEffect(() => {
     if (activePage === "jobs" && !publicJobsLoadedRef.current && publicJobStatus === "idle") {
@@ -663,20 +755,48 @@ function App() {
     setApplications((current) => updateApplicationStage(current, trackedApplication.id, stage));
   };
 
+  const handleProposalEdit = (proposalId: string, value: string) => {
+    setProposalEdits((current) => ({ ...current, [proposalId]: value }));
+    setProposalDecisions((current) => {
+      if (!current[proposalId]) return current;
+      const next = { ...current };
+      delete next[proposalId];
+      return next;
+    });
+    setResumeVersionStatus("内容已修改，请重新核对并接受该项。");
+  };
+
   const handleCopyDraft = async () => {
-    const editedDraft = {
-      ...optimizedDraft,
-      proposals: optimizedDraft.proposals.map((proposal) => ({
-        ...proposal,
-        suggestedText: proposalEdits[proposal.id] ?? proposal.suggestedText,
-      })),
-    };
-    const acceptedIds = Object.entries(proposalDecisions)
-      .filter(([, decision]) => decision === "accepted")
-      .map(([id]) => id);
-    await navigator.clipboard.writeText(formatOptimizedResumeDraft(editedDraft, acceptedIds));
+    if (!draftValidation.ok) {
+      setCopyStatus(draftValidation.errors[0] || "请先完成事实确认");
+      window.setTimeout(() => setCopyStatus("复制优化稿"), 2600);
+      return;
+    }
+    await navigator.clipboard.writeText(formatOptimizedResumeDraft(editedDraft, draftValidation.acceptedProposalIds));
     setCopyStatus("已复制");
     window.setTimeout(() => setCopyStatus("复制优化稿"), 1600);
+  };
+
+  const handleSaveResumeVersion = () => {
+    if (!draftValidation.ok) {
+      setResumeVersionStatus(draftValidation.errors[0] || "请先完成事实确认。");
+      return;
+    }
+    const version = createResumeVersion({
+      jobId: selectedJob.id,
+      jobTitle: selectedJob.title,
+      content: formatOptimizedResumeDraft(editedDraft, draftValidation.acceptedProposalIds),
+      acceptedProposalIds: draftValidation.acceptedProposalIds,
+      evidenceCoverage: result.evidenceCoverage,
+      sourceFingerprint: fingerprintText(resumeText),
+    });
+    setResumeVersions((current) => [version, ...current].slice(0, 30));
+    setResumeVersionStatus("投递版本已保存在本机；后续修改不会覆盖该版本。");
+  };
+
+  const handleCopyResumeVersion = async (version: ResumeVersion) => {
+    await navigator.clipboard.writeText(version.content);
+    setResumeVersionStatus(`已复制“${version.jobTitle}”的历史投递版本。`);
   };
 
   const clearLocalCareerData = () => {
@@ -685,10 +805,13 @@ function App() {
     setResumeText("");
     setStructuredResume(null);
     setResumeConfirmed(false);
+    setCustomTitle("");
+    setCustomJdText("");
     setCustomJobs([]);
     setPublicJobs([]);
     setModelJobs([]);
     setSelectedJobId("");
+    setActiveJobTab("verified-job");
     setModelInsight("");
     setModelStatus("idle");
     setModelMessage("");
@@ -700,6 +823,9 @@ function App() {
     setApplications([]);
     setProposalDecisions({});
     setProposalEdits({});
+    setProposalContextKey("");
+    setResumeVersions([]);
+    setResumeVersionStatus("");
     setUploadMessage("本地求职数据已清除。可重新输入简历开始分析。");
     setResumeSource("等待上传");
     Object.keys(window.localStorage)
@@ -1115,6 +1241,30 @@ function App() {
               </summary>
               <div className="privacy-center-body">
                 <p>文本文件与 PDF 文本层可先在本地读取；鸿蒙安装包会优先使用 Core Vision 在本机识别图片。只有继续进行模型解析，或本机 OCR 不可用且需要视觉兜底时，才会在本次会话同意后把所选内容发送至外部模型代理；模型密钥仅保存在服务端。</p>
+                <div className={`service-health service-${serviceHealth.status}`} role="status">
+                  <div>
+                    <strong>联网服务：{serviceHealth.status === "ready" ? "可用" : serviceHealth.status === "checking" ? "检查中" : serviceHealth.status === "offline" ? "未配置" : "部分可用"}</strong>
+                    <span>岗位 {serviceHealth.jobsConfigured ? "已配置" : "未配置"} · 模型 {serviceHealth.modelConfigured ? "已配置" : "未配置"}</span>
+                    <p>{serviceHealth.message}</p>
+                  </div>
+                  <button type="button" className="secondary-action compact-action" onClick={() => void refreshServiceHealth()} disabled={serviceHealth.status === "checking"}>重新检查</button>
+                </div>
+                <div className="native-capability-grid" aria-label="运行时能力状态">
+                  {([
+                    ["运行环境", nativeCapabilities.runtime === "harmony", nativeCapabilities.runtime === "harmony" ? "鸿蒙安装包" : "浏览器回退"],
+                    ["华为账号", nativeCapabilities.account, nativeCapabilities.account ? "可调用" : "仅安装包可用"],
+                    ["本机 OCR", nativeCapabilities.ocr, nativeCapabilities.ocr ? "Core Vision" : "需外部识别"],
+                    ["语音播报", nativeCapabilities.speechSynthesis, nativeCapabilities.speechSynthesis ? "Core Speech" : "浏览器回退"],
+                    ["语音转写", nativeCapabilities.speechRecognition, nativeCapabilities.speechRecognition ? "Core Speech" : "浏览器回退"],
+                    ["求职卡片", nativeCapabilities.applicationForm, nativeCapabilities.applicationForm ? "可同步" : "仅安装包可用"],
+                    ["系统分享", nativeCapabilities.share, nativeCapabilities.share ? "可调用" : "不可用"],
+                  ] as Array<[string, boolean, string]>).map(([label, available, detail]) => (
+                    <div key={label} className={available ? "available" : "fallback"}>
+                      <span>{label}</span>
+                      <strong>{detail}</strong>
+                    </div>
+                  ))}
+                </div>
                 <div className="privacy-options">
                   {([
                     ["hidePhone", "隐藏手机号"],
@@ -1528,13 +1678,13 @@ function App() {
                           <article key={proposal.id} className={`resume-proposal ${decision}`}>
                             <small>{proposal.section} · 证据 {proposal.evidenceIds.join("、")}</small>
                             <label>原文<textarea value={proposal.originalText} readOnly /></label>
-                            <label>建议稿<textarea value={proposalEdits[proposal.id] ?? proposal.suggestedText} onChange={(event) => setProposalEdits((current) => ({ ...current, [proposal.id]: event.target.value }))} /></label>
+                            <label>建议稿<textarea value={proposalEdits[proposal.id] ?? proposal.suggestedText} onChange={(event) => handleProposalEdit(proposal.id, event.target.value)} /></label>
                             <p><b>对应要求：</b>{proposal.targetRequirement}</p>
                             <p><b>修改理由：</b>{proposal.changeReason}</p>
                             <p><b>风险：</b>{proposal.risk}</p>
                             <div className="proposal-actions">
-                              <button type="button" className="secondary-action compact-action" onClick={() => setProposalDecisions((current) => ({ ...current, [proposal.id]: "accepted" }))}>接受</button>
-                              <button type="button" className="secondary-action compact-action" onClick={() => setProposalDecisions((current) => ({ ...current, [proposal.id]: "rejected" }))}>拒绝</button>
+                              <button type="button" className="secondary-action compact-action" onClick={() => { setProposalDecisions((current) => ({ ...current, [proposal.id]: "accepted" })); setResumeVersionStatus("已记录本次事实确认。"); }}>核对无误并接受</button>
+                              <button type="button" className="secondary-action compact-action" onClick={() => { setProposalDecisions((current) => ({ ...current, [proposal.id]: "rejected" })); setResumeVersionStatus("已拒绝该项，不会进入投递稿。"); }}>拒绝</button>
                             </div>
                           </article>
                         );
@@ -1544,9 +1694,33 @@ function App() {
                       <span>技能关键词</span>
                       <p>{optimizedDraft.skillLine}</p>
                     </div>
-                    <button type="button" className="secondary-action compact-action" onClick={handleCopyDraft}>
-                      {copyStatus}（仅已接受项）
-                    </button>
+                    <div className={`draft-validation ${draftValidation.ok ? "ready" : "blocked"}`} role="status">
+                      <strong>{draftValidation.ok ? "事实检查已通过" : "投递稿尚未通过事实检查"}</strong>
+                      <p>{draftValidation.ok ? `共 ${draftValidation.acceptedProposalIds.length} 项已核对，可保存为独立投递版本。` : draftValidation.errors[0] || "请逐条核对修改。"}</p>
+                    </div>
+                    <div className="draft-version-actions">
+                      <button type="button" className="secondary-action compact-action" onClick={handleCopyDraft}>
+                        {copyStatus}（仅已接受项）
+                      </button>
+                      <button type="button" className="secondary-action compact-action" onClick={handleSaveResumeVersion}>
+                        保存投递版本
+                      </button>
+                    </div>
+                    {resumeVersionStatus ? <p className="resume-version-status" role="status">{resumeVersionStatus}</p> : null}
+                    {resumeVersions.length ? (
+                      <div className="resume-version-list">
+                        <span>本机投递版本</span>
+                        {resumeVersions.slice(0, 5).map((version) => (
+                          <article key={version.id}>
+                            <div>
+                              <strong>{version.jobTitle}</strong>
+                              <small>{new Date(version.createdAt).toLocaleString("zh-CN")} · {version.acceptedProposalIds.length} 项事实确认 · 证据覆盖 {version.evidenceCoverage}%</small>
+                            </div>
+                            <button type="button" className="secondary-action compact-action" onClick={() => void handleCopyResumeVersion(version)}>复制此版本</button>
+                          </article>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </InfoBlock>
 
@@ -2059,9 +2233,9 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
           <ArrowUpRight size={16} />
         </button>
         <div className="hero-actions">
-          <span><ShieldCheck size={16} />可解释评分</span>
+          <span><ShieldCheck size={16} />证据可追溯</span>
           <span><Search size={16} />岗位优先级</span>
-          <span><ClipboardCheck size={16} />初筛优化</span>
+          <span><ClipboardCheck size={16} />投递准备</span>
         </div>
       </div>
       <div className="hero-metric-rail" aria-hidden="true">

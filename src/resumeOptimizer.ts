@@ -25,6 +25,12 @@ export type OptimizedResumeDraft = {
   isFactSafe: boolean;
 };
 
+export type ResumeDraftValidation = {
+  ok: boolean;
+  acceptedProposalIds: string[];
+  errors: string[];
+};
+
 const evidenceScore = (evidence: string, keywords: string[]) => keywords
   .filter((keyword) => evidence.toLowerCase().includes(keyword.toLowerCase())).length;
 
@@ -95,4 +101,32 @@ export function formatOptimizedResumeDraft(draft: OptimizedResumeDraft, accepted
     "【学习与补强建议】",
     ...(draft.learningSuggestions.length ? draft.learningSuggestions.map((item) => `- ${item}`) : ["- 暂无"]),
   ].join("\n");
+}
+
+export function validateOptimizedResumeDraft(
+  draft: OptimizedResumeDraft,
+  acceptedProposalIds: string[],
+  validEvidenceIds?: Iterable<string>,
+): ResumeDraftValidation {
+  const acceptedIdSet = new Set(acceptedProposalIds);
+  const validEvidenceIdSet = validEvidenceIds ? new Set(validEvidenceIds) : null;
+  const accepted = draft.proposals.filter((proposal) => acceptedIdSet.has(proposal.id));
+  const errors: string[] = [];
+
+  if (!accepted.length) errors.push("请先逐条核对并接受至少一项修改。");
+  if (acceptedIdSet.size !== accepted.length) errors.push("存在已失效的修改项，请重新确认。");
+  if (accepted.some((proposal) => !proposal.suggestedText.trim())) errors.push("已接受的修改中存在空内容。");
+  if (accepted.some((proposal) => /\[待确认|待补充|请补充|TODO/i.test(proposal.suggestedText))) {
+    errors.push("已接受内容仍含待确认占位符，请填写真实信息或删除占位符后重新接受。");
+  }
+  if (accepted.some((proposal) => !proposal.evidenceIds.length)) errors.push("已接受内容缺少原文证据引用。");
+  if (validEvidenceIdSet && accepted.some((proposal) => proposal.evidenceIds.some((id) => !validEvidenceIdSet.has(id)))) {
+    errors.push("部分证据已不在当前简历中，请重新分析后确认。");
+  }
+
+  return {
+    ok: errors.length === 0,
+    acceptedProposalIds: accepted.map((proposal) => proposal.id),
+    errors,
+  };
 }

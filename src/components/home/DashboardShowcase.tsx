@@ -10,13 +10,13 @@ import SuggestionCard from "./SuggestionCard";
 const showcaseScenarios = [
   {
     id: "tech",
-    matchScore: 92,
+    evidenceCoverage: 92,
     jobs: [
-      { title: "算法工程师", track: "互联网 / 技术", score: 95 },
-      { title: "数据分析师", track: "互联网 / 数据", score: 90 },
-      { title: "产品经理", track: "互联网 / 产品", score: 88 },
+      { title: "算法工程师", track: "互联网 / 技术", evidenceCoverage: 95 },
+      { title: "数据分析师", track: "互联网 / 数据", evidenceCoverage: 90 },
+      { title: "产品经理", track: "互联网 / 产品", evidenceCoverage: 88 },
     ],
-    resumeScore: 84,
+    resumeEvidenceCompleteness: 84,
     progressItems: [
       ["教育背景", 90],
       ["专业技能", 85],
@@ -29,13 +29,13 @@ const showcaseScenarios = [
   },
   {
     id: "content",
-    matchScore: 89,
+    evidenceCoverage: 89,
     jobs: [
-      { title: "内容策略", track: "传媒 / 策划", score: 91 },
-      { title: "用户研究", track: "体验 / 研究", score: 88 },
-      { title: "品牌运营", track: "市场 / 传播", score: 85 },
+      { title: "AI 产品实习生", track: "互联网 / AI 产品", evidenceCoverage: 91 },
+      { title: "用户研究实习生", track: "互联网 / 用户体验", evidenceCoverage: 88 },
+      { title: "产品运营实习生", track: "互联网 / 运营", evidenceCoverage: 85 },
     ],
-    resumeScore: 82,
+    resumeEvidenceCompleteness: 82,
     progressItems: [
       ["教育背景", 88],
       ["专业技能", 78],
@@ -48,13 +48,13 @@ const showcaseScenarios = [
   },
   {
     id: "business",
-    matchScore: 86,
+    evidenceCoverage: 86,
     jobs: [
-      { title: "商业分析", track: "咨询 / 分析", score: 89 },
-      { title: "产品运营", track: "互联网 / 运营", score: 86 },
-      { title: "项目助理", track: "综合 / 管理", score: 83 },
+      { title: "商业分析实习生", track: "互联网 / 分析", evidenceCoverage: 89 },
+      { title: "产品运营实习生", track: "互联网 / 运营", evidenceCoverage: 86 },
+      { title: "数据产品实习生", track: "互联网 / 数据产品", evidenceCoverage: 83 },
     ],
-    resumeScore: 80,
+    resumeEvidenceCompleteness: 80,
     progressItems: [
       ["教育背景", 84],
       ["专业技能", 82],
@@ -86,7 +86,7 @@ export default function DashboardShowcase() {
         <JobRecommendCard key={`jobs-${scenario.id}`} jobs={scenario.jobs} />
       </div>
       <div className="km-showcase-card km-showcase-resume">
-        <ResumeAnalysisCard key={`resume-${scenario.id}`} score={scenario.resumeScore} progressItems={scenario.progressItems} />
+        <ResumeAnalysisCard key={`resume-${scenario.id}`} evidenceCompleteness={scenario.resumeEvidenceCompleteness} progressItems={scenario.progressItems} />
       </div>
       <div className="km-showcase-card km-showcase-ability">
         <AbilityRadarCard key={`ability-${scenario.id}`} values={scenario.radarValues} />
@@ -95,7 +95,7 @@ export default function DashboardShowcase() {
         <SuggestionCard key={`suggestion-${scenario.id}`} suggestions={scenario.suggestions} />
       </div>
       <div className="km-showcase-main">
-        <MatchPanel key={`match-${scenario.id}`} score={scenario.matchScore} strengths={scenario.strengths} />
+        <MatchPanel key={`match-${scenario.id}`} evidenceCoverage={scenario.evidenceCoverage} strengths={scenario.strengths} />
       </div>
       <GlowBase />
     </section>

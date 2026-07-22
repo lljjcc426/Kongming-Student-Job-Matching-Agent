@@ -13,6 +13,11 @@ type KongMingNativeBridge = {
   logoutHuawei: () => Promise<string>;
   shareText: (payload: string) => Promise<string>;
   recognizeResumeImage: (dataUrl: string) => Promise<string>;
+  speakText: (payload: string) => Promise<string>;
+  stopSpeaking: () => Promise<string>;
+  startSpeechRecognition: () => Promise<string>;
+  stopSpeechRecognition: () => Promise<string>;
+  updateApplicationForm: (payload: string) => Promise<string>;
 };
 
 export type NativeActionResult = {
@@ -24,6 +29,20 @@ export type NativeActionResult = {
 
 export type NativeOcrResult = NativeActionResult & {
   text: string;
+};
+
+export type NativeSpeechRecognitionResult = NativeActionResult & {
+  text: string;
+};
+
+export type HarmonyNativeCapabilities = {
+  runtime: "harmony" | "web";
+  account: boolean;
+  ocr: boolean;
+  share: boolean;
+  speechSynthesis: boolean;
+  speechRecognition: boolean;
+  applicationForm: boolean;
 };
 
 declare global {
@@ -140,4 +159,96 @@ export async function recognizeImageWithHarmony(dataUrl: string): Promise<Native
   } catch {
     return { nativeAvailable: true, ok: false, text: "", message: "无法读取鸿蒙本机 OCR 返回结果。" };
   }
+}
+
+export async function speakTextWithHarmony(content: string): Promise<NativeActionResult> {
+  const bridge = window.kongmingNative;
+  if (!bridge?.speakText) return { nativeAvailable: false, ok: false, message: "当前环境没有鸿蒙 Core Speech。" };
+  try {
+    return parseNativeAction(await bridge.speakText(JSON.stringify({ content })));
+  } catch {
+    return { nativeAvailable: true, ok: false, message: "Core Speech 语音播报调用失败。" };
+  }
+}
+
+export async function stopSpeakingWithHarmony(): Promise<NativeActionResult> {
+  const bridge = window.kongmingNative;
+  if (!bridge?.stopSpeaking) return { nativeAvailable: false, ok: false, message: "当前环境没有鸿蒙 Core Speech。" };
+  try {
+    return parseNativeAction(await bridge.stopSpeaking());
+  } catch {
+    return { nativeAvailable: true, ok: false, message: "Core Speech 停止播报调用失败。" };
+  }
+}
+
+export function hasHarmonyTextToSpeech() {
+  return typeof window !== "undefined" && Boolean(window.kongmingNative?.speakText);
+}
+
+const parseNativeSpeechRecognition = (payload: string): NativeSpeechRecognitionResult => {
+  try {
+    const parsed = JSON.parse(payload) as Partial<NativeSpeechRecognitionResult>;
+    return {
+      nativeAvailable: parsed.nativeAvailable === true,
+      ok: parsed.ok === true,
+      text: typeof parsed.text === "string" ? parsed.text : "",
+      message: typeof parsed.message === "string" ? parsed.message : "",
+      errorCode: typeof parsed.errorCode === "number" ? parsed.errorCode : undefined,
+    };
+  } catch {
+    return { nativeAvailable: true, ok: false, text: "", message: "无法读取 Core Speech 语音识别结果。" };
+  }
+};
+
+export async function startSpeechRecognitionWithHarmony(): Promise<NativeSpeechRecognitionResult> {
+  const bridge = window.kongmingNative;
+  if (!bridge?.startSpeechRecognition) return { nativeAvailable: false, ok: false, text: "", message: "当前环境没有鸿蒙 Core Speech。" };
+  try {
+    return parseNativeSpeechRecognition(await bridge.startSpeechRecognition());
+  } catch {
+    return { nativeAvailable: true, ok: false, text: "", message: "Core Speech 语音识别无法启动。" };
+  }
+}
+
+export async function stopSpeechRecognitionWithHarmony(): Promise<NativeSpeechRecognitionResult> {
+  const bridge = window.kongmingNative;
+  if (!bridge?.stopSpeechRecognition) return { nativeAvailable: false, ok: false, text: "", message: "当前环境没有鸿蒙 Core Speech。" };
+  try {
+    return parseNativeSpeechRecognition(await bridge.stopSpeechRecognition());
+  } catch {
+    return { nativeAvailable: true, ok: false, text: "", message: "Core Speech 语音识别未能完成。" };
+  }
+}
+
+export function hasHarmonySpeechRecognition() {
+  return typeof window !== "undefined" && Boolean(window.kongmingNative?.startSpeechRecognition && window.kongmingNative?.stopSpeechRecognition);
+}
+
+export async function updateApplicationFormWithHarmony(payload: {
+  trackedCount: number;
+  pendingCount: number;
+  nextAction: string;
+  jobTitle: string;
+  updatedAt: string;
+}): Promise<NativeActionResult> {
+  const bridge = window.kongmingNative;
+  if (!bridge?.updateApplicationForm) return { nativeAvailable: false, ok: false, message: "当前环境没有鸿蒙服务卡片。" };
+  try {
+    return parseNativeAction(await bridge.updateApplicationForm(JSON.stringify(payload)));
+  } catch {
+    return { nativeAvailable: true, ok: false, message: "鸿蒙服务卡片同步失败。" };
+  }
+}
+
+export function getHarmonyNativeCapabilities(): HarmonyNativeCapabilities {
+  const bridge = typeof window !== "undefined" ? window.kongmingNative : undefined;
+  return {
+    runtime: bridge ? "harmony" : "web",
+    account: Boolean(bridge?.loginWithHuawei),
+    ocr: Boolean(bridge?.recognizeResumeImage),
+    share: Boolean(bridge?.shareText || (typeof navigator !== "undefined" && navigator.share)),
+    speechSynthesis: Boolean(bridge?.speakText),
+    speechRecognition: Boolean(bridge?.startSpeechRecognition && bridge?.stopSpeechRecognition),
+    applicationForm: Boolean(bridge?.updateApplicationForm),
+  };
 }

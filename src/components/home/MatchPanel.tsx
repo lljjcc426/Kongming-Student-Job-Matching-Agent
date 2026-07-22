@@ -3,11 +3,11 @@ import { Check, UserRound } from "lucide-react";
 import type { CSSProperties } from "react";
 
 type MatchPanelProps = {
-  score: number;
+  evidenceCoverage: number;
   strengths: string[];
 };
 
-export default function MatchPanel({ score, strengths }: MatchPanelProps) {
+export default function MatchPanel({ evidenceCoverage, strengths }: MatchPanelProps) {
   const [activeStrengths, setActiveStrengths] = useState(() => strengths.map(() => true));
 
   const toggleStrength = (index: number) => {
@@ -36,14 +36,14 @@ export default function MatchPanel({ score, strengths }: MatchPanelProps) {
 
       <div className="km-match-score">
         <span>示例证据覆盖</span>
-        <strong>{score}%</strong>
+        <strong>{evidenceCoverage}%</strong>
         <div className="km-score-track">
-          <i style={{ "--progress": `${score}%` } as CSSProperties} />
+          <i style={{ "--progress": `${evidenceCoverage}%` } as CSSProperties} />
         </div>
       </div>
 
       <div className="km-strengths">
-        <p>核心匹配优势</p>
+        <p>当前证据摘要</p>
         {strengths.map((item, index) => (
           <button
             key={item}

@@ -10,6 +10,7 @@
     "build:web:harmony": "tsc -b && vite build --base ./",
     "sync:harmony:web": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-harmony-web.ps1",
     "build:harmony": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1",
+    "build:harmony:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1 -RequireOnlineServices",
     "build:harmony:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1 -LocalDevApiBaseUrl http://127.0.0.1:5173",
     "run:harmony:emulator": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-harmony-emulator.ps1",
     "preview": "vite preview --host 0.0.0.0",

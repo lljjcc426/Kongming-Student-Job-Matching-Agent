@@ -4,11 +4,11 @@ import type { CSSProperties } from "react";
 type ProgressItem = readonly [string, number];
 
 type ResumeAnalysisCardProps = {
-  score: number;
+  evidenceCompleteness: number;
   progressItems: readonly ProgressItem[];
 };
 
-export default function ResumeAnalysisCard({ score, progressItems }: ResumeAnalysisCardProps) {
+export default function ResumeAnalysisCard({ evidenceCompleteness, progressItems }: ResumeAnalysisCardProps) {
   return (
     <article className="km-glass-card km-resume-card km-card-swap-motion">
       <header className="km-card-title">
@@ -19,10 +19,10 @@ export default function ResumeAnalysisCard({ score, progressItems }: ResumeAnaly
         <ArrowUpRight size={18} />
       </header>
 
-      <div className="km-score-ring" style={{ "--score": `${score * 3.6}deg` } as CSSProperties}>
+      <div className="km-score-ring" style={{ "--score": `${evidenceCompleteness * 3.6}deg` } as CSSProperties}>
         <div>
-          <strong>{score}</strong>
-          <span>分</span>
+          <strong>{evidenceCompleteness}</strong>
+          <span>%</span>
           <small>示例证据完整度</small>
         </div>
       </div>

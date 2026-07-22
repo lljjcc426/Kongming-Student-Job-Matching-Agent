@@ -1,0 +1,23 @@
+{
+  "forms": [
+    {
+      "name": "application_tracker",
+      "displayName": "$string:application_form_display_name",
+      "description": "$string:application_form_desc",
+      "src": "./ets/applicationform/pages/ApplicationCard.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "isDynamic": true,
+      "isDefault": true,
+      "updateEnabled": true,
+      "scheduledUpdateTime": "08:30",
+      "updateDuration": 1,
+      "defaultDimension": "2*2",
+      "supportDimensions": ["2*2"]
+    }
+  ]
+}

@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 type JobItem = {
   title: string;
   track: string;
-  score: number;
+  evidenceCoverage: number;
 };
 
 type JobRecommendCardProps = {
@@ -36,10 +36,10 @@ export default function JobRecommendCard({ jobs }: JobRecommendCardProps) {
               <strong>{job.title}</strong>
               <small>{job.track}</small>
               <i>
-                <em style={{ "--progress": `${job.score}%` } as CSSProperties} />
+                <em style={{ "--progress": `${job.evidenceCoverage}%` } as CSSProperties} />
               </i>
             </div>
-            <b>证据 {job.score}%</b>
+            <b>证据 {job.evidenceCoverage}%</b>
           </section>
         ))}
       </div>

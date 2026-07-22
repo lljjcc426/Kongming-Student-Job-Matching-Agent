@@ -31,7 +31,7 @@ const jobPool: JobItem[] = [
   { title: "产品经理实习生", track: "产品 / 互联网", category: "product", score: 67 },
 ];
 
-const strengths = ["专业技能匹配", "项目经验相关", "职业兴趣契合", "发展路径一致"];
+const strengths = ["技能有原文证据", "项目经历可追溯", "目标方向已确认", "硬性条件待核对"];
 const suggestions = [
   "突出项目成果数据化",
   "补充相关技能证书",
@@ -165,7 +165,7 @@ function MatchSwapCard({ score, revealKey }: { score: number; revealKey: number 
         </div>
 
         <section className={`swap-match-tags${revealKey > 0 ? " is-revealing" : ""}`}>
-          <p>核心匹配优势</p>
+            <p>当前证据摘要</p>
           <div className="swap-match-tag-grid" key={revealKey}>
             {strengths.map((item) => (
               <span key={item}>
@@ -223,7 +223,7 @@ function ResumeSwapCard({ score, metrics, revealKey }: { score: number; metrics:
         <div className="swap-score-ring" style={{ "--score": `${score * 3.6}deg` } as CSSProperties}>
           <div>
             <strong>{score}</strong>
-            <span>分</span>
+            <span>%</span>
             <small>示例证据覆盖</small>
           </div>
         </div>

@@ -3,9 +3,10 @@ import type { CSSProperties } from "react";
 import { ArrowUp, Brain, BriefcaseBusiness, Code2, Mic, MicOff, RotateCcw, SkipForward, Sparkles, Square, UsersRound, Video } from "lucide-react";
 import type { Job, StudentProfile } from "../data";
 import { getInterviewModelProvider } from "../modelProviders/interviewProvider";
-import { BrowserSpeechRecognitionAdapter } from "../speechToText/browserSpeechRecognitionAdapter";
-import { BrowserSpeechSynthesisAdapter } from "../tts/browserSpeechSynthesisAdapter";
-import type { AvatarSpeechState, InterviewFeedbackReport, InterviewInputMode, InterviewMessage, InterviewStatus, InterviewTurn, InterviewType } from "../types/interview";
+import type { SpeechToTextAdapter } from "../speechToText/browserSpeechRecognitionAdapter";
+import { createSpeechRecognitionAdapter } from "../speechToText/harmonySpeechRecognitionAdapter";
+import { createTextToSpeechAdapter } from "../tts/harmonyTextToSpeechAdapter";
+import type { AvatarSpeechState, InterviewAssessmentLevel, InterviewFeedbackReport, InterviewInputMode, InterviewMessage, InterviewStatus, InterviewTurn, InterviewType } from "../types/interview";
 import InterviewerAvatar from "../components/interview/InterviewerAvatar";
 import StudentCameraPreview from "../components/interview/StudentCameraPreview";
 import { useStudentCamera } from "../components/interview/useStudentCamera";
@@ -49,6 +50,13 @@ const statusLabel: Record<InterviewStatus, string> = {
   error: "已降级",
 };
 
+const assessmentLabel = (level: InterviewAssessmentLevel) => ({
+  strong: "证据充分",
+  developing: "有基础待加强",
+  "needs-evidence": "需要补充证据",
+  unavailable: "未验证",
+})[level];
+
 const avatarStateOf = (status: InterviewStatus): AvatarSpeechState => {
   if (status === "opening" || status === "asking" || status === "feedback") return "speaking";
   if (status === "listening") return "listening";
@@ -86,8 +94,8 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
   const [adapterNotice, setAdapterNotice] = useState("");
   const [interviewType, setInterviewType] = useState<InterviewType>("综合面");
   const chatRef = useRef<HTMLDivElement | null>(null);
-  const sttRef = useRef<BrowserSpeechRecognitionAdapter | null>(null);
-  const ttsRef = useRef(new BrowserSpeechSynthesisAdapter());
+  const sttRef = useRef<SpeechToTextAdapter | null>(null);
+  const ttsRef = useRef(createTextToSpeechAdapter());
   const camera = useStudentCamera();
   const modelProvider = useMemo(() => getInterviewModelProvider(), []);
   const avatarMode = import.meta.env.VITE_AVATAR_MODE || "static";
@@ -211,7 +219,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
       return;
     }
 
-    const adapter = new BrowserSpeechRecognitionAdapter();
+    const adapter = createSpeechRecognitionAdapter();
     if (!adapter.isSupported()) {
       setSpeechStatus("unsupported");
       return;
@@ -241,9 +249,9 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
       currentRound,
     });
     setFeedback(report);
-    const summary = report.scoreAvailable
-      ? `本次模拟面试已结束。总体评分 ${report.overallScore} 分，重点建议是：${report.improvements[0] || "继续强化结构化表达。"}`
-      : `本次模拟面试已结束，但模型反馈未通过结构校验，本轮评分不可用。建议：${report.improvements[0] || "请根据真实回答记录人工复盘。"}`;
+    const summary = report.feedbackAvailable
+      ? `本次模拟面试已结束。已生成分级复盘，重点建议是：${report.improvements[0] || "继续强化结构化表达。"}`
+      : `本次模拟面试已结束，但模型反馈未通过结构校验。建议：${report.improvements[0] || "请根据真实回答记录人工复盘。"}`;
     const finalMessage = createMessage("interviewer", summary);
     setMessages((current) => [...current, finalMessage]);
     await speakAsAvatar(summary, "finished");
@@ -328,25 +336,24 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
 
             {feedback ? (
               <div className="interview-feedback-report">
-                <div className="feedback-score">
-                  <strong>{feedback.scoreAvailable ? feedback.overallScore : "—"}</strong>
-                  <span>{feedback.scoreAvailable ? "总体评分" : "本轮评分不可用"}</span>
+                <div className={`feedback-score level-${feedback.overallLevel}`}>
+                  <strong>{feedback.feedbackAvailable ? assessmentLabel(feedback.overallLevel) : "未验证"}</strong>
+                  <span>{feedback.feedbackAvailable ? "回答证据状态" : "本轮反馈不可用"}</span>
                 </div>
-                {feedback.scoreAvailable ? (
+                {feedback.feedbackAvailable ? (
                   <div className="feedback-bars">
-                    {[
+                    {([
                       ["表达能力", feedback.expression],
-                      ["专业匹配度", feedback.professionalFit],
+                      ["岗位证据", feedback.professionalEvidence],
                       ["逻辑结构", feedback.logic],
-                    ].map(([label, score]) => (
+                    ] as Array<[string, InterviewAssessmentLevel]>).map(([label, level]) => (
                       <div key={label}>
                         <span>{label}</span>
-                        <i><b style={{ width: `${score ?? 0}%` }} /></i>
-                        <em>{score}</em>
+                        <em className={`assessment-level level-${level}`}>{assessmentLabel(level)}</em>
                       </div>
                     ))}
                   </div>
-                ) : <p className="interview-hint error">模型返回未通过结构校验，系统没有填充默认分数。</p>}
+                ) : <p className="interview-hint error">模型返回未通过结构校验，系统没有填充默认结论。</p>}
                 <div className="feedback-detail">
                   <strong>可改进点</strong>
                   <ul>{feedback.improvements.map((item) => <li key={item}>{item}</li>)}</ul>

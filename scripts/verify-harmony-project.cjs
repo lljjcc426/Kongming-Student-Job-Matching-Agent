@@ -12,7 +12,11 @@ const required = [
   "entry/src/main/module.json5",
   "entry/src/main/ets/entryability/EntryAbility.ets",
   "entry/src/main/ets/pages/Index.ets",
+  "entry/src/main/ets/applicationformability/ApplicationFormAbility.ets",
+  "entry/src/main/ets/applicationform/pages/ApplicationCard.ets",
+  "entry/src/main/ets/common/CareerFormStore.ets",
   "entry/src/main/resources/base/profile/main_pages.json",
+  "entry/src/main/resources/base/profile/form_config.json",
   "entry/src/main/resources/resfile/index.html",
 ];
 
@@ -52,28 +56,35 @@ assert.match(moduleProfile, /ohos\.want\.action\.sendData/);
 assert.match(moduleProfile, /general\.text/);
 assert.match(moduleProfile, /ohos\.permission\.INTERNET/);
 assert.match(moduleProfile, /ohos\.permission\.CAMERA/);
+assert.match(moduleProfile, /ohos\.permission\.MICROPHONE/);
 assert.match(moduleProfile, /\$string:camera_permission_reason/);
+assert.match(moduleProfile, /ApplicationFormAbility/);
+assert.match(moduleProfile, /ohos\.extension\.form/);
 
 assert.match(page, /from '@kit\.ArkWeb'/);
 assert.match(page, /from '@kit\.CoreVisionKit'/);
 assert.match(page, /from '@kit\.ShareKit'/);
+assert.match(page, /from '@kit\.CoreSpeechKit'/);
 assert.match(page, /setPathAllowingUniversalAccess\(\[resourceDir\]\)/);
 assert.match(page, /loadUrl\(`file:\/\/\$\{resourceDir\}\/index\.html`\)/);
 assert.match(page, /\.javaScriptAccess\(true\)/);
 assert.match(page, /\.domStorageAccess\(true\)/);
 assert.match(page, /\.onPermissionRequest\(/);
-assert.match(page, /requestPermissionsFromUser\(context, \[CAMERA_PERMISSION\]\)/);
+assert.match(page, /requestPermissionsFromUser\(context, nativePermissions\)/);
 assert.doesNotMatch(page, /getContext\(this\)/);
 assert.match(page, /request\.getOrigin\(\)\.startsWith\('file:\/\/'\)/);
 assert.match(page, /recognizeResumeImage/);
 assert.match(page, /textRecognition\.recognizeText/);
 assert.match(page, /shareController\.show/);
-assert.match(page, /requestedResources\.length === 1/);
+assert.match(page, /startSpeechRecognition/);
+assert.match(page, /updateApplicationForm/);
+assert.match(page, /onlyMediaResources/);
 assert.doesNotMatch(page, /https?:\/\/[^'"]+/);
 
 assert.match(packageJson, /"build:web:harmony"\s*:\s*"tsc -b && vite build --base \.\/"/);
 assert.match(packageJson, /"sync:harmony:web"/);
 assert.match(packageJson, /"build:harmony"/);
+assert.match(packageJson, /"build:harmony:release"/);
 assert.match(syncScript, /harmony\\entry\\src\\main\\resources\\resfile/);
 assert.match(syncScript, /Refusing to sync outside the Harmony resources directory/);
 assert.match(syncScript, /npm run build:web:harmony/);
@@ -88,11 +99,15 @@ assert.match(jobApiSource, /import\.meta\.env\.VITE_JOBS_API_URL\?\.trim\(\)/);
 assert.match(jobApiSource, /window\.location\.protocol === "file:" \? "" : "\/api\/jobs"/);
 assert.match(harmonyBuildScript, /LocalDevApiBaseUrl/);
 assert.match(harmonyBuildScript, /VITE_JOBS_API_URL/);
+assert.match(harmonyBuildScript, /VITE_HEALTH_API_URL/);
+assert.match(harmonyBuildScript, /RequireOnlineServices/);
 assert.match(harmonyRunScript, /rport "tcp:\$LocalDevPort" "tcp:\$LocalDevPort"/);
 assert.match(pdfSource, /import\.meta\.env\.BASE_URL\}vendor\/pdfjs\/cmaps\//);
 assert.match(live2dSource, /const PUBLIC_BASE = import\.meta\.env\.BASE_URL/);
 assert.match(interviewPageSource, /import\.meta\.env\.BASE_URL\}avatars\/interviewer\/interview-room\.png/);
 assert.match(harmonyBridgeSource, /recognizeImageWithHarmony/);
 assert.match(harmonyBridgeSource, /shareTextWithHarmony/);
+assert.match(harmonyBridgeSource, /startSpeechRecognitionWithHarmony/);
+assert.match(harmonyBridgeSource, /updateApplicationFormWithHarmony/);
 
 console.log("HarmonyOS hybrid project verification passed");

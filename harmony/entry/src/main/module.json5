@@ -33,11 +33,34 @@
         ]
       }
     ],
+    "extensionAbilities": [
+      {
+        "name": "ApplicationFormAbility",
+        "srcEntry": "./ets/applicationformability/ApplicationFormAbility.ets",
+        "label": "$string:application_form_display_name",
+        "description": "$string:application_form_desc",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
+      }
+    ],
     "requestPermissions": [
       { "name": "ohos.permission.INTERNET" },
       {
         "name": "ohos.permission.CAMERA",
         "reason": "$string:camera_permission_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.MICROPHONE",
+        "reason": "$string:microphone_permission_reason",
         "usedScene": {
           "abilities": ["EntryAbility"],
           "when": "inuse"

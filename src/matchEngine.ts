@@ -20,15 +20,12 @@ export type RequirementMatch = {
 };
 
 export type MatchResult = {
-  /** 证据覆盖率。仅为兼容旧组件保留 total 名称，不表示录用或初筛概率。 */
-  total: number;
   evidenceCoverage: number;
   verdict: "建议投递" | "补证据后投递" | "暂缓投递" | "硬性条件不满足";
   hardGateResult: HardGateResult;
   riskLevel: MatchRiskLevel;
   recommendation: MatchRecommendation;
   requirementMatrix: RequirementMatch[];
-  dimensions: Array<{ name: string; score: number; description: string }>;
   coveredKeywords: string[];
   missingKeywords: string[];
   strengths: string[];
@@ -227,16 +224,12 @@ export function analyzeMatch(profile: StudentProfile, job: Job, _resumeText: str
   const strongestEvidence = requirementMatrix.find((item) => item.status === "supported" || item.status === "partially-supported");
 
   return {
-    total: evidenceCoverage,
     evidenceCoverage,
     verdict,
     hardGateResult,
     riskLevel: roleFamily ? riskLevel : "high",
     recommendation: roleFamily ? recommendation : "complete-evidence-first",
     requirementMatrix,
-    dimensions: [
-      { name: "证据覆盖", score: evidenceCoverage, description: "有原文证据的可评估要求占比" },
-    ],
     coveredKeywords: supportedKeywords,
     missingKeywords,
     strengths: [

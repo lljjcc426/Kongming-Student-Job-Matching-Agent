@@ -30,10 +30,19 @@ const arkDevProxy = (): Plugin => ({
   configureServer(server) {
     server.middlewares.use("/api/ark", async (request, response) => {
       response.setHeader("Content-Type", "application/json; charset=utf-8");
+      response.setHeader("Access-Control-Allow-Origin", "*");
+      response.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+      response.setHeader("Access-Control-Allow-Headers", "Content-Type");
       response.setHeader("Cache-Control", "no-store, private");
       response.setHeader("X-Content-Type-Options", "nosniff");
       response.setHeader("Referrer-Policy", "no-referrer");
       response.setHeader("X-Robots-Tag", "noindex, nofollow");
+
+      if (request.method === "OPTIONS") {
+        response.statusCode = 204;
+        response.end();
+        return;
+      }
 
       if (request.method !== "POST") {
         response.statusCode = 405;
@@ -70,6 +79,21 @@ const writeJson = (response: import("node:http").ServerResponse, status: number,
 const jobDevProxy = (): Plugin => ({
   name: "job-dev-proxy",
   configureServer(server) {
+    server.middlewares.use("/api/health", (request, response) => {
+      if (request.method !== "GET") {
+        writeJson(response, 405, { ok: false, error: "只支持 GET 请求。" });
+        return;
+      }
+      response.setHeader("Cache-Control", "no-store, private");
+      writeJson(response, 200, {
+        ok: true,
+        checkedAt: new Date().toISOString(),
+        services: {
+          jobs: { configured: true },
+          model: { configured: Boolean(process.env.ARK_API_KEY && process.env.ARK_BASE_URL) },
+        },
+      });
+    });
     server.middlewares.use("/api/jobs", async (request, response) => {
       if (request.method !== "GET") {
         writeJson(response, 405, { ok: false, error: "只支持 GET 请求。" });

@@ -22,12 +22,14 @@ export type InterviewTurn = {
   inputMode: InterviewInputMode;
 };
 
+export type InterviewAssessmentLevel = "strong" | "developing" | "needs-evidence" | "unavailable";
+
 export type InterviewFeedbackReport = {
-  scoreAvailable: boolean;
-  overallScore: number | null;
-  expression: number | null;
-  professionalFit: number | null;
-  logic: number | null;
+  feedbackAvailable: boolean;
+  overallLevel: InterviewAssessmentLevel;
+  expression: InterviewAssessmentLevel;
+  professionalEvidence: InterviewAssessmentLevel;
+  logic: InterviewAssessmentLevel;
   improvements: string[];
   optimizedAnswer: string;
   summary: string;

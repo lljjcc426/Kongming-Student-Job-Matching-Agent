@@ -1,6 +1,6 @@
 import type { Job } from "../data";
 import { callArkAgent } from "../arkClient";
-import type { InterviewFeedbackReport, InterviewMessage, InterviewTurn, InterviewType } from "../types/interview";
+import type { InterviewAssessmentLevel, InterviewFeedbackReport, InterviewMessage, InterviewTurn, InterviewType } from "../types/interview";
 
 export type InterviewModelInput = {
   messages: InterviewMessage[];
@@ -18,7 +18,7 @@ export interface InterviewModelProvider {
 
 const fallbackQuestionsByType: Record<InterviewType, string[]> = {
   综合面: [
-    "请从你的简历中选择一段最能支撑目标岗位匹配度的经历，说明背景、你的职责、关键行动和结果。",
+    "请从你的简历中选择一段最能支撑目标岗位要求的经历，说明背景、你的职责、关键行动和结果。",
     "你认为自己和这个岗位最匹配的三点是什么？请分别用简历中的事实来证明。",
     "如果入职后需要快速熟悉一个陌生业务并交付结果，你会如何安排前两周？",
   ],
@@ -95,25 +95,25 @@ const extractJson = (content: string) => {
   return start >= 0 && end > start ? source.slice(start, end + 1) : source;
 };
 
-const clampScore = (value: unknown) => {
-  const score = Number(value);
-  if (!Number.isFinite(score)) return null;
-  return Math.max(0, Math.min(100, Math.round(score)));
-};
+const assessmentLevels = new Set<InterviewAssessmentLevel>(["strong", "developing", "needs-evidence", "unavailable"]);
+const asAssessmentLevel = (value: unknown): InterviewAssessmentLevel =>
+  typeof value === "string" && assessmentLevels.has(value as InterviewAssessmentLevel)
+    ? value as InterviewAssessmentLevel
+    : "unavailable";
 
 const parseFeedback = (content: string): InterviewFeedbackReport => {
   try {
     const data = JSON.parse(extractJson(content)) as Partial<InterviewFeedbackReport>;
-    const overallScore = clampScore(data.overallScore);
-    const expression = clampScore(data.expression);
-    const professionalFit = clampScore(data.professionalFit);
-    const logic = clampScore(data.logic);
-    const scoreAvailable = [overallScore, expression, professionalFit, logic].every((score) => score !== null);
+    const overallLevel = asAssessmentLevel(data.overallLevel);
+    const expression = asAssessmentLevel(data.expression);
+    const professionalEvidence = asAssessmentLevel(data.professionalEvidence);
+    const logic = asAssessmentLevel(data.logic);
+    const feedbackAvailable = [overallLevel, expression, professionalEvidence, logic].every((level) => level !== "unavailable");
     return {
-      scoreAvailable,
-      overallScore,
+      feedbackAvailable,
+      overallLevel,
       expression,
-      professionalFit,
+      professionalEvidence,
       logic,
       improvements: Array.isArray(data.improvements) ? data.improvements.map(String).filter(Boolean).slice(0, 5) : ["补充更具体的背景、行动和结果。"],
       optimizedAnswer: typeof data.optimizedAnswer === "string" ? data.optimizedAnswer : "建议用 STAR 结构重写回答：背景、任务、行动、结果分别说明。",
@@ -121,14 +121,14 @@ const parseFeedback = (content: string): InterviewFeedbackReport => {
     };
   } catch {
     return {
-      scoreAvailable: false,
-      overallScore: null,
-      expression: null,
-      professionalFit: null,
-      logic: null,
+      feedbackAvailable: false,
+      overallLevel: "unavailable",
+      expression: "unavailable",
+      professionalEvidence: "unavailable",
+      logic: "unavailable",
       improvements: ["保留真实经历，同时补充任务目标、个人动作和量化结果。", "面向目标岗位补充关键词和岗位职责对应关系。"],
       optimizedAnswer: "建议用“我负责什么、怎么推进、结果如何、复盘学到什么”的结构重新组织回答。",
-      summary: content ? "模型返回内容无法验证为结构化评分，本轮评分不可用。" : "模型未返回有效反馈，本轮评分不可用。",
+      summary: content ? "模型返回内容无法验证为结构化反馈，请根据真实回答记录人工复盘。" : "模型未返回有效反馈，请根据真实回答记录人工复盘。",
     };
   }
 };
@@ -179,8 +179,8 @@ export class DoubaoInterviewProvider implements InterviewModelProvider {
           "你是模拟面试反馈智能体。请基于面试对话生成严格 JSON，不要输出 Markdown。",
           "反馈必须体现当前面试类型：综合面评价岗位适配、经历证据和能力迁移；技术面评价技术理解、方案表达和工程落地；HR 面评价动机稳定性、协作沟通、压力应对和职业规划。",
           "JSON 结构：",
-          '{"overallScore":80,"expression":80,"professionalFit":80,"logic":80,"improvements":[],"optimizedAnswer":"","summary":""}',
-          "评分为 0-100；improvements 给 3-5 条具体改进点；optimizedAnswer 给一段可直接参考的优化回答。",
+          '{"overallLevel":"developing","expression":"strong","professionalEvidence":"needs-evidence","logic":"developing","improvements":[],"optimizedAnswer":"","summary":""}',
+          "四个等级字段只能是 strong、developing、needs-evidence、unavailable；它们表示回答证据状态，不是录用评价或概率。improvements 给 3-5 条具体改进点；optimizedAnswer 给一段可参考、但不得虚构经历的优化回答。",
           `目标岗位：${input.jobTarget?.title || "目标岗位待确认"}`,
           `面试类型：${input.interviewType}`,
           `面试模式规则：\n${interviewRulesOf(input.interviewType)}`,

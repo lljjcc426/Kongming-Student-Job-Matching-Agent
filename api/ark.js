@@ -9,6 +9,9 @@ export const config = {
 };
 
 const setSecurityHeaders = (response) => {
+  response.setHeader("Access-Control-Allow-Origin", "*");
+  response.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
   response.setHeader("Cache-Control", "no-store, private");
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("Referrer-Policy", "no-referrer");
@@ -17,6 +20,11 @@ const setSecurityHeaders = (response) => {
 
 export default async function handler(request, response) {
   setSecurityHeaders(response);
+
+  if (request.method === "OPTIONS") {
+    response.status(204).end();
+    return;
+  }
 
   if (request.method !== "POST") {
     response.status(405).json({ ok: false, error: "只支持 POST 请求。" });
