@@ -23,7 +23,7 @@ export default function ResumeAnalysisCard({ score, progressItems }: ResumeAnaly
         <div>
           <strong>{score}</strong>
           <span>分</span>
-          <small>简历匹配度</small>
+          <small>示例证据完整度</small>
         </div>
       </div>
 

@@ -1,5 +1,7 @@
 # 演示材料与证据指南
 
+> 注意：`docs/evidence-screenshots/` 中的 2026-07-08 图片属于历史版界面证据，其中“五维评分”等文案已被证据矩阵替代。竞赛提交应重新截图，不应把历史图当作当前可信匹配逻辑。
+
 本文用于整理 Kongming Student Job Matching Agent 的演示材料、项目展示 PPT、运行截图、调用日志和公开查看顺序。当前文件只记录可公开材料和待补充项，不包含虚假的视频链接或截图路径。
 
 所有演示材料的最终路径统一汇总到 `docs/EVIDENCE_INDEX.md`，后续只需要在该索引中补充真实视频链接、截图路径和日志路径。
@@ -30,7 +32,7 @@
 | --- | --- | --- |
 | 首页 | 项目定位、入口、岗位推荐和能力图谱展示 | `docs/evidence-screenshots/app-home-job-matching-20260708.png`；`docs/evidence-screenshots/app-home-ability-radar-20260708.png` |
 | 简历解析 | 学生画像、识别进度、模型增强结果和优化建议 | `docs/evidence-screenshots/app-resume-analysis-summary-20260708.png`；`docs/evidence-screenshots/app-resume-optimization-suggestions-20260708.png` |
-| 岗位推荐 | 推荐岗位列表、岗位详情、要求匹配表和五维评分 | `docs/evidence-screenshots/app-job-recommendation-cards-20260708.png`；`docs/evidence-screenshots/app-job-detail-match-score-20260708.png` |
+| 岗位证据 | 三类岗位页签、岗位详情、硬性条件和要求证据矩阵 | 历史截图仅作 UI 沿革；需要重新采集当前版本 |
 | 模拟面试 | AI 数字人面试官、面试模式和回答输入 | `docs/evidence-screenshots/app-interview-simulation-20260708.png` |
 | AI 助手 | 多轮求职问答入口和智能体上下文 | `docs/evidence-screenshots/app-ai-assistant-20260708.png` |
 
@@ -44,7 +46,7 @@
 2. 进入简历解析页面，上传文本简历或粘贴简历内容。
 3. 展示学生画像、结构化经历、技能和求职方向。
 4. 展示系统生成的岗位推荐列表。
-5. 选择一个岗位，展示匹配评分、关键词覆盖、优势、风险和行动建议。
+5. 选择一个岗位，展示硬性条件、原文 Evidence ID、证据覆盖、风险和行动建议。
 6. 输入目标岗位 JD，展示二次岗位分析结果。
 7. 下载 Markdown 分析报告。
 8. 进入模拟面试页面，选择综合面、技术面或 HR 面。
@@ -76,7 +78,7 @@
 
 - 学生画像。
 - 推荐岗位。
-- 匹配评分。
+- 硬性条件与证据覆盖（明确不是录用概率）。
 - 关键词覆盖。
 - 简历优化动作。
 - 模拟面试问题和反馈。

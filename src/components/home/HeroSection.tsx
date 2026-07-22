@@ -63,7 +63,7 @@ export default function HeroSection({ onNavigate }: HeroSectionProps) {
           onPointerLeave={handleLocalTextPointerExit}
           onPointerCancel={handleLocalTextPointerExit}
         >
-          学生求职匹配智能体
+          高校学生求职证据工作台
         </div>
         <KongmingTitle />
         <p
@@ -92,14 +92,14 @@ export default function HeroSection({ onNavigate }: HeroSectionProps) {
         fillOpacity={0.22}
       >
         <p>
-          一款面向学生求职场景的 AI 智能匹配工具，帮助学生从海量岗位信息中快速发现与自身背景、能力特长和职业兴趣高度匹配的机会，并针对目标岗位提供简历匹配度分析与优化建议。
+          聚焦互联网与数字技术岗位，区分官方岗位、用户导入 JD 与职业方向；用简历原文证据解释要求覆盖，并生成需要逐条确认的修改建议。
         </p>
       </BorderGlow>
 
       <div className="km-feature-row" aria-label="功能入口">
-        <FeatureButton icon={Target} label="岗位智能匹配" onClick={() => onNavigate("jobs")} />
-        <FeatureButton icon={FileCheck2} label="简历优化建议" onClick={() => onNavigate("resume")} />
-        <FeatureButton icon={BarChart3} label="求职能力分析" onClick={() => onNavigate("assistant")} />
+        <FeatureButton icon={Target} label="真实岗位与 JD" onClick={() => onNavigate("jobs")} />
+        <FeatureButton icon={FileCheck2} label="事实约束改写" onClick={() => onNavigate("resume")} />
+        <FeatureButton icon={BarChart3} label="证据矩阵" onClick={() => onNavigate("assistant")} />
       </div>
     </section>
   );

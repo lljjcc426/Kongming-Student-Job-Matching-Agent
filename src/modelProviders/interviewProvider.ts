@@ -95,33 +95,40 @@ const extractJson = (content: string) => {
   return start >= 0 && end > start ? source.slice(start, end + 1) : source;
 };
 
-const clampScore = (value: unknown, fallback: number) => {
+const clampScore = (value: unknown) => {
   const score = Number(value);
-  if (!Number.isFinite(score)) return fallback;
+  if (!Number.isFinite(score)) return null;
   return Math.max(0, Math.min(100, Math.round(score)));
 };
 
 const parseFeedback = (content: string): InterviewFeedbackReport => {
   try {
     const data = JSON.parse(extractJson(content)) as Partial<InterviewFeedbackReport>;
+    const overallScore = clampScore(data.overallScore);
+    const expression = clampScore(data.expression);
+    const professionalFit = clampScore(data.professionalFit);
+    const logic = clampScore(data.logic);
+    const scoreAvailable = [overallScore, expression, professionalFit, logic].every((score) => score !== null);
     return {
-      overallScore: clampScore(data.overallScore, 78),
-      expression: clampScore(data.expression, 76),
-      professionalFit: clampScore(data.professionalFit, 78),
-      logic: clampScore(data.logic, 75),
+      scoreAvailable,
+      overallScore,
+      expression,
+      professionalFit,
+      logic,
       improvements: Array.isArray(data.improvements) ? data.improvements.map(String).filter(Boolean).slice(0, 5) : ["补充更具体的背景、行动和结果。"],
       optimizedAnswer: typeof data.optimizedAnswer === "string" ? data.optimizedAnswer : "建议用 STAR 结构重写回答：背景、任务、行动、结果分别说明。",
       summary: typeof data.summary === "string" ? data.summary : "回答具备基础信息，但仍需强化结构化表达和岗位相关证据。",
     };
   } catch {
     return {
-      overallScore: 76,
-      expression: 74,
-      professionalFit: 76,
-      logic: 75,
+      scoreAvailable: false,
+      overallScore: null,
+      expression: null,
+      professionalFit: null,
+      logic: null,
       improvements: ["保留真实经历，同时补充任务目标、个人动作和量化结果。", "面向目标岗位补充关键词和岗位职责对应关系。"],
       optimizedAnswer: "建议用“我负责什么、怎么推进、结果如何、复盘学到什么”的结构重新组织回答。",
-      summary: content || "已生成反馈，但结构化解析不完整。",
+      summary: content ? "模型返回内容无法验证为结构化评分，本轮评分不可用。" : "模型未返回有效反馈，本轮评分不可用。",
     };
   }
 };

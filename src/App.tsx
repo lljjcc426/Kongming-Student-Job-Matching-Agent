@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowDownToLine,
-  ArrowUp,
   ArrowUpRight,
   Bot,
   BriefcaseBusiness,
@@ -12,26 +11,35 @@ import {
   Lightbulb,
   LogIn,
   LogOut,
-  Mic,
   Plus,
   Search,
+  Share2,
   ShieldCheck,
-  SendHorizontal,
   Sparkles,
   Trash2,
   Upload,
   Video,
-  Volume2,
 } from "lucide-react";
 import { faClipboardCheck, faUserAstronaut, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { animate, stagger } from "animejs";
 import { gsap } from "gsap";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { Job } from "./data";
-import { callArkAgent } from "./arkClient";
+import type { Job, JobKind } from "./data";
+import { buildJobCatalog } from "./core/job/repositories";
+import {
+  applicationStageOptions,
+  buildDailyApplicationActions,
+  loadApplicationRecords,
+  saveApplicationRecords,
+  updateApplicationStage,
+  upsertApplication,
+  type ApplicationRecord,
+  type ApplicationStage,
+} from "./core/tracking/applicationRepository";
+import { callArkAgent, configureArkPrivacy } from "./arkClient";
+import { defaultPrivacyPreferences, type PrivacyPreferences } from "./core/privacy/redaction";
 import { buildCareerOpsEvaluation } from "./careerOps";
 import { parseCustomJob } from "./jobParser";
 import { fetchPublicJobs } from "./jobApi";
@@ -40,17 +48,20 @@ import {
   initialHuaweiAuthState,
   loginWithHuawei,
   logoutHuawei,
+  recognizeImageWithHarmony,
+  shareTextWithHarmony,
   type HuaweiAuthState,
 } from "./harmonyBridge";
 import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { parseJdAnalysis, parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
 import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft } from "./resumeOptimizer";
-import AIAssistantPage from "./pages/AIAssistantPage";
 import HomePage from "./pages/HomePage";
-import InterviewPage from "./pages/InterviewPage";
 import LoadingScreen from "./LoadingScreen";
 import homeHeroVideo from "./assets/home-hero-video.mp4";
+
+const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
+const InterviewPage = lazy(() => import("./pages/InterviewPage"));
 
 const MAX_UPLOAD_BYTES = 8_000_000;
 const INTRO_CELLS = Array.from({ length: 112 }, (_, index) => index);
@@ -59,7 +70,6 @@ const INTRO_RESUME_LINES = Array.from({ length: 16 }, (_, index) => index);
 const INTRO_HOLO_DOTS = Array.from({ length: 96 }, (_, index) => index);
 const HERO_PARTICLES = Array.from({ length: 22 }, (_, index) => index);
 const HERO_RING_PARTICLES = Array.from({ length: 18 }, (_, index) => index);
-const GALAXY_PARTICLES = Array.from({ length: 72 }, (_, index) => index);
 const HERO_METRICS = ["Profile", "Match", "Interview", "Chat"];
 const INTRO_MARKS = ["01", "02", "03", "04", "05"];
 
@@ -196,7 +206,8 @@ const getSpeechRecognition = () => {
 
 const emptyJob: Job = {
   id: "empty",
-  title: "等待模型推荐岗位",
+  jobKind: "career-direction",
+  title: "等待岗位或职业方向",
   track: "待识别",
   city: "不限",
   level: "岗位",
@@ -243,7 +254,6 @@ const readImageAsCompressedDataUrl = (file: File) =>
   });
 
 const RESUME_VISION_TIMEOUT_MS = 72_000;
-const RESUME_VISION_PARALLEL_LIMIT = 2;
 
 const isUsableResumeText = (text: string) => text.replace(/\s/g, "").length >= 30;
 
@@ -309,6 +319,13 @@ function App() {
   const [customJdText, setCustomJdText] = useState("");
   const [customJobs, setCustomJobs] = useState<Job[]>([]);
   const [publicJobs, setPublicJobs] = useState<Job[]>([]);
+  const [activeJobTab, setActiveJobTab] = useState<JobKind>("verified-job");
+  const [resumeConfirmed, setResumeConfirmed] = useState(false);
+  const [externalModelConsent, setExternalModelConsent] = useState(false);
+  const [privacyPreferences, setPrivacyPreferences] = useState<PrivacyPreferences>(defaultPrivacyPreferences);
+  const [applications, setApplications] = useState<ApplicationRecord[]>(() =>
+    typeof window === "undefined" ? [] : loadApplicationRecords(window.localStorage),
+  );
   const [publicJobStatus, setPublicJobStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [publicJobMessage, setPublicJobMessage] = useState("等待读取企业官方岗位");
   const [structuredResume, setStructuredResume] = useState<StructuredResume | null>(null);
@@ -347,6 +364,10 @@ function App() {
     return () => window.clearTimeout(timeoutId);
   }, [accountNotice]);
 
+  useEffect(() => {
+    configureArkPrivacy({ externalModelConsent, preferences: privacyPreferences });
+  }, [externalModelConsent, privacyPreferences]);
+
   const handleHuaweiAccount = useCallback(async () => {
     if (accountBusy) return;
 
@@ -374,17 +395,25 @@ function App() {
     setAccountBusy(false);
   }, [accountBusy, huaweiAuth.signedIn]);
 
-  const activeProfile = useMemo(() => profileFromStructuredResume(structuredResume, resumeText), [structuredResume, resumeText]);
+  const activeProfile = useMemo(
+    () => profileFromStructuredResume(structuredResume, resumeText, resumeConfirmed),
+    [structuredResume, resumeConfirmed, resumeText],
+  );
   const hasResume = resumeText.trim().length > 0;
-  const availableJobs = useMemo(() => {
-    const used = new Set<string>();
-    return [...customJobs, ...publicJobs, ...modelJobs].filter((job) => {
-      const key = `${job.companyScenario}|${job.title}|${job.city}`.toLowerCase();
-      if (used.has(key)) return false;
-      used.add(key);
-      return true;
-    });
-  }, [customJobs, modelJobs, publicJobs]);
+  const jobCatalog = useMemo(
+    () => buildJobCatalog([...customJobs, ...publicJobs, ...modelJobs]),
+    [customJobs, modelJobs, publicJobs],
+  );
+  const allJobs = useMemo(() => Object.values(jobCatalog).flat(), [jobCatalog]);
+  const jobTabCounts = useMemo(() => ({
+    "verified-job": jobCatalog["verified-job"].length,
+    "imported-jd": jobCatalog["imported-jd"].length,
+    "career-direction": jobCatalog["career-direction"].length,
+  }), [jobCatalog]);
+  const availableJobs = useMemo(
+    () => jobCatalog[activeJobTab],
+    [activeJobTab, jobCatalog],
+  );
   const rankedJobs = useMemo(
     () =>
       [...availableJobs].sort(
@@ -398,7 +427,21 @@ function App() {
   const result = useMemo(() => analyzeMatch(activeProfile, selectedJob, resumeText), [activeProfile, resumeText, selectedJob]);
   const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
   const careerOpsEvaluation = useMemo(() => buildCareerOpsEvaluation(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
+  const trackedApplication = applications.find((application) => application.jobId === selectedJob.id) ?? null;
+  const dailyApplicationActions = useMemo(() => buildDailyApplicationActions(applications), [applications]);
   const [copyStatus, setCopyStatus] = useState("复制优化稿");
+  const [shareStatus, setShareStatus] = useState("");
+  const [proposalDecisions, setProposalDecisions] = useState<Record<string, "accepted" | "rejected">>({});
+  const [proposalEdits, setProposalEdits] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setProposalDecisions({});
+    setProposalEdits({});
+  }, [selectedJob.id, resumeText]);
+
+  useEffect(() => {
+    saveApplicationRecords(window.localStorage, applications);
+  }, [applications]);
 
   useEffect(() => {
     chatBodyRef.current?.scrollTo({ top: chatBodyRef.current.scrollHeight, behavior: "smooth" });
@@ -408,12 +451,13 @@ function App() {
     setPublicJobStatus("loading");
     setPublicJobMessage("正在从企业官网与公开招聘系统收集岗位…");
     try {
-      const query = structuredResume?.targetRoles.slice(0, 3).join(" ") || customTitle.trim() || "产品 技术 运营";
+      const query = structuredResume?.targetRoles.slice(0, 3).join(" ") || customTitle.trim() || "前端 后端 AI 数据 产品";
       const feed = await fetchPublicJobs({ query, city: activeProfile.cityPreference[0], limit: 36 });
       setPublicJobs(feed.jobs);
       setPublicJobStatus("ready");
       setPublicJobMessage(feed.stale ? `${feed.message}；当前为最近一次有效快照` : feed.message);
       publicJobsLoadedRef.current = true;
+      setActiveJobTab("verified-job");
       if (!selectedJobId && feed.jobs[0]) setSelectedJobId(feed.jobs[0].id);
     } catch (error) {
       setPublicJobStatus("error");
@@ -429,7 +473,7 @@ function App() {
 
   const runJobRecommendations = async (nextResumeText: string, nextResume: StructuredResume) => {
     setPipelineStep("jobs");
-    setModelMessage("岗位发现智能体正在并行生成推荐岗位");
+    setModelMessage("职业方向智能体正在生成互联网与数字技术方向建议");
     const agents = buildJobDiscoveryAgents(nextResume);
     const responses = await Promise.allSettled(
       agents.map((agent) =>
@@ -465,19 +509,21 @@ function App() {
     }
 
     setModelJobs(parsedJobs);
+    setActiveJobTab("career-direction");
     setSelectedJobId(parsedJobs[0]?.id ?? "");
     setModelStatus("ready");
     setPipelineStep("done");
-    setModelMessage(`已完成简历解析并生成 ${parsedJobs.length} 个模型推荐岗位`);
+    setModelMessage(`已完成简历解析并生成 ${parsedJobs.length} 个职业方向建议；这些内容不是正在招聘的真实岗位`);
   };
 
   const runModelPipeline = async (nextResumeText: string) => {
     if (!nextResumeText.trim()) return;
     setModelStatus("loading");
     setPipelineStep("structure");
-    setModelMessage("正在调用模型解析简历并生成岗位推荐");
+    setModelMessage("正在调用模型解析简历并生成职业方向建议");
     setStructuredResume(null);
     setModelJobs([]);
+    setResumeConfirmed(false);
 
     const structureResponse = await callArkAgent({ task: "resume-structure", resumeText: nextResumeText });
     if (!structureResponse.ok || !structureResponse.content) {
@@ -490,6 +536,7 @@ function App() {
     try {
       const parsedResume = parseStructuredResume(structureResponse.content);
       setStructuredResume(parsedResume);
+      setResumeConfirmed(false);
       await runJobRecommendations(nextResumeText, parsedResume);
     } catch (error) {
       setModelStatus("error");
@@ -528,6 +575,7 @@ function App() {
       try {
         resumeProfile = parseStructuredResume(structureResponse.content);
         setStructuredResume(resumeProfile);
+        setResumeConfirmed(false);
       } catch {
         setJdStatus("error");
         setJdStep("error");
@@ -581,6 +629,7 @@ function App() {
       };
       setCustomJobs((current) => [nextJob, ...current]);
       setSelectedJobId(nextJob.id);
+      setActiveJobTab("imported-jd");
       setJdStatus("ready");
       setJdStep("done");
       setJdMessage("意向岗位分析已完成");
@@ -597,48 +646,114 @@ function App() {
     downloadTextFile("kongming-match-report.md", report);
   };
 
+  const handleShareReport = async () => {
+    if (!hasResume || !hasAnalysis) return;
+    const report = buildMatchReport(activeProfile, selectedJob, result, resumeText, optimizedDraft, careerOpsEvaluation);
+    const shareResult = await shareTextWithHarmony(`${selectedJob.title} · 孔明职配分析`, report);
+    setShareStatus(shareResult.message);
+    window.setTimeout(() => setShareStatus(""), 3600);
+  };
+
+  const handleTrackSelectedJob = () => {
+    setApplications((current) => upsertApplication(current, selectedJob));
+  };
+
+  const handleApplicationStage = (stage: ApplicationStage) => {
+    if (!trackedApplication) return;
+    setApplications((current) => updateApplicationStage(current, trackedApplication.id, stage));
+  };
+
   const handleCopyDraft = async () => {
-    await navigator.clipboard.writeText(formatOptimizedResumeDraft(optimizedDraft));
+    const editedDraft = {
+      ...optimizedDraft,
+      proposals: optimizedDraft.proposals.map((proposal) => ({
+        ...proposal,
+        suggestedText: proposalEdits[proposal.id] ?? proposal.suggestedText,
+      })),
+    };
+    const acceptedIds = Object.entries(proposalDecisions)
+      .filter(([, decision]) => decision === "accepted")
+      .map(([id]) => id);
+    await navigator.clipboard.writeText(formatOptimizedResumeDraft(editedDraft, acceptedIds));
     setCopyStatus("已复制");
     window.setTimeout(() => setCopyStatus("复制优化稿"), 1600);
   };
 
+  const clearLocalCareerData = () => {
+    const shouldClear = window.confirm("将清除本次会话中的简历、岗位、模型对话和修改记录；华为账号登录状态不受影响。确定继续吗？");
+    if (!shouldClear) return;
+    setResumeText("");
+    setStructuredResume(null);
+    setResumeConfirmed(false);
+    setCustomJobs([]);
+    setPublicJobs([]);
+    setModelJobs([]);
+    setSelectedJobId("");
+    setModelInsight("");
+    setModelStatus("idle");
+    setModelMessage("");
+    setPipelineStep("idle");
+    setJdStatus("idle");
+    setJdStep("idle");
+    setJdMessage("等待意向岗位输入");
+    setChatMessages([]);
+    setApplications([]);
+    setProposalDecisions({});
+    setProposalEdits({});
+    setUploadMessage("本地求职数据已清除。可重新输入简历开始分析。");
+    setResumeSource("等待上传");
+    Object.keys(window.localStorage)
+      .filter((key) => key.startsWith("kongming."))
+      .forEach((key) => window.localStorage.removeItem(key));
+  };
+
   const recognizeResumeVisionPages = async (imageDataUrls: string[], extractedText = "") => {
-    const pages = imageDataUrls.map((imageDataUrl, index) => ({ imageDataUrl, index }));
     const pageResults: string[] = [];
     const errors: string[] = [];
+    let nativePageCount = 0;
 
-    for (let start = 0; start < pages.length; start += RESUME_VISION_PARALLEL_LIMIT) {
-      const batch = pages.slice(start, start + RESUME_VISION_PARALLEL_LIMIT);
-      setModelMessage(`正在识别简历图片第 ${batch[0].index + 1}-${batch[batch.length - 1].index + 1} 页`);
-      const responses = await Promise.allSettled(
-        batch.map((page) =>
-          callArkAgent(
-            {
-              task: "resume-vision",
-              imageDataUrls: [page.imageDataUrl],
-              resumeText: extractedText,
-            },
-            { timeoutMs: RESUME_VISION_TIMEOUT_MS },
-          ),
-        ),
+    for (let index = 0; index < imageDataUrls.length; index += 1) {
+      const pageNumber = index + 1;
+      setModelMessage(`正在本机识别简历图片第 ${pageNumber}/${imageDataUrls.length} 页`);
+      const nativeResult = await recognizeImageWithHarmony(imageDataUrls[index]);
+      if (nativeResult.ok && nativeResult.text.trim()) {
+        nativePageCount += 1;
+        pageResults.push(`【本机 OCR 第 ${pageNumber} 页】\n${nativeResult.text.trim()}`);
+        continue;
+      }
+      if (!externalModelConsent) {
+        errors.push(`${nativeResult.message} 如需外部视觉模型兜底，请先同意本次会话处理。`);
+        continue;
+      }
+
+      setModelMessage(`本机 OCR 不可用，正在使用外部视觉模型识别第 ${pageNumber}/${imageDataUrls.length} 页`);
+      const response = await callArkAgent(
+        { task: "resume-vision", imageDataUrls: [imageDataUrls[index]], resumeText: extractedText },
+        { timeoutMs: RESUME_VISION_TIMEOUT_MS },
       );
-
-      responses.forEach((response, offset) => {
-        const pageNumber = batch[offset].index + 1;
-        if (response.status === "fulfilled" && response.value.ok && response.value.content?.trim()) {
-          pageResults.push(`【视觉识别第 ${pageNumber} 页】\n${response.value.content.trim()}`);
-        } else {
-          errors.push(response.status === "fulfilled" ? response.value.error || `第 ${pageNumber} 页识别失败` : `第 ${pageNumber} 页识别失败`);
-        }
-      });
+      if (response.ok && response.content?.trim()) {
+        pageResults.push(`【外部视觉识别第 ${pageNumber} 页】\n${response.content.trim()}`);
+      } else {
+        errors.push(response.error || `第 ${pageNumber} 页识别失败`);
+      }
     }
 
     return {
       ok: pageResults.length > 0,
       content: pageResults.join("\n\n"),
       error: errors[0],
+      nativePageCount,
     };
+  };
+
+  const continueResumeAnalysis = async (text: string) => {
+    if (externalModelConsent) {
+      await runModelPipeline(text);
+      return;
+    }
+    setModelStatus("idle");
+    setPipelineStep("intake");
+    setModelMessage("简历内容已在本地读取，尚未发送外部模型；同意本次会话处理后可继续结构化解析。");
   };
 
   const handleResumeUpload = async (file?: File) => {
@@ -649,25 +764,28 @@ function App() {
       setModelMessage("文件超过 8MB，请压缩或精简后再上传。");
       return;
     }
+    const analysisOutcome = externalModelConsent
+      ? "已进入外部模型结构化解析流程。"
+      : "内容已留在本地，尚未进行外部模型结构化解析。";
     if (file.type.startsWith("image/")) {
       setModelStatus("loading");
       setPipelineStep("intake");
-      setModelMessage("正在识别图片简历");
+      setModelMessage("正在优先使用鸿蒙本机 OCR 识别图片简历");
       const imageDataUrl = await readImageAsCompressedDataUrl(file);
-      const response = await callArkAgent({ task: "resume-vision", imageDataUrl }, { timeoutMs: RESUME_VISION_TIMEOUT_MS });
+      const response = await recognizeResumeVisionPages([imageDataUrl]);
       if (response.ok && response.content) {
         setResumeText(response.content);
         setModelInsight(response.content);
         setModelStatus("ready");
-        setModelMessage("已完成图片简历识别");
-        setUploadMessage(`已识别 ${file.name}，画像、岗位排序和匹配结果已更新。`);
-        setResumeSource("图片视觉识别");
-        await runModelPipeline(response.content);
+        setModelMessage(response.nativePageCount > 0 ? "已使用 Core Vision 在本机完成图片识别" : "已使用外部视觉模型完成图片识别");
+        setUploadMessage(`已识别 ${file.name}；${analysisOutcome}`);
+        setResumeSource(response.nativePageCount > 0 ? "Core Vision 本机 OCR" : "外部图片视觉识别");
+        await continueResumeAnalysis(response.content);
         return;
       }
       setModelStatus("error");
       setPipelineStep("error");
-      setModelMessage(response.error || "图片简历识别失败，请检查模型环境变量。");
+      setModelMessage(response.error || "图片简历识别失败；可改用文本简历，或同意外部视觉模型兜底。");
       return;
     }
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
@@ -680,9 +798,9 @@ function App() {
         setResumeText(pdfResult.text);
         setModelStatus("ready");
         setModelMessage(`已从 PDF 文本层提取 ${pdfResult.text.length} 字`);
-        setUploadMessage(`已解析 ${file.name}，共 ${pdfResult.pageCount} 页，画像、岗位排序和匹配结果已更新。`);
+        setUploadMessage(`已解析 ${file.name}，共 ${pdfResult.pageCount} 页；${analysisOutcome}`);
         setResumeSource(`PDF 文本层识别，质量 ${Math.round(pdfResult.quality * 100)}%`);
-        await runModelPipeline(pdfResult.text);
+        await continueResumeAnalysis(pdfResult.text);
         return;
       }
 
@@ -694,18 +812,20 @@ function App() {
           setModelInsight(response.content);
           setModelStatus("ready");
           setModelMessage("PDF 文本层质量较低，已完成视觉识别");
-          setUploadMessage(`已识别 ${file.name}，画像、岗位排序和匹配结果已更新。`);
-          setResumeSource(`PDF 视觉识别，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
-          await runModelPipeline(combinedText);
+          setUploadMessage(`已识别 ${file.name}；${analysisOutcome}`);
+          setResumeSource(response.nativePageCount > 0
+            ? `PDF Core Vision 本机 OCR，文本层质量 ${Math.round(pdfResult.quality * 100)}%`
+            : `PDF 外部视觉识别，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
+          await continueResumeAnalysis(combinedText);
           return;
         }
         if (isUsableResumeText(pdfResult.text)) {
           setResumeText(pdfResult.text);
           setModelStatus("ready");
-          setModelMessage("PDF 视觉识别未完成，已使用可读取文本层继续分析");
-          setUploadMessage(`已读取 ${file.name} 的 PDF 文本层，视觉识别不稳定，已继续生成岗位和建议。`);
+          setModelMessage(externalModelConsent ? "PDF 视觉识别未完成，已使用可读取文本层继续分析" : "PDF 视觉识别未完成，已在本地保留可读取文本层");
+          setUploadMessage(`已读取 ${file.name} 的 PDF 文本层，视觉识别不稳定；${analysisOutcome}`);
           setResumeSource(`PDF 文本层兜底，质量 ${Math.round(pdfResult.quality * 100)}%`);
-          await runModelPipeline(pdfResult.text);
+          await continueResumeAnalysis(pdfResult.text);
           return;
         }
         setModelStatus("error");
@@ -719,10 +839,10 @@ function App() {
       if (isUsableResumeText(pdfResult.text)) {
         setResumeText(pdfResult.text);
         setModelStatus("ready");
-        setModelMessage("PDF 页面渲染失败，已使用可读取文本层继续分析");
-        setUploadMessage(`已读取 ${file.name} 的 PDF 文本层，页面渲染不稳定，已继续生成岗位和建议。`);
+        setModelMessage(externalModelConsent ? "PDF 页面渲染失败，已使用可读取文本层继续分析" : "PDF 页面渲染失败，已在本地保留可读取文本层");
+        setUploadMessage(`已读取 ${file.name} 的 PDF 文本层，页面渲染不稳定；${analysisOutcome}`);
         setResumeSource(`PDF 文本层兜底，质量 ${Math.round(pdfResult.quality * 100)}%`);
-        await runModelPipeline(pdfResult.text);
+        await continueResumeAnalysis(pdfResult.text);
         return;
       }
 
@@ -735,9 +855,9 @@ function App() {
     }
     const text = await file.text();
     setResumeText(text);
-    setUploadMessage(`已读取 ${file.name}，共 ${text.trim().length} 字，画像、岗位排序和匹配结果已更新。`);
+    setUploadMessage(`已读取 ${file.name}，共 ${text.trim().length} 字；${analysisOutcome}`);
     setResumeSource("文本文件读取");
-    await runModelPipeline(text);
+    await continueResumeAnalysis(text);
   };
 
   const handleModelAnalysis = async () => {
@@ -959,20 +1079,6 @@ function App() {
     setChatMessage(response.error || "AI 助手暂时无法回复，请稍后重试。");
   };
 
-  const handleReadLatestReply = () => {
-    const latestReply = [...chatMessages].reverse().find((message) => message.role === "assistant");
-    if (!latestReply || !("speechSynthesis" in window)) {
-      setChatStatus("error");
-      setChatMessage("当前没有可朗读的回复，或浏览器不支持语音朗读。");
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(latestReply.content);
-    utterance.lang = "zh-CN";
-    window.speechSynthesis.speak(utterance);
-    setChatMessage("正在朗读最新回复");
-  };
-
   if (introVisible) {
     return <LoadingScreen onFinish={() => setIntroVisible(false)} />;
   }
@@ -1002,6 +1108,41 @@ function App() {
       <section className={`dashboard dashboard-${activePage}`} hidden={activePage !== "resume" && activePage !== "jobs"}>
         <aside className="profile-column">
           <Panel eyebrow="Profile" title="学生画像" icon={<FileText size={18} />}>
+            <details className="privacy-center" open={!externalModelConsent}>
+              <summary>
+                <span><ShieldCheck size={15} />隐私与外部模型说明</span>
+                <b>{externalModelConsent ? "已同意本次会话" : "待确认"}</b>
+              </summary>
+              <div className="privacy-center-body">
+                <p>文本文件与 PDF 文本层可先在本地读取；鸿蒙安装包会优先使用 Core Vision 在本机识别图片。只有继续进行模型解析，或本机 OCR 不可用且需要视觉兜底时，才会在本次会话同意后把所选内容发送至外部模型代理；模型密钥仅保存在服务端。</p>
+                <div className="privacy-options">
+                  {([
+                    ["hidePhone", "隐藏手机号"],
+                    ["hideEmail", "隐藏邮箱"],
+                    ["hideAddress", "隐藏详细地址"],
+                    ["hideIdNumber", "隐藏身份证号"],
+                    ["hideName", "隐藏真实姓名"],
+                  ] as Array<[keyof PrivacyPreferences, string]>).map(([key, label]) => (
+                    <label key={key}>
+                      <input
+                        type="checkbox"
+                        checked={privacyPreferences[key]}
+                        onChange={(event) => setPrivacyPreferences((current) => ({ ...current, [key]: event.target.checked }))}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <label className="privacy-consent">
+                  <input type="checkbox" checked={externalModelConsent} onChange={(event) => setExternalModelConsent(event.target.checked)} />
+                  我已了解数据用途，并同意在本次会话中将所选内容发送至外部模型服务。
+                </label>
+                <button type="button" className="secondary-action compact-action" onClick={clearLocalCareerData}>
+                  <Trash2 size={15} />
+                  清除全部本地求职数据
+                </button>
+              </div>
+            </details>
             <ResumePipelineStatus hasResume={hasResume} resumeSource={resumeSource} modelStatus={modelStatus} pipelineStep={pipelineStep} />
 
             <div className="identity-card">
@@ -1014,6 +1155,22 @@ function App() {
             </div>
 
             <ResumeSections structuredResume={structuredResume} />
+
+            <div className={`resume-confirmation ${resumeConfirmed ? "confirmed" : "pending"}`}>
+              <div>
+                <strong>{resumeConfirmed ? "简历证据已确认" : "简历证据待确认"}</strong>
+                <p>请核对教育、技能和经历是否与原文一致；确认后才能作为强证据。</p>
+              </div>
+              <button
+                type="button"
+                className="secondary-action compact-action"
+                disabled={!structuredResume || resumeConfirmed}
+                onClick={() => setResumeConfirmed(true)}
+              >
+                <ShieldCheck size={15} />
+                {resumeConfirmed ? "已确认" : "确认当前解析结果"}
+              </button>
+            </div>
 
             <InfoBlock title="简历文本">
               <label className="upload-control">
@@ -1034,6 +1191,7 @@ function App() {
                 onChange={(event) => {
                   setResumeText(event.target.value);
                   setStructuredResume(null);
+                  setResumeConfirmed(false);
                   setModelJobs([]);
                   setSelectedJobId("");
                   setModelInsight("");
@@ -1049,17 +1207,17 @@ function App() {
                 type="button"
                 className="secondary-action compact-action"
                 onClick={() => void runModelPipeline(resumeText)}
-                disabled={!resumeText.trim() || modelStatus === "loading"}
+                disabled={!resumeText.trim() || !externalModelConsent || modelStatus === "loading"}
               >
                 <FontAwesomeShapeIcon icon={faClipboardCheck} size={16} />
-                解析简历并推荐岗位
+                解析简历并生成职业方向
               </button>
             </InfoBlock>
           </Panel>
         </aside>
 
         <section className="match-column">
-          <Panel eyebrow="Matching" title="岗位匹配工作台" icon={<BriefcaseBusiness size={18} />}>
+          <Panel eyebrow="Evidence Matching" title="岗位证据工作台" icon={<BriefcaseBusiness size={18} />}>
             <div className={`job-source-bar ${publicJobStatus}`}>
               <div>
                 <span>Official Job Radar</span>
@@ -1070,6 +1228,36 @@ function App() {
                 {publicJobStatus === "loading" ? "收集中" : "刷新真实岗位"}
               </button>
             </div>
+            <div className="job-kind-tabs" role="tablist" aria-label="岗位数据类型">
+              {([
+                ["verified-job", "已验证岗位"],
+                ["imported-jd", "我的 JD"],
+                ["career-direction", "职业方向"],
+              ] as Array<[JobKind, string]>).map(([kind, label]) => (
+                <button
+                  key={kind}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeJobTab === kind}
+                  className={activeJobTab === kind ? "active" : ""}
+                  onClick={() => {
+                    setActiveJobTab(kind);
+                    const next = allJobs.find((job) => job.jobKind === kind);
+                    setSelectedJobId(next?.id || "");
+                  }}
+                >
+                  <span>{label}</span>
+                  <b>{jobTabCounts[kind]}</b>
+                </button>
+              ))}
+            </div>
+            <p className="job-kind-disclaimer">
+              {activeJobTab === "verified-job"
+                ? "仅展示带官方来源链接和验证记录的岗位；状态仍需在投递前再次核对。"
+                : activeJobTab === "imported-jd"
+                  ? "由你粘贴或导入的目标 JD，默认状态为待核对。"
+                  : "AI 生成的职业探索方向，不代表企业正在招聘，也不能直接投递。"}
+            </p>
             <div className="jd-lab">
               <div className="section-head compact">
                 <div>
@@ -1086,7 +1274,7 @@ function App() {
               </div>
               <textarea className="jd-textarea" value={customJdText} onChange={(event) => setCustomJdText(event.target.value)} aria-label="目标岗位 JD" placeholder="目标岗位 JD" />
               <div className="jd-actions">
-                <button type="button" className="primary-action" onClick={() => void handleUseCustomJob()} disabled={(!customTitle.trim() && !customJdText.trim()) || !hasResume || jdStatus === "loading"}>
+                <button type="button" className="primary-action" onClick={() => void handleUseCustomJob()} disabled={(!customTitle.trim() && !customJdText.trim()) || !hasResume || !externalModelConsent || jdStatus === "loading"}>
                   <Plus size={16} />
                   分析该岗位
                 </button>
@@ -1144,9 +1332,9 @@ function App() {
                         </small>
                       ) : null}
                     </div>
-                    <div className={`score-badge ${toneOf(result.total)}`}>
-                      <strong>{result.total}</strong>
-                      <span>{result.verdict}</span>
+                    <div className={`score-badge ${toneOf(result.evidenceCoverage)}`}>
+                      <strong>{result.evidenceCoverage}%</strong>
+                      <span>证据覆盖率</span>
                     </div>
                   </div>
 
@@ -1175,6 +1363,31 @@ function App() {
                     </div>
                   ) : null}
 
+                  <div className="application-tracker" data-tracked={trackedApplication ? "true" : "false"}>
+                    <div>
+                      <span>本地求职追踪</span>
+                      <p>
+                        {selectedJob.jobKind === "career-direction"
+                          ? "职业方向不是可投递岗位，需先找到已验证岗位或导入具体 JD。"
+                          : trackedApplication
+                            ? `已于 ${new Date(trackedApplication.createdAt).toLocaleDateString("zh-CN")} 加入，仅在本机保存岗位进度。`
+                            : "只保存岗位快照和进度，不保存完整简历。"}
+                      </p>
+                    </div>
+                    {selectedJob.jobKind === "career-direction" ? (
+                      <span className="tracking-blocked">不可直接投递</span>
+                    ) : trackedApplication ? (
+                      <label>
+                        当前阶段
+                        <select value={trackedApplication.stage} onChange={(event) => handleApplicationStage(event.target.value as ApplicationStage)}>
+                          {applicationStageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </label>
+                    ) : (
+                      <button type="button" className="secondary-action compact-action" onClick={handleTrackSelectedJob}>加入追踪</button>
+                    )}
+                  </div>
+
                   {selectedJob.jdAnalysis ? (
                     <div className="jd-analysis-panel">
                       <InfoBlock title="意向岗位分析">
@@ -1198,7 +1411,7 @@ function App() {
                       <div className="requirement-matrix">
                         {careerOpsEvaluation.requirementMatrix.map((item) => (
                           <article key={item.requirement}>
-                            <span className={item.status === "强匹配" ? "strong" : item.status === "可补强" ? "medium" : "weak"}>{item.status}</span>
+                            <span className={item.status === "满足" ? "strong" : item.status === "部分满足" || item.status === "待确认" ? "medium" : "weak"}>{item.status}</span>
                             <strong>{item.requirement}</strong>
                             <p>{item.evidence}</p>
                           </article>
@@ -1208,48 +1421,51 @@ function App() {
                   </div>
                 </div>
 
-                <div className="chart-card">
+                <div className="chart-card evidence-summary-card">
                   <div className="section-head">
                     <div>
-                      <span>Match Score</span>
-                      <h3>五维匹配评分</h3>
+                      <span>Evidence Coverage</span>
+                      <h3>证据覆盖结构</h3>
                     </div>
-                    <p>评分用于辅助求职决策，不代表企业筛选结果。</p>
+                    <p>覆盖率只统计可评估要求，不代表企业筛选或录用概率。</p>
                   </div>
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={result.dimensions} margin={{ top: 10, right: 16, left: -14, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dbeafe" />
-                      <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: "#475569", fontSize: 12 }} />
-                      <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-                      <Tooltip cursor={{ fill: "rgba(37, 99, 235, 0.08)" }} />
-                      <Bar dataKey="score" fill="#2563eb" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div className="evidence-summary-grid">
+                    <article><span>证据覆盖</span><strong>{result.evidenceCoverage}%</strong></article>
+                    <article><span>硬性条件</span><strong>{result.hardGateResult === "pass" ? "通过" : result.hardGateResult === "fail" ? "不满足" : "待确认"}</strong></article>
+                    <article><span>风险等级</span><strong>{result.riskLevel === "low" ? "低" : result.riskLevel === "medium" ? "中" : "高"}</strong></article>
+                    <article><span>待确认项</span><strong>{result.requirementMatrix.filter((item) => item.status === "unknown" || item.status === "partially-supported").length}</strong></article>
+                  </div>
                 </div>
               </>
             ) : (
-              <EmptyState title="暂无匹配结果" text="上传简历后会生成岗位推荐；粘贴 JD 后会优先分析目标岗位。" />
+              <EmptyState title="当前分类暂无内容" text="可刷新已验证岗位、导入目标 JD，或上传简历生成职业方向；三类数据不会混排。" />
             )}
           </Panel>
         </section>
 
         <aside className="insight-column">
-          <Panel eyebrow="AI Insight" title="初筛命中率提升建议" icon={<Lightbulb size={18} />}>
+          <Panel eyebrow="Evidence Insight" title="证据化匹配与事实约束改写" icon={<Lightbulb size={18} />}>
             {hasAnalysis ? (
               <>
-                <div className={`verdict-card ${toneOf(result.total)}`}>
+                <div className={`verdict-card ${toneOf(result.evidenceCoverage)}`}>
                   <div>
                     <span>匹配结论</span>
                     <strong>{result.verdict}</strong>
-                    <p>基于简历文本、学生画像和目标岗位要求生成。</p>
+                    <p>基于硬性条件和可追溯简历证据生成，不代表企业录用概率。</p>
                   </div>
-                  <b>{result.total}</b>
+                  <b>{result.evidenceCoverage}%</b>
                 </div>
 
                 <button type="button" className="secondary-action" onClick={handleDownloadReport} disabled={!hasResume || !hasAnalysis}>
                   <ArrowDownToLine size={16} />
                   下载分析报告
                 </button>
+
+                <button type="button" className="secondary-action" onClick={() => void handleShareReport()} disabled={!hasResume || !hasAnalysis}>
+                  <Share2 size={16} />
+                  系统分享
+                </button>
+                {shareStatus ? <p className="share-status" role="status">{shareStatus}</p> : null}
 
                 <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()} disabled={modelStatus === "loading" || !hasResume || !hasAnalysis}>
                   <FontAwesomeShapeIcon icon={faWandMagicSparkles} size={16} />
@@ -1298,26 +1514,44 @@ function App() {
                   </div>
                 </InfoBlock>
 
-                <InfoBlock title="优化后简历片段">
+                <InfoBlock title="事实约束修改建议">
                   <div className="draft-card">
                     <div>
                       <span>个人总结</span>
                       <p>{optimizedDraft.summary}</p>
                     </div>
-                    <div>
-                      <span>项目经历改写</span>
-                      <ul>
-                        {optimizedDraft.projectBullets.map((item) => <li key={item}>{item}</li>)}
-                      </ul>
+                    <div className="resume-proposal-list">
+                      <span>逐条确认修改</span>
+                      {optimizedDraft.proposals.length ? optimizedDraft.proposals.map((proposal) => {
+                        const decision = proposalDecisions[proposal.id] || "pending";
+                        return (
+                          <article key={proposal.id} className={`resume-proposal ${decision}`}>
+                            <small>{proposal.section} · 证据 {proposal.evidenceIds.join("、")}</small>
+                            <label>原文<textarea value={proposal.originalText} readOnly /></label>
+                            <label>建议稿<textarea value={proposalEdits[proposal.id] ?? proposal.suggestedText} onChange={(event) => setProposalEdits((current) => ({ ...current, [proposal.id]: event.target.value }))} /></label>
+                            <p><b>对应要求：</b>{proposal.targetRequirement}</p>
+                            <p><b>修改理由：</b>{proposal.changeReason}</p>
+                            <p><b>风险：</b>{proposal.risk}</p>
+                            <div className="proposal-actions">
+                              <button type="button" className="secondary-action compact-action" onClick={() => setProposalDecisions((current) => ({ ...current, [proposal.id]: "accepted" }))}>接受</button>
+                              <button type="button" className="secondary-action compact-action" onClick={() => setProposalDecisions((current) => ({ ...current, [proposal.id]: "rejected" }))}>拒绝</button>
+                            </div>
+                          </article>
+                        );
+                      }) : <p>当前没有可引用原文的修改建议。</p>}
                     </div>
                     <div>
                       <span>技能关键词</span>
                       <p>{optimizedDraft.skillLine}</p>
                     </div>
                     <button type="button" className="secondary-action compact-action" onClick={handleCopyDraft}>
-                      {copyStatus}
+                      {copyStatus}（仅已接受项）
                     </button>
                   </div>
+                </InfoBlock>
+
+                <InfoBlock title="学习与补强建议">
+                  <BulletList items={optimizedDraft.learningSuggestions.length ? optimizedDraft.learningSuggestions : ["当前没有需要从岗位要求迁入学习清单的技能。"]} icon="risk" />
                 </InfoBlock>
 
                 <InfoBlock title="投递前清单">
@@ -1327,6 +1561,18 @@ function App() {
                 </InfoBlock>
 
                 <InfoBlock title="投递运营看板">
+                  <div className="daily-actions" data-count={dailyApplicationActions.length}>
+                    <div className="daily-actions-head">
+                      <strong>本机今日行动</strong>
+                      <span>{applications.length} 个岗位 · {dailyApplicationActions.length} 项待办</span>
+                    </div>
+                    {dailyApplicationActions.length ? dailyApplicationActions.slice(0, 4).map((item) => (
+                      <article key={item.applicationId} className={`priority-${item.priority}`}>
+                        <strong>{item.title}</strong>
+                        <p>{item.action}</p>
+                      </article>
+                    )) : <p className="daily-actions-empty">尚未加入具体岗位；职业方向不会自动进入投递追踪。</p>}
+                  </div>
                   <div className="pipeline-board">
                     {careerOpsEvaluation.pipeline.map((item) => (
                       <article key={item.stage} className={item.status === "已完成" ? "done" : item.status === "进行中" ? "active" : ""}>
@@ -1360,98 +1606,25 @@ function App() {
 
       {activePage === "assistant" ? (
         <section className="assistant-panel">
-          <AIAssistantPage
-            messages={chatMessages}
-            input={chatInput}
-            status={chatStatus}
-            statusMessage={chatStatus === "loading" ? "正在生成回复" : chatStatus === "listening" ? "正在收听" : chatMessage}
-            bodyRef={chatBodyRef}
-            onInputChange={setChatInput}
-            onSend={() => void handleSendChat()}
-            onVoiceInput={handleChatSpeechInput}
-          />
+          <Suspense fallback={<div className="page-loading">正在加载 AI 助手…</div>}>
+            <AIAssistantPage
+              messages={chatMessages}
+              input={chatInput}
+              status={chatStatus}
+              statusMessage={chatStatus === "loading" ? "正在生成回复" : chatStatus === "listening" ? "正在收听" : chatMessage}
+              bodyRef={chatBodyRef}
+              onInputChange={setChatInput}
+              onSend={() => void handleSendChat()}
+              onVoiceInput={handleChatSpeechInput}
+            />
+          </Suspense>
         </section>
       ) : null}
 
-      <section className="assistant-panel legacy-assistant-panel" hidden>
-        <Panel eyebrow="AI Assistant" title="求职 AI 助手" icon={<Bot size={18} />}>
-          <div className="chat-shell">
-            <div className="chat-topbar">
-              <div>
-                <ProductAvatar compact />
-                <div>
-                  <strong>求职 AI 助手</strong>
-                  <span>结合当前简历、岗位和匹配结果进行自由对话</span>
-                </div>
-              </div>
-              <small className={chatStatus === "error" ? "error" : ""}>{chatStatus === "loading" ? "正在生成回复" : chatStatus === "listening" ? "正在收听" : chatMessage || "就绪"}</small>
-            </div>
-            <div className="chat-body" ref={chatBodyRef} aria-live="polite">
-              {chatMessages.length ? (
-                chatMessages.map((message) => (
-                  <article key={message.id} className={`chat-message ${message.role}`}>
-                    {message.role === "assistant" ? <ProductAvatar compact /> : <span className="chat-user-avatar">你</span>}
-                    <p>{message.content}</p>
-                  </article>
-                ))
-              ) : (
-                <div className="chat-empty">
-                  <AssistantGalaxy />
-                  <strong>可以直接开始交流</strong>
-                  <p>输入你的问题，助手会结合当前简历、岗位和匹配结果回答；没有上下文时也可以自由交流。</p>
-                </div>
-              )}
-              {chatStatus === "loading" ? (
-                <article className="chat-message assistant pending">
-                  <ProductAvatar compact />
-                  <p>正在思考...</p>
-                </article>
-              ) : null}
-            </div>
-            <div className="chat-composer">
-              <button type="button" className="composer-plus-button" aria-label="add context">
-                <Plus size={20} />
-              </button>
-              <textarea
-                value={chatInput}
-                onChange={(event) => setChatInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    void handleSendChat();
-                  }
-                }}
-                aria-label="AI 助手输入"
-                placeholder="输入想交流的内容"
-              />
-              <span className="composer-mode">Thinking</span>
-              <button type="button" className={`composer-icon-button voice-action ${chatStatus === "listening" ? "listening" : ""}`} aria-label="voice input" onClick={handleChatSpeechInput} disabled={chatStatus === "listening" || chatStatus === "loading"}>
-                <Mic size={18} />
-              </button>
-              <button type="button" className="composer-icon-button send-action" aria-label="send" onClick={() => void handleSendChat()} disabled={!chatInput.trim() || chatStatus === "loading"}>
-                <ArrowUp size={20} />
-              </button>
-              <div className="chat-actions">
-                <button type="button" className="secondary-action compact-action" onClick={handleChatSpeechInput} disabled={chatStatus === "listening" || chatStatus === "loading"}>
-                  <Mic size={16} />
-                  {chatStatus === "listening" ? "收听中" : "语音输入"}
-                </button>
-                <button type="button" className="secondary-action compact-action" onClick={handleReadLatestReply} disabled={!chatMessages.some((message) => message.role === "assistant")}>
-                  <Volume2 size={16} />
-                  朗读
-                </button>
-                <button type="button" className="primary-action compact-action" onClick={() => void handleSendChat()} disabled={!chatInput.trim() || chatStatus === "loading"}>
-                  <SendHorizontal size={16} />
-                  {chatStatus === "loading" ? "发送中" : "发送"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </Panel>
-      </section>
-
       {activePage === "interview" ? (
-        <InterviewPage job={selectedJob} profile={activeProfile} resumeText={resumeText} hasAnalysis={hasAnalysis} />
+        <Suspense fallback={<div className="page-loading">正在加载模拟面试…</div>}>
+          <InterviewPage job={selectedJob} profile={activeProfile} resumeText={resumeText} hasAnalysis={hasAnalysis} />
+        </Suspense>
       ) : null}
     </main>
   );
@@ -1752,42 +1925,6 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function AssistantGalaxy() {
-  return (
-    <div className="assistant-galaxy" aria-hidden="true">
-      <span className="galaxy-core" />
-      <span className="galaxy-halo halo-a" />
-      <span className="galaxy-halo halo-b" />
-      <span className="galaxy-halo halo-c" />
-      {GALAXY_PARTICLES.map((item) => {
-        const ring = item % 9;
-        const angle = (item * 137.5) % 360;
-        const size = 2 + (item % 5);
-        const radius = 34 + ring * 12 + (item % 3) * 5;
-        const duration = 5.4 + ring * 1.1 + (item % 4) * 0.35;
-        const delay = -((item % 17) * 0.37);
-        const depth = ((item % 11) - 5) * 4;
-        return (
-          <i
-            key={item}
-            className={`galaxy-star ring-${ring}`}
-            style={
-              {
-                "--angle": `${angle}deg`,
-                "--size": `${size}px`,
-                "--radius": `${radius}px`,
-                "--duration": `${duration}s`,
-                "--delay": `${delay}s`,
-                "--depth": `${depth}px`,
-              } as CSSProperties
-            }
-          />
-        );
-      })}
-    </div>
-  );
-}
-
 function ProductAvatar({ compact = false }: { compact?: boolean }) {
   return (
     <span className={`product-avatar ${compact ? "compact" : ""}`}>
@@ -1812,7 +1949,7 @@ function AppNav({
   const items: Array<{ id: ActivePage; label: string; icon: ReactNode }> = [
     { id: "home", label: "首页", icon: <FontAwesomeShapeIcon icon={faUserAstronaut} size={16} /> },
     { id: "resume", label: "简历解析", icon: <FileText size={16} /> },
-    { id: "jobs", label: "岗位推荐", icon: <BriefcaseBusiness size={16} /> },
+    { id: "jobs", label: "岗位证据", icon: <BriefcaseBusiness size={16} /> },
     { id: "interview", label: "模拟面试", icon: <Video size={16} /> },
     { id: "assistant", label: "AI 助手", icon: <Bot size={16} /> },
   ];
@@ -1916,7 +2053,7 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
           学生求职匹配智能体
         </div>
         <h1>孔明职配</h1>
-        <p>Kongming-Student Job Matching Agent是一款面向学生求职场景的 AI 智能匹配工具，旨在帮助学生从海量岗位信息中快速发现与自身背景、能力特长和职业兴趣高度匹配的机会，并针对目标岗位提供简历匹配度分析与优化建议。</p>
+        <p>孔明职配聚焦互联网与数字技术岗位，把官方岗位、用户导入 JD 与职业方向分开管理，并以可追溯的简历原文证据解释要求覆盖和修改建议。</p>
         <button type="button" className="hero-primary" onClick={onStart}>
           开始解析简历
           <ArrowUpRight size={16} />
@@ -1960,7 +2097,7 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
         </div>
         <div className="hero-match-hub" aria-hidden="true">
           <span>AI 智能匹配中</span>
-          <strong>{isReady ? `${result.total}%` : "Match"}</strong>
+          <strong>{isReady ? `${result.evidenceCoverage}%` : "Evidence"}</strong>
           <em />
         </div>
         <div className="orbit-node node-a">
@@ -1969,7 +2106,7 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
         </div>
         <div className="orbit-node node-b">
           <span>Match</span>
-          <strong>{isReady ? `${result.total}` : "智能匹配"}</strong>
+          <strong>{isReady ? `${result.evidenceCoverage}%` : "证据匹配"}</strong>
         </div>
         <div className="orbit-node node-c">
           <span>Interview</span>
@@ -1981,7 +2118,7 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
         </div>
         <div className="hero-mini-panel mini-score" aria-hidden="true">
           <span>简历分析</span>
-          <strong>{isReady ? `${result.total}分` : "84分"}</strong>
+          <strong>{isReady ? `${result.evidenceCoverage}% 证据` : "待分析"}</strong>
           <em />
         </div>
         <div className="hero-mini-panel mini-advice" aria-hidden="true">
@@ -1995,13 +2132,13 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
             <span>当前分析</span>
             <strong>{selectedJob.title}</strong>
             <div className="hero-score">
-              <b>{result.total}</b>
+              <b>{result.evidenceCoverage}%</b>
               <div>
                 <small>{result.verdict}</small>
-                <i style={{ width: `${result.total}%` }} />
+              <i style={{ width: `${result.evidenceCoverage}%` }} />
               </div>
             </div>
-            <p>已覆盖 {result.coveredKeywords.length} 个岗位关键词，仍需补强 {result.missingKeywords.length} 个关键词。</p>
+            <p>已找到 {result.coveredKeywords.length} 个岗位关键词证据，另有 {result.missingKeywords.length} 个关键词无证据。</p>
           </div>
         ) : (
           <div className="hero-empty hero-live-panel">
@@ -2080,8 +2217,8 @@ function ResumePipelineStatus({
   const steps = [
     { id: "intake", label: "接收简历" },
     { id: "structure", label: "解析画像" },
-    { id: "jobs", label: "生成岗位" },
-    { id: "analysis", label: "匹配建议" },
+    { id: "jobs", label: "职业方向" },
+    { id: "analysis", label: "证据建议" },
   ];
   const progressIndex = pipelineStep === "done" ? steps.length : pipelineStep === "error" ? Math.max(1, steps.findIndex((step) => step.id === pipelineStep) + 1) : steps.findIndex((step) => step.id === pipelineStep) + 1;
   const progress = !hasResume && pipelineStep === "idle" ? 0 : Math.max(0, Math.min(100, Math.round((progressIndex / steps.length) * 100)));
@@ -2173,8 +2310,8 @@ function ProcessState({
   const steps = [
     { id: "intake", label: "接收简历" },
     { id: "structure", label: "解析画像" },
-    { id: "jobs", label: "生成岗位" },
-    { id: "analysis", label: "匹配建议" },
+    { id: "jobs", label: "职业方向" },
+    { id: "analysis", label: "证据建议" },
   ];
   const progressIndex = pipelineStep === "done" ? steps.length : pipelineStep === "error" ? Math.max(1, steps.findIndex((step) => step.id === pipelineStep) + 1) : steps.findIndex((step) => step.id === pipelineStep) + 1;
   const progress = !hasResume && pipelineStep === "idle" ? 0 : Math.max(0, Math.min(100, Math.round((progressIndex / steps.length) * 100)));
@@ -2272,17 +2409,18 @@ function InfoBlock({ title, children }: { title: string; children: ReactNode }) 
 }
 
 function JobCard({ job, active, result, onSelect }: { job: Job; active: boolean; result: MatchResult; onSelect: () => void }) {
+  const kindLabel = job.jobKind === "verified-job" ? "已验证岗位" : job.jobKind === "imported-jd" ? "我的 JD" : "职业方向";
   return (
     <button className={`job-card ${active ? "active" : ""}`} onClick={onSelect} type="button">
       <div className="job-card-top">
         <span>{job.track}</span>
-        <small>优先级 {job.priority}</small>
+        <small>{kindLabel}</small>
       </div>
       <strong>{job.title}</strong>
       <p>{job.city} · {job.level} · {job.companyScenario}</p>
       <div className="job-card-bottom">
-        <b>{result.total}</b>
-        <i style={{ width: `${result.total}%` }} />
+        <b>证据 {result.evidenceCoverage}%</b>
+        <i style={{ width: `${result.evidenceCoverage}%` }} />
       </div>
     </button>
   );

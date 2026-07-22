@@ -21,7 +21,7 @@ export default function JobRecommendCard({ jobs }: JobRecommendCardProps) {
       <header className="km-card-title">
         <span>
           <BriefcaseBusiness size={19} />
-          推荐岗位
+          职业方向示例
         </span>
         <ArrowUpRight size={18} />
       </header>
@@ -39,7 +39,7 @@ export default function JobRecommendCard({ jobs }: JobRecommendCardProps) {
                 <em style={{ "--progress": `${job.score}%` } as CSSProperties} />
               </i>
             </div>
-            <b>{job.score}%</b>
+            <b>证据 {job.score}%</b>
           </section>
         ))}
       </div>

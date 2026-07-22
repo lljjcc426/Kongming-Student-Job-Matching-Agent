@@ -17,65 +17,18 @@ type SwapCardData = {
 };
 
 const jobPool: JobItem[] = [
-  { title: "商业分析师", track: "商科 / 数据分析", category: "business", score: 92 },
-  { title: "数据分析专员", track: "统计 / 业务分析", category: "business", score: 90 },
-  { title: "行业研究助理", track: "经济 / 研究咨询", category: "research", score: 86 },
-  { title: "品牌策划专员", track: "新闻传播 / 市场", category: "media", score: 88 },
-  { title: "新媒体运营", track: "新闻传播 / 内容", category: "media", score: 86 },
-  { title: "编辑策划助理", track: "中文 / 出版内容", category: "media", score: 84 },
-  { title: "用户研究员", track: "心理学 / 体验研究", category: "research", score: 90 },
-  { title: "人力资源专员", track: "管理 / 组织发展", category: "management", score: 83 },
-  { title: "法务合规助理", track: "法学 / 合规风控", category: "law", score: 85 },
-  { title: "生物实验技术员", track: "生命科学 / 实验", category: "life-science", score: 87 },
-  { title: "医药注册助理", track: "药学 / 医药合规", category: "life-science", score: 84 },
-  { title: "临床研究协调员", track: "医学 / 项目协调", category: "life-science", score: 86 },
-  { title: "文博策展助理", track: "考古 / 博物馆", category: "culture", score: 82 },
-  { title: "历史研究助理", track: "历史学 / 资料研究", category: "culture", score: 81 },
-  { title: "文化遗产保护专员", track: "文博 / 文化遗产", category: "culture", score: 83 },
-  { title: "伦理研究助理", track: "哲学 / 科技伦理", category: "humanities", score: 80 },
-  { title: "公共事务专员", track: "公管 / 政策沟通", category: "public", score: 84 },
-  { title: "课程产品助理", track: "教育学 / 教研", category: "education", score: 85 },
-  { title: "视觉设计助理", track: "艺术设计 / 品牌", category: "creative", score: 86 },
-  { title: "空间陈列设计助理", track: "艺术 / 展陈设计", category: "creative", score: 82 },
-  { title: "机械结构工程师", track: "机械 / 装备制造", category: "engineering", score: 88 },
-  { title: "嵌入式开发工程师", track: "电子信息 / 硬件", category: "engineering", score: 90 },
-  { title: "电气自动化工程师", track: "电气 / 自动化", category: "engineering", score: 87 },
-  { title: "土木工程助理", track: "土木 / 工程管理", category: "engineering", score: 84 },
-  { title: "材料研发助理", track: "材料 / 新能源", category: "engineering", score: 86 },
-  { title: "环境监测工程师", track: "环境科学 / 检测", category: "engineering", score: 83 },
-  { title: "质量工程师", track: "工业工程 / 质量", category: "engineering", score: 85 },
-  { title: "供应链计划专员", track: "物流工程 / 供应链", category: "operations", score: 84 },
-  { title: "算法工程师", track: "计算机 / 人工智能", category: "technology", score: 92 },
-  { title: "软件开发工程师", track: "计算机 / 软件研发", category: "technology", score: 91 },
-  { title: "网络安全工程师", track: "信息安全 / 安全运营", category: "technology", score: 88 },
-  { title: "GIS 数据工程师", track: "地理信息 / 空间数据", category: "science", score: 86 },
-  { title: "气象数据分析员", track: "大气科学 / 数据分析", category: "science", score: 82 },
-  { title: "数学建模分析师", track: "数学 / 运筹优化", category: "science", score: 89 },
-  { title: "物理实验工程师", track: "物理 / 实验测试", category: "science", score: 83 },
-  { title: "化学分析工程师", track: "化学 / 检测分析", category: "science", score: 85 },
-  { title: "海洋数据助理", track: "海洋科学 / 数据处理", category: "science", score: 81 },
-  { title: "护理管理培训生", track: "护理 / 医疗服务", category: "medical", score: 83 },
-  { title: "医学影像技术员", track: "医学影像 / 技术支持", category: "medical", score: 84 },
-  { title: "公共卫生项目助理", track: "公卫 / 健康项目", category: "medical", score: 85 },
-  { title: "康复治疗师助理", track: "康复 / 健康服务", category: "medical", score: 82 },
-  { title: "医学信息专员", track: "医学 / 医药信息", category: "medical", score: 86 },
-  { title: "心理咨询助理", track: "心理学 / 咨询服务", category: "social-science", score: 84 },
-  { title: "社会工作项目专员", track: "社会学 / 公益项目", category: "social-science", score: 82 },
-  { title: "政策研究助理", track: "政治学 / 公共政策", category: "social-science", score: 84 },
-  { title: "国际项目协调员", track: "外语 / 国际事务", category: "humanities", score: 83 },
-  { title: "翻译与本地化专员", track: "外语 / 内容本地化", category: "humanities", score: 85 },
-  { title: "档案管理专员", track: "档案学 / 信息管理", category: "culture", score: 81 },
-  { title: "图书情报专员", track: "图情 / 信息检索", category: "culture", score: 82 },
-  { title: "财务分析助理", track: "财会 / 经营分析", category: "business", score: 87 },
-  { title: "审计助理", track: "会计 / 审计风控", category: "business", score: 85 },
-  { title: "客户成功专员", track: "管理 / 客户运营", category: "operations", score: 84 },
-  { title: "电商运营专员", track: "经管 / 电商运营", category: "operations", score: 86 },
-  { title: "工业设计助理", track: "设计 / 产品造型", category: "creative", score: 85 },
-  { title: "交互设计助理", track: "设计 / 用户体验", category: "creative", score: 87 },
-  { title: "动画分镜助理", track: "动画 / 影视制作", category: "creative", score: 82 },
-  { title: "中小学学科教研员", track: "师范 / 学科教研", category: "education", score: 84 },
-  { title: "学习规划顾问", track: "教育 / 学业规划", category: "education", score: 82 },
-  { title: "体育赛事运营", track: "体育 / 活动运营", category: "education", score: 81 },
+  { title: "前端开发实习生", track: "软件开发 / 前端", category: "frontend", score: 78 },
+  { title: "后端开发实习生", track: "软件开发 / 后端", category: "backend", score: 72 },
+  { title: "移动端开发实习生", track: "软件开发 / 客户端", category: "mobile", score: 68 },
+  { title: "测试开发实习生", track: "软件开发 / 测试", category: "testing", score: 64 },
+  { title: "大模型应用工程师", track: "AI / 大模型应用", category: "llm", score: 76 },
+  { title: "算法工程师", track: "AI / 算法", category: "algorithm", score: 70 },
+  { title: "AI 工程师", track: "AI / 工程", category: "ai-engineering", score: 66 },
+  { title: "数据分析实习生", track: "数据 / 分析", category: "analytics", score: 74 },
+  { title: "数据工程实习生", track: "数据 / 工程", category: "data-engineering", score: 62 },
+  { title: "商业分析实习生", track: "数据 / 商业分析", category: "business-analysis", score: 69 },
+  { title: "AI 产品实习生", track: "产品 / AI", category: "ai-product", score: 73 },
+  { title: "产品经理实习生", track: "产品 / 互联网", category: "product", score: 67 },
 ];
 
 const strengths = ["专业技能匹配", "项目经验相关", "职业兴趣契合", "发展路径一致"];
@@ -91,9 +44,9 @@ const resumeMetricLabels = ["教育背景", "专业技能", "项目经验", "综
 const radarValues = [88, 84, 78, 74, 82];
 const radarLevels = [0.2, 0.4, 0.6, 0.8, 1];
 const cardList: SwapCardData[] = [
-  { id: "match", label: "AI 智能匹配" },
-  { id: "jobs", label: "推荐岗位" },
-  { id: "resume", label: "简历分析" },
+  { id: "match", label: "证据覆盖示例" },
+  { id: "jobs", label: "职业方向示例" },
+  { id: "resume", label: "简历证据示例" },
   { id: "ability", label: "能力图谱" },
   { id: "suggestion", label: "优化建议" },
 ];
@@ -108,7 +61,7 @@ const radarAxes = [
 ];
 
 function makeScoreTarget() {
-  return Math.floor(80 + Math.random() * 16);
+  return Math.floor(45 + Math.random() * 36);
 }
 
 function pickDiverseJobs() {
@@ -187,7 +140,7 @@ function MatchSwapCard({ score, revealKey }: { score: number; revealKey: number 
       <div className="swap-card-body match-body">
         <div className="swap-match-title">
           <span />
-          <strong>AI 智能匹配中</strong>
+          <strong>证据覆盖演示</strong>
           <span />
         </div>
 
@@ -204,7 +157,7 @@ function MatchSwapCard({ score, revealKey }: { score: number; revealKey: number 
         </div>
 
         <div className="swap-match-score">
-          <span>匹配度</span>
+          <span>示例证据覆盖</span>
           <strong>{score}%</strong>
           <i>
             <em style={{ "--progress-value": score } as CSSProperties} />
@@ -230,7 +183,7 @@ function MatchSwapCard({ score, revealKey }: { score: number; revealKey: number 
 function JobsSwapCard({ items, scores, revealKey }: { items: JobItem[]; scores: number[]; revealKey: number }) {
   return (
     <article className={`swap-card swap-jobs-card${revealKey > 0 ? " is-revealing" : ""}`}>
-      <SwapHeader icon={<BriefcaseBusiness size={20} />} title="推荐岗位" />
+      <SwapHeader icon={<BriefcaseBusiness size={20} />} title="职业方向示例" />
       <div className="swap-card-body jobs-body">
         <div className="swap-job-list" key={revealKey}>
           {items.map((job, index) => {
@@ -248,7 +201,7 @@ function JobsSwapCard({ items, scores, revealKey }: { items: JobItem[]; scores: 
                     <em style={{ "--progress-value": score } as CSSProperties} />
                   </i>
                 </div>
-                <b>匹配{score}%</b>
+                <b>证据{score}%</b>
               </section>
             );
           })}
@@ -271,7 +224,7 @@ function ResumeSwapCard({ score, metrics, revealKey }: { score: number; metrics:
           <div>
             <strong>{score}</strong>
             <span>分</span>
-            <small>简历匹配度</small>
+            <small>示例证据覆盖</small>
           </div>
         </div>
         <div className="swap-progress-list" key={revealKey}>
@@ -712,6 +665,7 @@ export default function CardSwapShowcase() {
 
   return (
     <section className="card-swap-showcase" ref={rootRef} aria-label="首页卡片队列展示">
+      <span className="showcase-demo-label">界面示例数据 · 非录用概率</span>
       <div className="card-swap-back-glow" aria-hidden="true" />
       <div className="card-swap-ground" aria-hidden="true" />
       <div className="card-swap-stage">

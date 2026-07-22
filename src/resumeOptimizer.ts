@@ -1,48 +1,98 @@
 import type { Job, StudentProfile } from "./data";
 import type { MatchResult } from "./matchEngine";
 
+export type ResumeChangeProposalStatus = "pending" | "accepted" | "rejected" | "edited";
+
+export type ResumeChangeProposal = {
+  id: string;
+  section: string;
+  originalText: string;
+  suggestedText: string;
+  targetRequirement: string;
+  evidenceIds: string[];
+  changeReason: string;
+  risk: string;
+  requiresUserConfirmation: boolean;
+  status: ResumeChangeProposalStatus;
+};
+
 export type OptimizedResumeDraft = {
   summary: string;
   projectBullets: string[];
   skillLine: string;
+  proposals: ResumeChangeProposal[];
+  learningSuggestions: string[];
+  isFactSafe: boolean;
 };
 
-const pick = (items: string[], count: number) => items.slice(0, count).filter(Boolean);
+const evidenceScore = (evidence: string, keywords: string[]) => keywords
+  .filter((keyword) => evidence.toLowerCase().includes(keyword.toLowerCase())).length;
+
+const safeSuggestion = (originalText: string) => {
+  const clean = originalText.replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+  return `${clean}${/[。！？.!?]$/.test(clean) ? "" : "。"} [待确认：如有真实数据，请补充任务规模、结果变化或节省时间]`;
+};
 
 export function buildOptimizedResumeDraft(profile: StudentProfile, job: Job, result: MatchResult): OptimizedResumeDraft {
-  const primaryExperience = profile.experiences[0] ?? {
-    title: "最相关经历",
-    role: "学生",
-    evidence: "",
-    tags: [],
-  };
-  const covered = pick(result.coveredKeywords, 4);
-  const missing = pick(result.missingKeywords, 3);
-  const keywordFocus = [...covered, ...missing].slice(0, 6);
-  const skillFallback = profile.skills.length ? profile.skills : ["待补充技能证据"];
+  const relevantExperiences = [...profile.experiences]
+    .sort((left, right) => evidenceScore(right.evidence, job.keywords) - evidenceScore(left.evidence, job.keywords))
+    .slice(0, 3);
+  const proposals = relevantExperiences.map((experience, index): ResumeChangeProposal => {
+    const matchedRequirement = result.requirementMatrix.find((item) => item.evidenceIds.includes(experience.id));
+    return {
+      id: `proposal-${experience.id}-${index + 1}`,
+      section: experience.sourceSection === "project" ? "项目经历" : experience.sourceSection === "internship" ? "实习经历" : "相关经历",
+      originalText: experience.evidence,
+      suggestedText: safeSuggestion(experience.evidence),
+      targetRequirement: matchedRequirement?.requirementText || "等待用户选择对应岗位要求",
+      evidenceIds: [experience.id],
+      changeReason: "保留原始事实，仅整理句式并提示用户补充可核验结果。",
+      risk: experience.confirmedByUser ? "低：原文已确认，但新增指标仍需用户填写。" : "中：原文尚未由用户确认，不能直接进入最终稿。",
+      requiresUserConfirmation: true,
+      status: "pending",
+    };
+  });
+  const confirmedSkills = result.coveredKeywords.filter((keyword) =>
+    profile.skills.some((skill) => skill.toLowerCase() === keyword.toLowerCase())
+      || profile.experiences.some((experience) => experience.confirmedByUser && experience.tags.some((tag) => tag.toLowerCase() === keyword.toLowerCase())),
+  );
+  const profileSummary = [profile.major, profile.grade, profile.target]
+    .filter((item) => item && !/待确认|待识别/.test(item))
+    .join("，");
 
   return {
-    summary: `${profile.major}${profile.grade}学生，目标方向为${job.track}。具备${covered.join("、") || skillFallback.slice(0, 3).join("、")}等基础能力，曾在${primaryExperience.title}中承担${primaryExperience.role}，能够结合用户需求、项目推进和数据复盘支持岗位工作。`,
-    projectBullets: [
-      `围绕${primaryExperience.title}，负责${primaryExperience.role}工作，完成需求梳理、方案设计与上线复盘，沉淀可复用的项目推进方法。`,
-      `结合${job.title}对${job.keywords.slice(0, 3).join("、")}的要求，补充项目中的任务分工、关键动作、协作对象和量化结果。`,
-      missing.length > 0
-        ? `在简历表述中自然加入${missing.join("、")}等关键词，避免只描述经历本身而缺少岗位相关能力证据。`
-        : "保留已有关键词覆盖优势，进一步突出业务指标、结果变化和复盘结论。",
-    ],
-    skillLine: `技能关键词：${keywordFocus.join("、") || skillFallback.join("、")}`,
+    summary: profileSummary
+      ? `${profileSummary}。当前仅使用简历原文中可追溯的信息，任何新增成果数字均需本人确认。`
+      : "当前结构化信息不足，暂不生成可能引入虚构事实的个人总结。",
+    projectBullets: proposals.map((proposal) => proposal.suggestedText),
+    skillLine: confirmedSkills.length
+      ? `已确认技能证据：${confirmedSkills.join("、")}`
+      : "暂无同时满足“简历原文出现且已确认”的技能证据。",
+    proposals,
+    learningSuggestions: result.missingKeywords.map((keyword) => `${keyword}：岗位要求中出现，但当前无简历证据；如确实不会，应进入学习计划而不是技能栏。`),
+    isFactSafe: proposals.every((proposal) => proposal.originalText && proposal.evidenceIds.length > 0),
   };
 }
 
-export function formatOptimizedResumeDraft(draft: OptimizedResumeDraft) {
+export function formatOptimizedResumeDraft(draft: OptimizedResumeDraft, acceptedProposalIds?: string[]) {
+  const accepted = acceptedProposalIds
+    ? draft.proposals.filter((proposal) => acceptedProposalIds.includes(proposal.id))
+    : [];
   return [
+    "【事实约束简历修改稿】",
+    accepted.length ? "以下内容已由用户逐条接受。" : "尚无已接受修改；以下仅为待确认建议，不应直接投递。",
+    "",
     "【个人总结】",
     draft.summary,
     "",
-    "【项目经历改写】",
-    ...draft.projectBullets.map((item) => `- ${item}`),
+    "【已接受修改】",
+    ...(accepted.length ? accepted.map((item) => `- ${item.suggestedText}（证据：${item.evidenceIds.join("、")}）`) : ["- 暂无"]),
     "",
-    "【技能关键词】",
+    "【技能证据】",
     draft.skillLine,
+    "",
+    "【学习与补强建议】",
+    ...(draft.learningSuggestions.length ? draft.learningSuggestions.map((item) => `- ${item}`) : ["- 暂无"]),
   ].join("\n");
 }

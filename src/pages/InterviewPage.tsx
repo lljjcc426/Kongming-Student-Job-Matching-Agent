@@ -241,7 +241,9 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
       currentRound,
     });
     setFeedback(report);
-    const summary = `本次模拟面试已结束。总体评分 ${report.overallScore} 分，重点建议是：${report.improvements[0] || "继续强化结构化表达。"}`;
+    const summary = report.scoreAvailable
+      ? `本次模拟面试已结束。总体评分 ${report.overallScore} 分，重点建议是：${report.improvements[0] || "继续强化结构化表达。"}`
+      : `本次模拟面试已结束，但模型反馈未通过结构校验，本轮评分不可用。建议：${report.improvements[0] || "请根据真实回答记录人工复盘。"}`;
     const finalMessage = createMessage("interviewer", summary);
     setMessages((current) => [...current, finalMessage]);
     await speakAsAvatar(summary, "finished");
@@ -327,22 +329,24 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
             {feedback ? (
               <div className="interview-feedback-report">
                 <div className="feedback-score">
-                  <strong>{feedback.overallScore}</strong>
-                  <span>总体评分</span>
+                  <strong>{feedback.scoreAvailable ? feedback.overallScore : "—"}</strong>
+                  <span>{feedback.scoreAvailable ? "总体评分" : "本轮评分不可用"}</span>
                 </div>
-                <div className="feedback-bars">
-                  {[
-                    ["表达能力", feedback.expression],
-                    ["专业匹配度", feedback.professionalFit],
-                    ["逻辑结构", feedback.logic],
-                  ].map(([label, score]) => (
-                    <div key={label}>
-                      <span>{label}</span>
-                      <i><b style={{ width: `${score}%` }} /></i>
-                      <em>{score}</em>
-                    </div>
-                  ))}
-                </div>
+                {feedback.scoreAvailable ? (
+                  <div className="feedback-bars">
+                    {[
+                      ["表达能力", feedback.expression],
+                      ["专业匹配度", feedback.professionalFit],
+                      ["逻辑结构", feedback.logic],
+                    ].map(([label, score]) => (
+                      <div key={label}>
+                        <span>{label}</span>
+                        <i><b style={{ width: `${score ?? 0}%` }} /></i>
+                        <em>{score}</em>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="interview-hint error">模型返回未通过结构校验，系统没有填充默认分数。</p>}
                 <div className="feedback-detail">
                   <strong>可改进点</strong>
                   <ul>{feedback.improvements.map((item) => <li key={item}>{item}</li>)}</ul>

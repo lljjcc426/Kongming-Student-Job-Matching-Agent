@@ -1,5 +1,6 @@
 import type { Job } from "./data";
 import type { MatchResult } from "./matchEngine";
+import { defaultPrivacyPreferences, redactUnknownPayload, type PrivacyPreferences } from "./core/privacy/redaction";
 
 export type ArkTask = "match-analysis" | "resume-vision" | "resume-structure" | "resume-rewrite" | "job-recommendations" | "jd-analysis" | "interview-feedback" | "career-chat";
 
@@ -32,7 +33,41 @@ export type ArkResponse = {
 
 const DEFAULT_TIMEOUT_MS = 75_000;
 
+type ArkPrivacyPolicy = {
+  externalModelConsent: boolean;
+  preferences: PrivacyPreferences;
+};
+
+let privacyPolicy: ArkPrivacyPolicy = {
+  externalModelConsent: false,
+  preferences: defaultPrivacyPreferences,
+};
+
+export const configureArkPrivacy = (policy: ArkPrivacyPolicy) => {
+  privacyPolicy = {
+    externalModelConsent: policy.externalModelConsent,
+    preferences: { ...policy.preferences },
+  };
+};
+
+const includesSensitiveInput = (payload: ArkRequest) => Boolean(
+  payload.resumeText
+  || payload.resumeProfile
+  || payload.imageDataUrl
+  || payload.imageDataUrls?.length
+  || payload.interviewAnswer
+  || payload.userMessage
+  || payload.chatMessages?.length,
+);
+
 export async function callArkAgent(payload: ArkRequest, options: { timeoutMs?: number } = {}): Promise<ArkResponse> {
+  if (includesSensitiveInput(payload) && !privacyPolicy.externalModelConsent) {
+    return {
+      ok: false,
+      error: "请先阅读隐私说明并同意将本次内容发送到外部模型服务。",
+    };
+  }
+  const securedPayload = redactUnknownPayload(payload, privacyPolicy.preferences) as ArkRequest;
   const configuredEndpoint = import.meta.env.VITE_ARK_API_URL?.trim();
   const endpoint = configuredEndpoint || (window.location.protocol === "file:" ? "" : "/api/ark");
   if (!endpoint) {
@@ -53,7 +88,7 @@ export async function callArkAgent(payload: ArkRequest, options: { timeoutMs?: n
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(securedPayload),
     });
   } catch (error) {
     return {

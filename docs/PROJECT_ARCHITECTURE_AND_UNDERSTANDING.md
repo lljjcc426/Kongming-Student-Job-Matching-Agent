@@ -20,9 +20,10 @@
 当前项目输出包括：
 
 - 学生画像和简历结构化信息。
-- 岗位推荐列表和岗位结构化信息。
-- 匹配评分、关键词覆盖、优势、风险和行动建议。
-- 简历优化草稿和 Markdown 分析报告。
+- 已验证岗位、用户导入 JD 与不可投递职业方向。
+- 硬性条件、要求证据矩阵、证据覆盖、风险和行动建议。
+- 事实约束简历改写草稿和 Markdown 分析报告。
+- 本机求职阶段追踪与每日行动。
 - 模拟面试问题、语音交互和反馈报告。
 - AI 求职助手多轮回复。
 
@@ -38,6 +39,7 @@
 ├── api/
 │   └── ark.js
 ├── docs/
+├── harmony/
 ├── public/
 ├── scripts/
 ├── server/
@@ -53,7 +55,10 @@
 | --- | --- | --- | --- |
 | `api/` | Vercel Serverless API 入口 | 生产环境 `/api/ark` 请求入口 | `api/ark.js` 的请求方法、安全头、body 限制 |
 | `server/` | 模型代理核心逻辑 | 本地 Vite 代理和 Vercel API 共同调用 | 任务校验、模型请求、搜索链接补充 |
+| `harmony/` | HarmonyOS Stage 工程 | HAP 构建、ArkWeb 本地包、账号/OCR/分享桥接 | API 版本、系统能力、权限与签名 |
 | `src/` | 前端应用主代码 | 用户交互、状态流、智能体结果展示 | `App.tsx`、智能体、解析器、页面模块 |
+| `src/core/` | 业务基础设施 | 岗位仓储、隐私脱敏、本机追踪 | 数据边界、版本化持久化 |
+| `src/domain/` | 领域适配器 | 互联网岗位族、技能别名、硬条件与证据规则 | 新领域以适配器扩展 |
 | `src/components/` | 首页、加载页、面试页、AI 助手组件 | 展示层和交互控件 | 视觉表现、响应式和组件状态 |
 | `src/pages/` | 首页、AI 助手、模拟面试页 | 路由式页面切换由 `App.tsx` 控制 | 页面入参和事件回调 |
 | `src/modelProviders/` | 面试模型 Provider | 模拟面试调用模型代理 | fallback 问题、反馈 JSON 解析 |
@@ -71,11 +76,15 @@
 | 应用主流程 | `src/App.tsx` | 管理页面切换、简历上传、模型任务、岗位排序、报告导出和 AI 助手状态 | 用户上传文件、文本输入、JD、面试回答、聊天消息 | 页面状态、模型结果、报告文件 | 调用 `callArkAgent`、解析器、匹配引擎、报告生成 |
 | 智能体运行时 | `src/agentRuntime.ts` | 定义 Agent、上下文、事件和产物协议 | Agent 输入、共享状态、Agent 列表 | 事件列表和产物列表 | 被 `src/agents.ts` 调用 |
 | 智能体团队 | `src/agents.ts` | 实现简历解析、岗位发现、匹配推理、模拟面试、监督汇总等轻量智能体 | 学生画像、岗位、匹配结果、简历文本 | `AgentTeamResult` | 调用 `runWorkflow`，为展示和扩展提供结构 |
-| 匹配引擎 | `src/matchEngine.ts` | 基于规则生成五维评分、优势、风险和行动建议 | `StudentProfile`、`Job`、简历文本 | `MatchResult` | 被 `App.tsx`、报告、运营评估调用 |
+| 匹配引擎 | `src/matchEngine.ts` | 生成硬性条件结果、要求证据矩阵、覆盖率、风险和行动建议 | `StudentProfile`、`Job`、简历文本 | `MatchResult` | 被 `App.tsx`、报告、运营评估调用 |
+| 岗位仓储 | `src/core/job/repositories.ts` | 隔离已验证岗位、导入 JD 和职业方向 | `Job[]` | 三类仓储 | 被 `App.tsx` 调用 |
+| 领域适配 | `src/domain/internetTech.ts` | 识别互联网岗位族、技能和硬性条件 | 标题、JD、证据文本 | 领域规则结果 | 被解析器和匹配引擎调用 |
+| 隐私代理 | `src/core/privacy/redaction.ts` | 脱敏 5 类个人字段 | 任意模型请求体 | 脱敏请求体 | 被 `arkClient.ts` 集中调用 |
+| 求职追踪 | `src/core/tracking/applicationRepository.ts` | 本机持久化阶段、事件与每日行动 | 具体岗位、阶段 | `ApplicationRecord[]` | 被 `App.tsx` 调用 |
 | 简历结构解析 | `src/modelParsers.ts` | 解析模型返回的简历 JSON、岗位 JSON、JD 分析 JSON，并提供宽松修复 | 模型文本结果 | `StructuredResume`、`Job[]`、`JdAnalysis` | 被 `App.tsx` 调用 |
 | PDF 简历读取 | `src/pdfResumeReader.ts` | 使用 PDF.js 读取文本层，必要时渲染页面图片供视觉模型识别 | PDF 文件 | 文本、质量分、页数、图片 DataURL | 被 `App.tsx` 动态导入 |
 | 模型客户端 | `src/arkClient.ts` | 前端统一请求模型代理，处理超时和错误 | `ArkRequest` | `ArkResponse` | 被主流程和面试 Provider 调用 |
-| 模型代理核心 | `server/arkCore.js` | 校验任务、构建模型请求、调用 chat/completions、补充招聘搜索链接 | HTTP body、环境变量 | HTTP 状态和 JSON payload | 被 `api/ark.js` 和 `vite.config.ts` 调用 |
+| 模型代理核心 | `server/arkCore.js` | 校验任务、构建模型请求、调用 chat/completions，并为具体 JD 提供受限链接查询 | HTTP body、环境变量 | HTTP 状态和 JSON payload | 被 `api/ark.js` 和 `vite.config.ts` 调用 |
 | Vercel API | `api/ark.js` | 生产环境 API 入口和安全头 | POST 请求 | JSON 响应 | 调用 `runArkCompletion` |
 | Vite 本地代理 | `vite.config.ts` | 本地开发时挂载 `/api/ark` | 本地 POST 请求 | JSON 响应 | 调用 `runArkCompletion` |
 | JD 规则解析 | `src/jobParser.ts` | 在模型 JD 分析前生成本地岗位草稿 | 岗位名称、JD 文本 | `Job` 草稿 | 被 `App.tsx` 调用 |
@@ -109,14 +118,18 @@ flowchart TD
     D --> F{文本层质量是否足够}
     F -->|是| C
     F -->|否| E
-    E --> G[调用 resume-vision]
+    E --> G{鸿蒙本机 OCR 是否可用}
+    G -->|是| H1[Core Vision 本机识别]
+    G -->|否且用户同意| H2[调用 resume-vision]
     C --> H[调用 resume-structure]
-    G --> H
+    H1 --> H
+    H2 --> H
     H --> I[解析 StructuredResume]
-    I --> J[并行调用 job-recommendations]
-    J --> K[解析并去重岗位]
-    K --> L[本地匹配评分与排序]
-    L --> M[展示岗位、画像、关键词、建议]
+    I --> J[用户确认事实]
+    J --> K[生成职业方向]
+    K --> L[与真实岗位/导入 JD 分仓]
+    L --> M[硬条件与证据矩阵]
+    M --> N[事实约束改写]
 ```
 
 ### JD 分析流程
@@ -131,7 +144,7 @@ flowchart TD
     E --> F[解析 JdAnalysis]
     F --> G[合并本地草稿与模型结果]
     G --> H[加入自定义岗位列表]
-    H --> I[重新计算匹配评分]
+    H --> I[重新计算硬条件与证据覆盖]
 ```
 
 ### 模拟面试流程
@@ -232,7 +245,7 @@ flowchart TD
 | `vite`、`@vitejs/plugin-react` | 开发服务器、构建和 React 插件 |
 | `pdfjs-dist` | PDF 简历文本层读取和页面渲染 |
 | `react-markdown`、`remark-gfm` | 模型增强分析和报告类内容渲染 |
-| `recharts` | 匹配评分图表 |
+| `recharts` | 首页演示型图表；业务结论以证据矩阵为准 |
 | `lucide-react`、Font Awesome | 页面图标 |
 | `gsap`、`animejs` | 首页和加载页动效 |
 | `three`、`@react-three/fiber`、`@react-three/drei` | AI 助手视觉效果 |
@@ -276,7 +289,7 @@ flowchart TD
 
 预期输出含义：
 
-- 页面显示学生画像、推荐岗位卡片、匹配评分、关键词覆盖和简历优化建议。
+- 页面显示学生画像、分层岗位卡片、硬性条件、证据矩阵和事实约束改写建议。
 - 如果模型未配置，页面会给出模型服务不可用的错误提示，不会暴露密钥。
 
 ### 示例二：自定义 JD 分析
@@ -313,10 +326,11 @@ flowchart TD
 | Token/Cookie | 仓库未发现需要提交的真实 token 或 cookie。 |
 | 数据库连接串 | 当前项目未实现数据库连接。 |
 | 本地配置文件 | `.gitignore` 排除 `.env` 和 `.env.*`，允许未来维护 `.env.example`。 |
-| 用户简历信息 | 当前主要保存在浏览器状态和模型请求体中，未实现数据库持久化。 |
-| 岗位数据 | 岗位由模型返回、自定义 JD 或本地草稿生成，公开搜索仅补充招聘入口候选链接。 |
+| 用户简历信息 | 当前主要保存在运行状态；外部模型调用前执行会话同意与敏感字段脱敏。 |
+| 岗位数据 | 已验证岗位、用户导入 JD 与模型职业方向使用独立仓储；模型方向不带投递链接。 |
+| 求职追踪 | 只在本机保存岗位快照、阶段与事件时间，不保存完整简历或招聘平台凭据。 |
 | 日志脱敏 | 仓库当前未实现持久化日志，公开真实调用日志前需要人工脱敏。 |
-| 外部写入 | 当前不做自动投递，也不登录招聘平台。 |
+| 外部写入 | 当前不做自动投递，也不登录招聘平台；华为账号仅作为应用身份入口。 |
 | 错误处理 | 使用请求校验、超时、错误提示和 fallback 问题，避免页面直接崩溃。 |
 
 ## 11. 后续扩展方向

@@ -6,7 +6,7 @@
 
 ## 1. 项目原创性说明
 
-孔明职配不是对某个开源项目的直接复制或简单改名。当前仓库采用自研的 React/Vite Web 工作台、轻量智能体运行时、岗位匹配评分逻辑、简历优化输出、JD 分析流程和模拟面试交互。
+孔明职配不是对某个开源项目的直接复制或简单改名。当前仓库采用自研的 React/Vite Web 工作台、轻量智能体运行时、岗位证据推理、事实约束简历改写、JD 分析流程和模拟面试交互。
 
 开源项目主要用于前期调研和能力拆解，帮助确定产品边界和功能取舍。
 
@@ -34,7 +34,7 @@
 | 前端框架 | `react`、`react-dom`、`vite` | Web 应用和构建 |
 | PDF 解析 | `pdfjs-dist` | PDF 简历文本层读取和页面渲染 |
 | Markdown | `react-markdown`、`remark-gfm` | 模型分析内容渲染 |
-| 图表 | `recharts` | 匹配评分可视化 |
+| 图表 | `recharts` | 首页演示型可视化；业务结论以证据矩阵为准 |
 | 视觉与动效 | `gsap`、`animejs`、`three`、`@react-three/fiber` | 首页、加载页和 AI 助手视觉效果 |
 | Live2D | `pixi.js`、`pixi-live2d-display`、`@hazart-pkg/live2d-core` | 模拟面试数字人展示 |
 | 图标 | `lucide-react`、Font Awesome | UI 图标 |

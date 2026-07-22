@@ -27,7 +27,7 @@
 | 简历解析 | `docs/evidence-screenshots/app-resume-analysis-summary-20260708.png` | 学生画像、识别进度和模型增强结果 | 已补充 |
 | 简历优化建议 | `docs/evidence-screenshots/app-resume-optimization-suggestions-20260708.png` | 经历结构化、优化简历片段和投递清单 | 已补充 |
 | 岗位推荐列表 | `docs/evidence-screenshots/app-job-recommendation-cards-20260708.png` | 推荐岗位列表、匹配分数和优先级 | 已补充 |
-| 岗位详情与匹配评分 | `docs/evidence-screenshots/app-job-detail-match-score-20260708.png` | 岗位深度评估、要求匹配表和五维评分 | 已补充 |
+| 历史版岗位详情 | `docs/evidence-screenshots/app-job-detail-match-score-20260708.png` | 仅用于 UI 沿革；旧五维评分已废弃，不作为当前业务证据 | 历史材料 |
 | 模拟面试 | `docs/evidence-screenshots/app-interview-simulation-20260708.png` | AI 数字人面试官、面试模式和回答输入 | 已补充 |
 | AI 助手 | `docs/evidence-screenshots/app-ai-assistant-20260708.png` | 多轮求职问答入口和智能体上下文 | 已补充 |
 

@@ -1,5 +1,9 @@
 import { webview } from '@kit.ArkWeb';
 import { authentication } from '@kit.AccountKit';
+import { systemShare } from '@kit.ShareKit';
+import { textRecognition } from '@kit.CoreVisionKit';
+import { image } from '@kit.ImageKit';
+import { util } from '@kit.ArkTS';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit';
 
@@ -101,6 +105,79 @@ class HuaweiAccountBridge {
     this.accountHint = '';
     return this.serialize('已退出孔明职配账号；设备上的华为账号保持登录。');
   }
+
+  async shareText(payload: string): Promise<string> {
+    if (!this.isTrustedCaller()) {
+      return JSON.stringify({ nativeAvailable: true, ok: false, message: '已拒绝非本地页面调用系统分享。' });
+    }
+
+    try {
+      const parsed = JSON.parse(payload) as Record<string, string>;
+      const title = typeof parsed.title === 'string' ? parsed.title.slice(0, 120) : '孔明职配分析报告';
+      const content = typeof parsed.content === 'string' ? parsed.content.slice(0, 100000) : '';
+      if (!content.trim()) {
+        return JSON.stringify({ nativeAvailable: true, ok: false, message: '没有可分享的内容。' });
+      }
+      const data = new systemShare.SharedData({
+        utd: 'general.plain-text',
+        title,
+        content,
+      });
+      const shareController = new systemShare.ShareController(data);
+      await shareController.show(this.context, {});
+      return JSON.stringify({ nativeAvailable: true, ok: true, message: '已打开鸿蒙系统分享面板。' });
+    } catch (error) {
+      const businessError = error as BusinessError;
+      console.error(`Harmony share failed: ${businessError.code} ${businessError.message}`);
+      return JSON.stringify({ nativeAvailable: true, ok: false, message: '鸿蒙系统分享暂时不可用。', errorCode: businessError.code });
+    }
+  }
+
+  async recognizeResumeImage(dataUrl: string): Promise<string> {
+    if (!this.isTrustedCaller()) {
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '已拒绝非本地页面调用本机 OCR。' });
+    }
+    if (!dataUrl.startsWith('data:image/') || dataUrl.length > 11000000) {
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '图片格式无效或超过本机 OCR 大小限制。' });
+    }
+
+    const separator = dataUrl.indexOf(',');
+    if (separator < 0) {
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '无法读取图片数据。' });
+    }
+
+    let source: image.ImageSource | undefined = undefined;
+    let pixelMap: image.PixelMap | undefined = undefined;
+    try {
+      const bytes = new util.Base64Helper().decodeSync(dataUrl.slice(separator + 1));
+      source = image.createImageSource(bytes.buffer);
+      pixelMap = await source.createPixelMap();
+      const initialized = await textRecognition.init();
+      if (!initialized) {
+        return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: 'Core Vision OCR 初始化失败。' });
+      }
+      const result = await textRecognition.recognizeText({ pixelMap });
+      const text = result.value.trim();
+      return JSON.stringify({
+        nativeAvailable: true,
+        ok: text.length > 0,
+        text,
+        message: text.length > 0 ? '已使用 Core Vision 在本机完成文字识别。' : '本机 OCR 未识别到文字。',
+      });
+    } catch (error) {
+      const businessError = error as BusinessError;
+      console.error(`Core Vision OCR failed: ${businessError.code} ${businessError.message}`);
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '本机 OCR 暂时不可用。', errorCode: businessError.code });
+    } finally {
+      if (pixelMap) {
+        await pixelMap.release().catch(() => {});
+      }
+      if (source) {
+        await source.release().catch(() => {});
+      }
+      await textRecognition.release().catch(() => {});
+    }
+  }
 }
 
 @Entry
@@ -123,7 +200,7 @@ struct Index {
           object: this.accountBridge,
           name: 'kongmingNative',
           methodList: [],
-          asyncMethodList: ['getHuaweiAuthState', 'loginWithHuawei', 'logoutHuawei'],
+          asyncMethodList: ['getHuaweiAuthState', 'loginWithHuawei', 'logoutHuawei', 'shareText', 'recognizeResumeImage'],
           controller: this.controller,
         })
         .domStorageAccess(true)

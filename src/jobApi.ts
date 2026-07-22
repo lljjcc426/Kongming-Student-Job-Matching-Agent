@@ -76,6 +76,7 @@ const mapPublicJob = (job: PublicJobRecord): Job => {
   const requirements = sectionLines(job.description, "requirement");
   return {
     id: `public-${job.id}`,
+    jobKind: "verified-job",
     title: job.title,
     track: trackOf(job),
     city: job.city,
@@ -93,11 +94,16 @@ const mapPublicJob = (job: PublicJobRecord): Job => {
       note: job.verification,
     }],
     sourceMetadata: {
-      sourceType: job.sourceType,
+      sourceType: "official-career-site",
+      sourceName: job.sourceName || job.company,
+      sourceUrl: job.applyUrl || job.sourceUrl || null,
       verification: job.verification,
       publishedAt: job.publishedAt || null,
       updatedAt: job.updatedAt || null,
       lastSeenAt: job.lastSeenAt || null,
+      verifiedAt: job.lastSeenAt || job.updatedAt || null,
+      status: (job.applyUrl || job.sourceUrl) && /^official-/i.test(job.verification) ? "active" : "unknown",
+      isDemoData: false,
     },
   };
 };

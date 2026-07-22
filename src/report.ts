@@ -18,7 +18,9 @@ export function buildMatchReport(
 - 岗位名称：${job.title}
 - 岗位方向：${job.track}
 - 城市：${job.city}
-- 匹配评分：${result.total}
+- 证据覆盖率：${result.evidenceCoverage}%（不代表企业初筛或录用概率）
+- 硬性条件：${result.hardGateResult}
+- 风险等级：${result.riskLevel}
 - 投递建议：${result.verdict}
 
 ## 学生画像摘要
@@ -57,19 +59,23 @@ ${careerOpsEvaluation?.requirementMatrix.map((item) => `- ${item.requirement}｜
 
 ${careerOpsEvaluation?.positioning ?? "暂无"}
 
-## 优化后简历片段
+## 事实约束修改建议
 
 ### 个人总结
 
 ${optimizedDraft.summary}
 
-### 项目经历改写
+### 待确认修改
 
 ${optimizedDraft.projectBullets.map((item) => `- ${item}`).join("\n")}
 
 ### 技能关键词
 
 ${optimizedDraft.skillLine}
+
+### 学习与补强建议
+
+${optimizedDraft.learningSuggestions.map((item) => `- ${item}`).join("\n") || "- 暂无"}
 
 ## 投递前清单
 

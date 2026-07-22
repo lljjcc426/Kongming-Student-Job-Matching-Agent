@@ -35,7 +35,7 @@ export default function MatchPanel({ score, strengths }: MatchPanelProps) {
       </div>
 
       <div className="km-match-score">
-        <span>匹配度</span>
+        <span>示例证据覆盖</span>
         <strong>{score}%</strong>
         <div className="km-score-track">
           <i style={{ "--progress": `${score}%` } as CSSProperties} />

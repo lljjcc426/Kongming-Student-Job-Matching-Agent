@@ -1,6 +1,6 @@
 # Kongming Student Job Matching Agent
 
-> HarmonyOS 端正在 `harmony/` 中开发。当前优先复用现有 React/Vite 产品，通过 ArkWeb 将 UI、素材与核心交互随 HAP 本地打包，再逐步补充分享、文件、相机等必要原生桥接。构建说明见 [harmony/README.md](harmony/README.md)，比赛任务链见 [docs/HARMONYOS_COMPETITION_PLAN.md](docs/HARMONYOS_COMPETITION_PLAN.md)。
+> HarmonyOS 端采用“ArkUI 原生容器 + ArkWeb 本地业务包 + 受信原生桥接”的混合架构。当前已接入华为账号、Core Vision 本机 OCR、Share Kit 系统分享和相机运行时授权；核心业务页面尚未全部 ArkUI 原生化。构建说明见 [harmony/README.md](harmony/README.md)，比赛任务链见 [docs/HARMONYOS_COMPETITION_PLAN.md](docs/HARMONYOS_COMPETITION_PLAN.md)。
 
 孔明职配是面向学生求职场景的 AI 岗位匹配与简历优化智能体。项目通过简历解析、岗位推荐、JD 分析、匹配解释、简历优化建议、模拟面试和 AI 求职助手，帮助学生完成从“理解自身画像”到“准备投递材料”的求职分析闭环。
 
@@ -12,7 +12,7 @@
 
 - 学生上传或粘贴 PDF、图片、文本简历。
 - 系统结构化提取学生画像、经历证据、技能和求职方向。
-- 系统生成岗位推荐，并给出匹配评分、关键词覆盖、风险和行动建议。
+- 系统严格区分已验证岗位、用户导入 JD 与 AI 职业方向，并给出硬性条件、证据覆盖、风险和行动建议。
 - 用户粘贴目标 JD 后进行二次分析。
 - 用户进入模拟面试，获得面试追问和反馈。
 - 用户通过 AI 助手进行连续求职问答。
@@ -23,13 +23,15 @@
 | --- | --- |
 | 简历输入 | 支持文本文件、PDF、图片简历；PDF 优先读取文本层，质量不足时转视觉识别。 |
 | 简历结构化 | 通过模型任务 `resume-structure` 提取姓名、学历、经历、技能、求职方向等字段。 |
-| 岗位推荐 | 通过并行岗位发现子任务生成候选岗位，并在前端去重、排序。 |
-| 本地匹配评分 | `src/matchEngine.ts` 基于能力、经历、关键词、兴趣和成长潜力生成可解释评分。 |
+| 岗位分层 | 已验证岗位、用户导入 JD、AI 职业方向使用独立仓储和页签，不混排。 |
+| 证据化匹配 | `src/matchEngine.ts` 先判断硬性条件，再把岗位要求映射到简历 Evidence ID；覆盖率不代表录用概率。 |
 | JD 分析 | 支持用户输入岗位名称和 JD，生成岗位结构、投递优先级、优势、风险和行动建议。 |
-| 简历优化 | 根据目标岗位和匹配差距生成个人总结、项目经历改写和技能关键词建议。 |
-| 模拟面试 | 支持综合面、技术面、HR 面三种模式，包含语音输入、TTS 播报、Live2D/PNG 面试官兜底。 |
+| 事实约束改写 | 建议绑定原文、岗位要求和 Evidence ID，缺失技能只进入学习清单，由用户逐条接受或拒绝。 |
+| 求职追踪 | 具体岗位可在本机记录收藏、材料准备、投递、测评、面试和结果阶段；职业方向不可加入。 |
+| 隐私控制 | 文本统一脱敏、外部模型会话授权、Core Vision 本机 OCR 优先、一键清除本地求职数据。 |
+| 模拟面试 | 支持综合面、技术面、HR 面三种模式；无法解析模型反馈时明确标为评分不可用。 |
 | AI 求职助手 | 支持多轮对话，带入简历、岗位和匹配结果上下文。 |
-| 报告导出 | 可导出 Markdown 分析报告。 |
+| 报告导出 | 可导出 Markdown 分析报告，并通过 Share Kit 调用鸿蒙系统分享。 |
 
 ## 使用的模型与算力环境
 
@@ -59,6 +61,9 @@ ARK_REQUEST_TIMEOUT_MS=65000
 ├── public/                      静态资源、Live2D/2D 面试官、PDF.js CMap
 ├── scripts/                     解析器与 UI 验证脚本
 ├── server/                      服务端模型代理核心逻辑
+├── harmony/                     HarmonyOS 工程、ArkWeb 容器与原生能力桥接
+├── src/core/                    岗位仓储、隐私和求职追踪基础设施
+├── src/domain/                  互联网与数字技术领域适配器
 ├── src/                         React 前端、智能体、解析器、页面和样式
 ├── index.html                   Vite HTML 入口
 ├── package.json                 Node 依赖和脚本
@@ -98,6 +103,22 @@ http://localhost:5173
 
 ```bash
 npm run build
+```
+
+核心验证：
+
+```bash
+npm run verify:parsers
+npm run verify:evidence
+npm run verify:jobs
+npm run verify:job-sources
+npm run verify:harmony
+```
+
+HAP 构建：
+
+```bash
+npm run build:harmony
 ```
 
 预览构建产物：
@@ -142,7 +163,7 @@ http://localhost:5173/api/job-sources
 
 示例输入：学生简历 PDF、图片或文本内容，以及可选的目标岗位名称/JD。
 
-示例输出：结构化学生画像、岗位推荐列表、岗位匹配评分、简历优化建议、模拟面试追问和 AI 助手多轮问答回复。
+示例输出：待确认学生画像、三类岗位数据、要求证据矩阵、事实约束改写建议、模拟面试追问和 AI 助手多轮问答回复。
 
 ### 1. 首页与能力入口
 
@@ -162,11 +183,11 @@ http://localhost:5173/api/job-sources
 
 ### 3. 岗位推荐与匹配解释
 
-系统根据学生画像生成岗位推荐列表，给出匹配分数、优先级、岗位职责、岗位要求和五维匹配评分。
+系统分开显示已验证岗位、用户导入 JD 与职业方向；选择具体岗位后展示硬性条件、要求证据矩阵、证据覆盖率、风险和行动建议。
 
 ![岗位推荐列表](docs/evidence-screenshots/app-job-recommendation-cards-20260708.png)
 
-![岗位详情与匹配评分](docs/evidence-screenshots/app-job-detail-match-score-20260708.png)
+![历史版岗位详情截图](docs/evidence-screenshots/app-job-detail-match-score-20260708.png)
 
 ### 4. 模拟面试与 AI 助手
 
@@ -234,13 +255,19 @@ http://localhost:5173/api/job-sources
 - 模型请求通过 `/api/ark` 后端代理转发。
 - API 响应设置 `Cache-Control: no-store`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`。
 - `.gitignore` 已排除 `.env`、`.env.*`、日志文件和构建产物。
-- 用户简历内容当前主要保存在浏览器运行状态中，仓库未实现数据库持久化。
-- 公开演示和日志发布前需要对姓名、手机号、邮箱、学校、证件号、API Key 等信息脱敏。
+- 用户简历主要保存在当前运行状态；本机求职追踪只保存岗位快照、阶段和事件时间，不保存完整简历。
+- 外部模型调用前要求当前会话同意，并可统一脱敏姓名、手机号、邮箱、详细地址和证件号。
+- 公开演示和日志发布前仍需再次检查学校、岗位来源、API Key 与模型响应原文。
 
 ## 文档索引
 
 - [项目架构与理解文档](docs/PROJECT_ARCHITECTURE_AND_UNDERSTANDING.md)
 - [技术说明文档](docs/TECHNICAL_DESIGN.md)
+- [竞赛基线审计](docs/competition/00_BASELINE_AUDIT.md)
+- [架构与竞赛策略](docs/competition/01_ARCHITECTURE_AND_STRATEGY.md)
+- [测试计划与本轮报告](docs/competition/02_TEST_PLAN_AND_REPORT.md)
+- [已知限制](docs/competition/03_KNOWN_LIMITATIONS.md)
+- [竞赛提交清单](docs/competition/04_SUBMISSION_CHECKLIST.md)
 - [部署指南](docs/DEPLOYMENT_GUIDE.md)
 - [NOTICE](NOTICE)
 - [Demo 视频（百度网盘，提取码 48mf）](https://pan.baidu.com/s/1u9xx_ODpfSq4vFZOGi6qlA?pwd=48mf)

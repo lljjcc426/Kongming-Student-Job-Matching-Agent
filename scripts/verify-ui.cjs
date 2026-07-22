@@ -1,24 +1,24 @@
 const { chromium } = require("playwright");
 
 const mockJobs = [
-  ["ux-research-intern", "用户研究实习生", "用户研究", "实习"],
-  ["psychometric-product-intern", "心理测评产品实习生", "产品", "实习"],
-  ["campus-research-assistant", "校园调研助理", "研究", "实习"],
-  ["content-research-intern", "内容洞察实习生", "内容策略", "实习"],
-  ["hr-data-intern", "人才数据分析实习生", "HR 数据", "实习"],
-  ["user-operations-intern", "用户运营实习生", "用户运营", "实习"],
+  ["frontend-intern", "前端开发实习生", "软件开发", "实习"],
+  ["backend-intern", "后端开发实习生", "软件开发", "实习"],
+  ["llm-app-intern", "大模型应用工程师", "AI 与算法", "实习"],
+  ["data-analyst-intern", "数据分析实习生", "数据方向", "实习"],
+  ["ai-product-intern", "AI 产品实习生", "产品方向", "实习"],
+  ["test-development-intern", "测试开发实习生", "软件开发", "实习"],
 ].map(([id, title, track, level], index) => ({
   id,
   title,
   track,
   city: "不限",
   level,
-  companyScenario: "结合心理学、调研和数据分析能力的学生求职场景",
-  summary: `${title}适合具备访谈、问卷、数据整理和用户理解能力的候选人。`,
-  responsibilities: ["梳理用户问题", "执行调研或数据分析", "输出可落地的分析结论"],
-  requirements: ["心理学或相关专业", "具备访谈、问卷或数据分析经历", "表达清晰、能沉淀证据"],
-  bonus: ["SPSS", "校园活动组织", "研究项目经历"],
-  keywords: ["SPSS", "访谈", "问卷", "数据分析", "心理学"],
+  companyScenario: "互联网与数字技术职业方向",
+  summary: `${title}方向示例，不代表企业正在招聘。`,
+  responsibilities: ["完成互联网产品相关任务", "解释方案与实现过程", "输出可核验的项目结果"],
+  requirements: ["本科及以上", "具备 React、Python 或数据分析项目经历", "能够清晰说明个人贡献"],
+  bonus: ["TypeScript", "SQL", "大模型应用"],
+  keywords: ["React", "TypeScript", "Python", "SQL", "数据分析"],
   priority: index < 2 ? "高" : "中",
   applicationLinks: [
     { company: "智联招聘", url: "https://www.zhaopin.com/", note: "公开招聘入口" },
@@ -37,9 +37,14 @@ async function launchBrowser() {
 async function main() {
   const browser = await launchBrowser();
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
+  let sensitivePayloadLeak = false;
+  let arkRequestCount = 0;
 
   await page.route("**/api/ark", async (route) => {
+    arkRequestCount += 1;
     const body = route.request().postDataJSON();
+    const serializedBody = JSON.stringify(body);
+    if (serializedBody.includes("13800138000") || serializedBody.includes("student@example.com")) sensitivePayloadLeak = true;
     if (body.task === "resume-structure") {
       await route.fulfill({
         contentType: "application/json",
@@ -47,15 +52,15 @@ async function main() {
           ok: true,
           model: "mock",
           content: JSON.stringify({
-            name: "陈雨",
-            education: ["华东师范大学 心理学 本科"],
-            internships: ["在心理咨询中心担任助理，整理来访记录并协助团体辅导活动。"],
-            projects: ["完成大学生压力与睡眠质量调查项目，使用 SPSS 分析 286 份问卷。"],
-            campus: ["担任心理协会活动负责人，组织心理健康主题沙龙。"],
-            honors: ["校级优秀学生干部", "心理统计课程优秀项目"],
-            skills: ["SPSS", "问卷设计", "访谈", "数据分析"],
-            targetRoles: ["用户研究实习生", "心理测评产品实习生"],
-            summary: "心理学背景，具备访谈、问卷研究和数据分析经验。",
+            name: "林晨",
+            education: ["示例大学 计算机科学与技术 本科"],
+            internships: ["在校内实验室参与管理系统开发，负责 React 页面与接口联调。"],
+            projects: ["完成校园数据看板项目，使用 TypeScript、React 和 SQL 处理公开数据。"],
+            campus: ["担任技术社团项目负责人，组织代码评审与项目复盘。"],
+            honors: ["校级程序设计竞赛二等奖"],
+            skills: ["React", "TypeScript", "SQL", "Python"],
+            targetRoles: ["前端开发实习生", "大模型应用工程师"],
+            summary: "计算机专业背景，具备前端开发和数据处理项目经历。",
           }),
         }),
       });
@@ -76,7 +81,7 @@ async function main() {
         body: JSON.stringify({
           ok: true,
           model: "mock",
-          content: "可以。基于当前简历，建议优先关注用户研究、心理测评产品和校园调研相关岗位，并补充量化成果。",
+          content: "可以。基于当前简历，建议优先核对前端开发和大模型应用岗位要求，并补充可核验的项目结果。",
         }),
       });
       return;
@@ -144,14 +149,24 @@ async function main() {
   const initialJobCards = await page.locator(".job-card").count();
   const uploadControl = await page.locator(".upload-control").count();
   const uploadedResume = [
-    "姓名：陈雨",
-    "华东师范大学 心理学 本科",
-    "求职意向：用户研究实习生 / 心理测评产品实习生",
-    "项目经历：完成大学生压力与睡眠质量调查项目，使用 SPSS 分析 286 份问卷。",
-    "校园经历：担任心理协会活动负责人，组织心理健康主题沙龙。",
-    "技能：SPSS、问卷设计、访谈、数据分析。",
+    "姓名：林晨",
+    "手机号：13800138000 邮箱：student@example.com",
+    "示例大学 计算机科学与技术 本科",
+    "求职意向：前端开发实习生 / 大模型应用工程师",
+    "项目经历：完成校园数据看板项目，使用 TypeScript、React 和 SQL 处理公开数据。",
+    "校园经历：担任技术社团项目负责人，组织代码评审与项目复盘。",
+    "技能：React、TypeScript、SQL、Python。",
   ].join("\n");
 
+  const privacyOptions = await page.locator(".privacy-options input").count();
+  await page.locator(".upload-control input").setInputFiles({
+    name: "local-only.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("本科，使用 React 完成课程项目。", "utf8"),
+  });
+  await page.waitForFunction(() => document.body.innerText.includes("local-only.txt"));
+  const modelRequestsBeforeConsent = arkRequestCount;
+  await page.locator(".privacy-consent input").check();
   await page.locator(".upload-control input").setInputFiles({
     name: "frontend-resume.txt",
     mimeType: "text/plain",
@@ -161,13 +176,32 @@ async function main() {
   await page.waitForFunction(() => document.querySelectorAll(".job-card").length >= 6);
 
   const jobCards = await page.locator(".job-card").count();
+  const activeJobTabText = await page.locator(".job-kind-tabs button.active").innerText();
+  const careerDirectionDisclaimer = await page.locator(".job-kind-disclaimer").innerText();
   const uploadMessage = await page.locator(".upload-message").innerText();
   const studentName = await page.locator(".identity-card strong").innerText();
   const educationCard = await page.locator(".resume-section-card").filter({ hasText: "学历" }).innerText();
-  const dynamicSkillVisible = await page.getByText("SPSS", { exact: true }).count();
+  const dynamicSkillVisible = await page.getByText("React", { exact: true }).count();
+  const evidenceCoverageBeforeConfirmation = await page.locator(".verdict-card > b").innerText();
+  await page.getByRole("button", { name: "确认当前解析结果" }).click();
+  await page.waitForFunction(() => document.querySelector(".resume-confirmation")?.classList.contains("confirmed"));
+  const evidenceCoverageAfterConfirmation = await page.locator(".verdict-card > b").innerText();
+  const proposalCount = await page.locator(".resume-proposal").count();
+  if (proposalCount > 0) await page.locator(".resume-proposal").first().getByRole("button", { name: "接受" }).click();
+  const acceptedProposalCount = await page.locator(".resume-proposal.accepted").count();
+  await page.locator(".app-nav > div button").nth(2).click();
+  await page.locator(".job-kind-tabs button").filter({ hasText: "已验证岗位" }).click();
+  const verifiedTabCards = await page.locator(".job-card").count();
+  await page.locator(".application-tracker").getByRole("button", { name: "加入追踪" }).click();
+  await page.locator(".application-tracker select").selectOption("applied");
+  const persistedApplications = await page.evaluate(() => JSON.parse(localStorage.getItem("kongming.application-tracker.v1") || "[]"));
+  await page.locator(".job-kind-tabs button").filter({ hasText: "职业方向" }).click();
+  const directionTabCards = await page.locator(".job-card").count();
+  const directionTrackingBlocked = await page.locator(".tracking-blocked").innerText();
   await page.screenshot({ path: "artifacts/check-resume-after-upload.png", fullPage: false });
 
   await page.locator(".app-nav > div button").nth(3).click();
+  await page.getByLabel("模拟面试回答").waitFor({ state: "visible", timeout: 8000 });
   const interviewInput = await page.getByLabel("模拟面试回答").count();
   await page.screenshot({ path: "artifacts/check-interview.png", fullPage: false });
 
@@ -207,20 +241,44 @@ async function main() {
   if (uploadControl !== 1) {
     throw new Error(`Expected resume upload control, found ${uploadControl}`);
   }
+  if (privacyOptions !== 5 || sensitivePayloadLeak) {
+    throw new Error(`Privacy gate or redaction failed: options=${privacyOptions}, leak=${sensitivePayloadLeak}`);
+  }
+  if (modelRequestsBeforeConsent !== 0) {
+    throw new Error(`Local text upload called the external model before consent: ${modelRequestsBeforeConsent}`);
+  }
   if (!uploadMessage.includes("frontend-resume.txt")) {
     throw new Error(`Upload did not update message: ${uploadMessage}`);
   }
-  if (studentName !== "陈雨") {
+  if (studentName !== "林晨") {
     throw new Error(`Student name did not update from model: ${studentName}`);
   }
-  if (!educationCard.includes("心理学")) {
+  if (!educationCard.includes("计算机科学与技术")) {
     throw new Error(`Education card did not update from model: ${educationCard}`);
   }
   if (jobCards < 6) {
     throw new Error(`Expected at least 6 recommended job cards, found ${jobCards}`);
   }
+  if (!activeJobTabText.includes("职业方向") || !careerDirectionDisclaimer.includes("不代表企业正在招聘")) {
+    throw new Error(`Expected career directions to be clearly separated from real jobs: tab=${activeJobTabText}, disclaimer=${careerDirectionDisclaimer}`);
+  }
+  if (evidenceCoverageBeforeConfirmation === evidenceCoverageAfterConfirmation) {
+    throw new Error(`Expected confirmation to change evidence strength: before=${evidenceCoverageBeforeConfirmation}, after=${evidenceCoverageAfterConfirmation}`);
+  }
+  if (proposalCount < 1 || acceptedProposalCount !== 1) {
+    throw new Error(`Expected fact-constrained resume proposals with per-item acceptance: proposals=${proposalCount}, accepted=${acceptedProposalCount}`);
+  }
+  if (verifiedTabCards !== 1 || directionTabCards < 6) {
+    throw new Error(`Job repositories mixed their records: verified=${verifiedTabCards}, directions=${directionTabCards}`);
+  }
+  if (persistedApplications.length !== 1 || persistedApplications[0].stage !== "applied") {
+    throw new Error(`Expected one locally persisted application in applied stage: ${JSON.stringify(persistedApplications)}`);
+  }
+  if (directionTrackingBlocked !== "不可直接投递") {
+    throw new Error(`Career directions must be blocked from application tracking: ${directionTrackingBlocked}`);
+  }
   if (dynamicSkillVisible < 1) {
-    throw new Error("Expected uploaded resume skill SPSS to be visible");
+    throw new Error("Expected uploaded resume skill React to be visible");
   }
   if (interviewInput !== 1) {
     throw new Error(`Expected interview practice input after analysis, found ${interviewInput}`);
@@ -256,10 +314,23 @@ async function main() {
     introProgressAfterPlayback,
     initialJobCards,
     uploadControl,
+    privacyOptions,
+    sensitivePayloadLeak,
+    modelRequestsBeforeConsent,
     uploadMessage,
     studentName,
     educationCard,
     jobCards,
+    activeJobTabText,
+    careerDirectionDisclaimer,
+    evidenceCoverageBeforeConfirmation,
+    evidenceCoverageAfterConfirmation,
+    proposalCount,
+    acceptedProposalCount,
+    verifiedTabCards,
+    directionTabCards,
+    persistedApplicationStage: persistedApplications[0]?.stage,
+    directionTrackingBlocked,
     dynamicSkillVisible,
     interviewInput,
     assistantPage,

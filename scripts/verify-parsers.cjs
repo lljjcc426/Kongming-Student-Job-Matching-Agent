@@ -1,17 +1,20 @@
-const { readFileSync } = require("node:fs");
-const { transformSync } = require("esbuild");
+const path = require("node:path");
+const { buildSync } = require("esbuild");
 
-const source = readFileSync("src/modelParsers.ts", "utf8");
-const compiled = transformSync(source, {
-  loader: "ts",
+const repoRoot = path.resolve(__dirname, "..");
+const compiled = buildSync({
+  absWorkingDir: repoRoot,
+  entryPoints: ["src/modelParsers.ts"],
+  bundle: true,
+  platform: "node",
   format: "cjs",
-  target: "es2022",
-}).code;
+  target: "node20",
+  write: false,
+}).outputFiles[0].text;
 
 const moduleExports = {};
 const compiledModule = { exports: moduleExports };
-const requireStub = () => ({});
-new Function("exports", "module", "require", compiled)(moduleExports, compiledModule, requireStub);
+new Function("exports", "module", "require", compiled)(moduleExports, compiledModule, require);
 
 const { parseStructuredResume, parseModelJobs } = compiledModule.exports;
 
@@ -20,8 +23,8 @@ if (resume.name !== "林晨" || resume.education[0] !== "新闻学") {
   throw new Error("Structured resume parser failed on trailing text.");
 }
 
-const jobs = parseModelJobs('[{"id":"editor","title":"新媒体编辑","track":"内容","city":"不限","level":"实习","companyScenario":"媒体","summary":"","responsibilities":["写稿"],"requirements":["新闻学"],"bonus":["作品"],"keywords":["新闻学,编辑"],"priority":"高"}][{"id":"extra"}]');
-if (jobs.length !== 1 || jobs[0].keywords.length !== 2 || jobs[0].keywords[1] !== "编辑") {
+const jobs = parseModelJobs('[{"id":"frontend","title":"前端开发实习生","track":"软件开发","city":"不限","level":"实习","companyScenario":"方向建议","summary":"React 页面开发","responsibilities":["开发页面"],"requirements":["React"],"bonus":["TypeScript"],"keywords":["React,TypeScript"],"priority":"高"}][{"id":"extra"}]');
+if (jobs.length !== 1 || jobs[0].keywords.length !== 2 || jobs[0].keywords[1] !== "TypeScript" || jobs[0].jobKind !== "career-direction") {
   throw new Error("Job parser failed on concatenated JSON or keyword cleanup.");
 }
 

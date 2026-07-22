@@ -1,4 +1,5 @@
 import type { Job, StudentProfile } from "./data";
+import { internetTechDomainAdapter } from "./domain/internetTech";
 
 export type StructuredResume = {
   name: string;
@@ -228,20 +229,40 @@ export function parseModelJobs(content: string): Job[] {
   return data
     .map((item, index) => ({
       id: item.id ? String(item.id) : `model-job-${index + 1}`,
+      jobKind: "career-direction" as const,
       title: String(item.title || "未命名岗位"),
       track: String(item.track || "待确认"),
       city: String(item.city || "不限"),
       level: String(item.level || "岗位"),
-      companyScenario: String(item.companyScenario || "模型推荐岗位"),
+      companyScenario: "AI 生成的职业方向建议",
       summary: String(item.summary || ""),
       responsibilities: asStringArray(item.responsibilities),
       requirements: asStringArray(item.requirements),
       bonus: asStringArray(item.bonus),
       keywords: asKeywordArray(item.keywords),
       priority: item.priority === "高" || item.priority === "中" || item.priority === "低" ? item.priority : "中",
-      applicationLinks: asApplicationLinks(item.applicationLinks),
+      applicationLinks: [],
+      sourceMetadata: {
+        sourceType: "model-generated" as const,
+        sourceName: "职业方向探索",
+        sourceUrl: null,
+        verification: "非招聘岗位，不可直接投递",
+        publishedAt: null,
+        updatedAt: null,
+        lastSeenAt: null,
+        verifiedAt: null,
+        status: "unknown" as const,
+        isDemoData: false,
+      },
     }))
-    .filter((item) => item.title && item.keywords.length > 0);
+    .filter((item) => item.title && item.keywords.length > 0)
+    .filter((item) => internetTechDomainAdapter.classifyJob([
+      item.title,
+      item.track,
+      item.summary,
+      ...item.requirements,
+      ...item.keywords,
+    ].join(" ")) !== null);
 }
 
 export function parseJdAnalysis(content: string): JdAnalysis {
@@ -265,25 +286,54 @@ export function parseJdAnalysis(content: string): JdAnalysis {
   };
 }
 
-export function profileFromStructuredResume(structured: StructuredResume | null, resumeText: string): StudentProfile {
+const educationParts = (educationText: string) => {
+  const school = educationText.match(/[\u4e00-\u9fa5A-Za-z·]{2,}(?:大学|学院)/)?.[0] || "待确认学校";
+  const grade = educationText.match(/(?:博士|硕士|研究生|本科|大专|专科|20\d{2}\s*届)/g)?.join(" ") || "待确认阶段";
+  const major = educationText
+    .replace(school === "待确认学校" ? /$^/ : school, " ")
+    .replace(/(?:博士|硕士|研究生|本科|大专|专科|20\d{2}\s*届|20\d{2}[.\-/年月至\s]+)/g, " ")
+    .replace(/[，,；;|/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return { school, grade, major: major || "待确认专业" };
+};
+
+const cityPreferencesFromText = (resumeText: string) => {
+  const line = resumeText.split(/\r?\n/).find((item) => /(?:意向城市|工作地点|期望城市)/.test(item));
+  if (!line) return [];
+  return ["北京", "上海", "深圳", "广州", "杭州", "成都", "武汉", "南京", "西安", "苏州"]
+    .filter((city) => line.includes(city));
+};
+
+export function profileFromStructuredResume(structured: StructuredResume | null, resumeText: string, confirmedByUser = false): StudentProfile {
   const data = structured ?? emptyStructuredResume;
   const educationText = data.education.join(" ");
   const targetText = data.targetRoles.join(" / ");
+  const education = educationParts(educationText);
+  const experienceGroups = [
+    ...data.internships.map((text) => ({ text, sourceSection: "internship" as const })),
+    ...data.projects.map((text) => ({ text, sourceSection: "project" as const })),
+    ...data.campus.map((text) => ({ text, sourceSection: "campus" as const })),
+  ];
   return {
     name: data.name || "待识别姓名",
-    school: educationText || "待识别学历",
-    grade: educationText || "待识别阶段",
-    major: educationText || "待识别专业",
+    school: education.school,
+    grade: education.grade,
+    major: education.major,
     target: targetText || "待识别求职方向",
-    cityPreference: ["不限"],
+    cityPreference: cityPreferencesFromText(resumeText),
     skills: data.skills,
     interests: data.targetRoles,
-    experiences: [...data.internships, ...data.projects, ...data.campus].map((item, index) => ({
-      title: item.slice(0, 24) || `经历 ${index + 1}`,
-      role: index === 0 ? "主要经历" : "相关经历",
-      evidence: item,
-      tags: data.skills.slice(0, 5),
+    experiences: experienceGroups.map((item, index) => ({
+      id: `resume-evidence-${index + 1}`,
+      title: item.text.slice(0, 24) || `经历 ${index + 1}`,
+      role: "待确认角色",
+      evidence: item.text,
+      tags: data.skills.filter((skill) => item.text.toLowerCase().includes(skill.toLowerCase())),
+      sourceSection: item.sourceSection,
+      confirmedByUser,
     })),
     resumeText,
+    resumeConfirmed: confirmedByUser,
   };
 }

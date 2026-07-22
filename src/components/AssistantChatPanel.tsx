@@ -121,7 +121,7 @@ export default function AssistantChatPanel({
             <span className="assistant-message-avatar ai">
               <img src={logoUrl} alt="" aria-hidden="true" />
             </span>
-            <p>你好，我可以帮你分析简历、推荐岗位、生成模拟面试问题，并给出个性化求职建议。</p>
+            <p>你好，我可以帮你核对简历证据、区分真实岗位与职业方向、生成模拟面试问题，并给出可验证的求职建议。</p>
           </article>
         )}
         {status === "loading" ? (

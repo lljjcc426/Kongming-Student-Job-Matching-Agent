@@ -1,8 +1,33 @@
 import type { Job, StudentProfile } from "./data";
+import { internetTechDomainAdapter } from "./domain/internetTech";
+import type { HardConstraint } from "./domain/careerDomain";
+
+export type RequirementMatchStatus = "supported" | "partially-supported" | "unsupported" | "unknown";
+export type HardGateResult = "pass" | "fail" | "uncertain";
+export type MatchRiskLevel = "low" | "medium" | "high";
+export type MatchRecommendation = "apply-now" | "complete-evidence-first" | "skill-gap-too-large" | "hard-condition-failed";
+
+export type RequirementMatch = {
+  requirementId: string;
+  requirementText: string;
+  type: "hard-constraint" | "skill" | "responsibility";
+  importance: "required" | "preferred";
+  status: RequirementMatchStatus;
+  evidenceIds: string[];
+  evidenceText: string[];
+  explanation: string;
+  missingReason: string;
+};
 
 export type MatchResult = {
+  /** 证据覆盖率。仅为兼容旧组件保留 total 名称，不表示录用或初筛概率。 */
   total: number;
-  verdict: "优先投递" | "补强后投递" | "暂不优先";
+  evidenceCoverage: number;
+  verdict: "建议投递" | "补证据后投递" | "暂缓投递" | "硬性条件不满足";
+  hardGateResult: HardGateResult;
+  riskLevel: MatchRiskLevel;
+  recommendation: MatchRecommendation;
+  requirementMatrix: RequirementMatch[];
   dimensions: Array<{ name: string; score: number; description: string }>;
   coveredKeywords: string[];
   missingKeywords: string[];
@@ -12,87 +37,241 @@ export type MatchResult = {
   actionPlan: string[];
 };
 
-const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
-
-const countHits = (source: string[], target: string[]) => {
-  const normalizedSource = source.map((item) => item.toLowerCase());
-  return target.filter((item) =>
-    normalizedSource.some((sourceItem) => sourceItem.includes(item.toLowerCase()) || item.toLowerCase().includes(sourceItem)),
-  );
+type ResumeEvidence = {
+  id: string;
+  sourceText: string;
+  normalizedSkills: string[];
+  confirmedByUser: boolean;
 };
 
-export function analyzeMatch(profile: StudentProfile, job: Job, resumeText: string): MatchResult {
-  const resume = resumeText.toLowerCase();
-  const profileSignals = [
-    ...profile.skills,
-    ...profile.interests,
-    ...profile.experiences.flatMap((item) => item.tags),
-    profile.major,
-    profile.target,
-  ];
+const unique = <T,>(items: T[]) => [...new Set(items)];
+const percent = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+const normalized = (value: string) => internetTechDomainAdapter.normalizeSkill(value);
 
-  const coveredKeywords = job.keywords.filter((keyword) => resume.includes(keyword.toLowerCase()) || countHits(profileSignals, [keyword]).length > 0);
-  const missingKeywords = job.keywords.filter((keyword) => !coveredKeywords.includes(keyword));
-  const keywordScore = clamp((coveredKeywords.length / job.keywords.length) * 100);
+const hasNegatedSkill = (text: string, keyword: string) => {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?:尚未|未曾|没有|不会|不熟悉|未使用|缺少)[^。；\\n]{0,10}${escaped}`, "i").test(text);
+};
 
-  const abilityHits = countHits(profile.skills, job.keywords);
-  const abilityScore = clamp(52 + abilityHits.length * 9 + (profile.cityPreference.includes(job.city) ? 6 : 0));
+const buildEvidence = (profile: StudentProfile): ResumeEvidence[] => {
+  const experienceEvidence = profile.experiences.map((experience) => ({
+    id: experience.id,
+    sourceText: experience.evidence,
+    normalizedSkills: unique(experience.tags.map(normalized)),
+    confirmedByUser: experience.confirmedByUser,
+  }));
+  const skillEvidence = profile.skills.map((skill, index) => ({
+    id: `resume-skill-${index + 1}`,
+    sourceText: skill,
+    normalizedSkills: [normalized(skill)],
+    confirmedByUser: profile.resumeConfirmed,
+  }));
+  return [...experienceEvidence, ...skillEvidence];
+};
 
-  const experienceHits = profile.experiences.filter((experience) =>
-    experience.tags.some((tag) => job.keywords.includes(tag)),
-  );
-  const experienceScore = clamp(48 + experienceHits.length * 14 + (resumeText.length > 120 ? 8 : 0));
+const evidenceForKeyword = (evidence: ResumeEvidence[], keyword: string) => {
+  const normalizedKeyword = normalized(keyword);
+  return evidence.filter((item) => {
+    if (hasNegatedSkill(item.sourceText, keyword)) return false;
+    return item.normalizedSkills.includes(normalizedKeyword)
+      || internetTechDomainAdapter.validateResumeEvidence(item.sourceText, keyword);
+  });
+};
 
-  const interestHits = countHits(profile.interests, [job.track, job.title, job.summary]);
-  const interestScore = clamp(56 + interestHits.length * 12 + (profile.target.includes(job.track) ? 14 : 0));
+const profileValueForConstraint = (profile: StudentProfile, constraint: HardConstraint) => {
+  if (constraint.type === "education") return profile.grade;
+  if (constraint.type === "major") return profile.major;
+  if (constraint.type === "city") return profile.cityPreference.join("、");
+  return profile.resumeText;
+};
 
-  const growthScore = clamp(66 + coveredKeywords.length * 3 - missingKeywords.length * 2);
-  const total = clamp(abilityScore * 0.28 + experienceScore * 0.26 + keywordScore * 0.22 + interestScore * 0.14 + growthScore * 0.1);
-  const verdict = total >= 82 ? "优先投递" : total >= 68 ? "补强后投递" : "暂不优先";
+const educationSatisfies = (actual: string, required: string) => {
+  const levels = ["专科", "大专", "本科", "硕士", "研究生", "博士"];
+  const actualIndex = Math.max(...levels.map((level, index) => actual.includes(level) ? index : -1));
+  const requiredIndex = Math.max(...levels.map((level, index) => required.includes(level) ? index : -1));
+  return actualIndex >= 0 && requiredIndex >= 0 && actualIndex >= requiredIndex;
+};
+
+const evaluateHardConstraint = (profile: StudentProfile, constraint: HardConstraint): RequirementMatch => {
+  const actual = profileValueForConstraint(profile, constraint);
+  const unknown = !actual || /待确认|待识别/.test(actual);
+  let status: RequirementMatchStatus = "unknown";
+
+  if (!unknown) {
+    if (constraint.type === "education") {
+      const satisfies = educationSatisfies(actual, constraint.requiredValue);
+      status = satisfies
+        ? (profile.resumeConfirmed ? "supported" : "partially-supported")
+        : (profile.resumeConfirmed ? "unsupported" : "unknown");
+    } else if (constraint.type === "city") {
+      const satisfies = profile.cityPreference.some((city) => constraint.text.includes(city));
+      status = satisfies
+        ? (profile.resumeConfirmed ? "supported" : "partially-supported")
+        : (profile.resumeConfirmed ? "unsupported" : "unknown");
+    } else {
+      status = internetTechDomainAdapter.validateResumeEvidence(actual, constraint.requiredValue)
+        ? (profile.resumeConfirmed ? "supported" : "partially-supported")
+        : "unknown";
+    }
+  }
 
   return {
-    total,
+    requirementId: constraint.id,
+    requirementText: constraint.text,
+    type: "hard-constraint",
+    importance: "required",
+    status,
+    evidenceIds: status === "supported" || status === "partially-supported" ? ["resume-profile"] : [],
+    evidenceText: status === "supported" || status === "partially-supported" ? [actual] : [],
+    explanation: status === "supported"
+      ? `已找到满足条件的简历字段：${actual}`
+      : status === "partially-supported"
+        ? `已找到相关字段但尚未由用户确认：${actual}`
+        : status === "unsupported"
+          ? `当前简历字段“${actual}”与该硬性条件冲突。`
+          : "当前简历没有足够结构化信息判断该硬性条件。",
+    missingReason: status === "unknown" ? "需要用户确认或补充对应字段" : status === "unsupported" ? "硬性条件不满足" : "",
+  };
+};
+
+const evaluateTextRequirement = (
+  text: string,
+  index: number,
+  importance: RequirementMatch["importance"],
+  evidence: ResumeEvidence[],
+  jobKeywords: string[],
+  resumeText: string,
+): RequirementMatch => {
+  const relevantKeywords = jobKeywords.filter((keyword) => normalized(text).includes(normalized(keyword)));
+  const matchedEvidence = unique(relevantKeywords.flatMap((keyword) => evidenceForKeyword(evidence, keyword)));
+  const resumeHasNegation = relevantKeywords.some((keyword) => hasNegatedSkill(resumeText, keyword));
+  const status: RequirementMatchStatus = resumeHasNegation
+    ? "unsupported"
+    : matchedEvidence.some((item) => item.confirmedByUser)
+      ? "supported"
+      : matchedEvidence.length
+        ? "partially-supported"
+        : "unknown";
+
+  return {
+    requirementId: `requirement-${importance}-${index + 1}`,
+    requirementText: text,
+    type: relevantKeywords.length ? "skill" : "responsibility",
+    importance,
+    status,
+    evidenceIds: matchedEvidence.map((item) => item.id),
+    evidenceText: matchedEvidence.map((item) => item.sourceText),
+    explanation: status === "supported"
+      ? `已关联 ${matchedEvidence.length} 条用户确认的简历证据。`
+      : status === "partially-supported"
+        ? `找到 ${matchedEvidence.length} 条原文证据，需用户确认后才能作为强证据。`
+        : status === "unsupported"
+          ? "简历原文包含明确的否定或不具备表述。"
+          : relevantKeywords.length
+            ? "当前简历未找到可追溯的相关技能证据。"
+            : "该要求尚未结构化，需用户人工核对原文。",
+    missingReason: status === "unknown" ? "无可引用证据" : status === "unsupported" ? "原文存在明确冲突" : "",
+  };
+};
+
+export function analyzeMatch(profile: StudentProfile, job: Job, _resumeText: string): MatchResult {
+  const jobText = [job.title, job.track, job.summary, ...job.requirements, ...job.responsibilities].join("\n");
+  const roleFamily = internetTechDomainAdapter.classifyJob(jobText);
+  const evidence = buildEvidence(profile);
+  const hardConstraints = internetTechDomainAdapter.extractHardConstraints(job.requirements);
+  const hardMatches = hardConstraints.map((constraint) => evaluateHardConstraint(profile, constraint));
+  const requirementMatches = job.requirements.slice(0, 8)
+    .map((requirement, index) => evaluateTextRequirement(requirement, index, "required", evidence, job.keywords, profile.resumeText));
+  const bonusMatches = job.bonus.slice(0, 4)
+    .map((requirement, index) => evaluateTextRequirement(requirement, index, "preferred", evidence, job.keywords, profile.resumeText));
+  const requirementMatrix = [...hardMatches, ...requirementMatches, ...bonusMatches];
+
+  const hardGateResult: HardGateResult = hardMatches.some((item) => item.status === "unsupported")
+    ? "fail"
+    : hardMatches.length > 0 && hardMatches.every((item) => item.status === "supported")
+      ? "pass"
+      : "uncertain";
+  const evaluable = requirementMatrix.filter((item) => item.status !== "unknown");
+  const supportedWeight = evaluable.reduce((sum, item) => sum + (item.status === "supported" ? 1 : item.status === "partially-supported" ? 0.5 : 0), 0);
+  const evidenceCoverage = evaluable.length ? percent((supportedWeight / evaluable.length) * 100) : 0;
+  const supportedKeywords = job.keywords.filter((keyword) =>
+    !hasNegatedSkill(profile.resumeText, keyword) && evidenceForKeyword(evidence, keyword).length > 0,
+  );
+  const missingKeywords = job.keywords.filter((keyword) => !supportedKeywords.includes(keyword));
+  const unknownCount = requirementMatrix.filter((item) => item.status === "unknown").length;
+  const unsupportedCount = requirementMatrix.filter((item) => item.status === "unsupported").length;
+
+  const recommendation: MatchRecommendation = hardGateResult === "fail"
+    ? "hard-condition-failed"
+    : evidenceCoverage >= 70 && unknownCount <= 2
+      ? "apply-now"
+      : unsupportedCount >= Math.max(2, Math.ceil(requirementMatrix.length / 2))
+        ? "skill-gap-too-large"
+        : "complete-evidence-first";
+  const verdict = recommendation === "hard-condition-failed"
+    ? "硬性条件不满足"
+    : recommendation === "apply-now"
+      ? "建议投递"
+      : recommendation === "skill-gap-too-large"
+        ? "暂缓投递"
+        : "补证据后投递";
+  const riskLevel: MatchRiskLevel = hardGateResult === "fail" || unsupportedCount >= 2
+    ? "high"
+    : unknownCount > Math.max(2, requirementMatrix.length / 2)
+      ? "medium"
+      : "low";
+
+  const domainWarning = roleFamily
+    ? "当前使用互联网与数字技术领域规则。"
+    : "当前 JD 不属于已深度支持的互联网与数字技术岗位，只提供通用证据整理，不给出高可信判断。";
+  const strongestEvidence = requirementMatrix.find((item) => item.status === "supported" || item.status === "partially-supported");
+
+  return {
+    total: evidenceCoverage,
+    evidenceCoverage,
     verdict,
+    hardGateResult,
+    riskLevel: roleFamily ? riskLevel : "high",
+    recommendation: roleFamily ? recommendation : "complete-evidence-first",
+    requirementMatrix,
     dimensions: [
-      { name: "能力匹配", score: abilityScore, description: "技能标签与岗位关键词的重合程度" },
-      { name: "经历匹配", score: experienceScore, description: "项目、实习和竞赛经历对岗位职责的支撑" },
-      { name: "关键词覆盖", score: keywordScore, description: "简历中可被初筛识别的岗位关键词覆盖" },
-      { name: "兴趣一致", score: interestScore, description: "求职偏好与岗位方向的一致性" },
-      { name: "成长潜力", score: growthScore, description: "当前基础经过短期补强后的提升空间" },
+      { name: "证据覆盖", score: evidenceCoverage, description: "有原文证据的可评估要求占比" },
     ],
-    coveredKeywords,
+    coveredKeywords: supportedKeywords,
     missingKeywords,
     strengths: [
-      coveredKeywords.length > 0 ? `已覆盖 ${coveredKeywords.slice(0, 4).join("、")} 等岗位关键词。` : "当前简历与岗位关键词重合较少。",
-      experienceHits.length > 0 ? `${experienceHits[0].title} 可作为核心匹配证据。` : "现有经历需要进一步转化为岗位相关证据。",
-      profile.cityPreference.includes(job.city) ? `岗位城市 ${job.city} 与求职偏好一致。` : `岗位城市 ${job.city} 不在首选列表中，需要确认投递意愿。`,
+      strongestEvidence
+        ? `已找到证据 ${strongestEvidence.evidenceIds.join("、")} 支撑“${strongestEvidence.requirementText}”。`
+        : "当前没有找到可追溯到简历原文的岗位证据。",
+      profile.resumeConfirmed ? "当前简历结构已由用户确认。" : "当前简历结构尚未由用户确认，相关证据只能视为待确认。",
+      domainWarning,
     ],
     risks: [
-      missingKeywords.length > 0 ? `简历中对 ${missingKeywords.slice(0, 4).join("、")} 的呈现不足。` : "核心关键词覆盖较完整，建议继续补充量化结果。",
-      experienceScore < 76 ? "项目经历与岗位职责之间的因果链表达不足，需要补充任务、行动和结果。" : "经历证据较充分，下一步应突出结果和方法论。",
-      keywordScore < 72 ? "初筛系统可能无法稳定识别部分岗位相关能力，需要补齐标准化表达。" : "关键词覆盖较好，重点是提升表达可信度。",
+      hardGateResult === "fail" ? "至少一项硬性条件明确不满足。" : hardGateResult === "uncertain" ? "硬性条件仍有待确认项。" : "已识别的硬性条件未发现冲突。",
+      unknownCount > 0 ? `${unknownCount} 项岗位要求尚无可引用证据。` : "所有已结构化岗位要求均可评估。",
+      missingKeywords.length > 0 ? `${missingKeywords.slice(0, 4).join("、")} 当前没有原文证据，不能直接写入简历。` : "当前岗位关键词均找到相关原文。",
     ],
     resumeActions: [
       {
-        title: "项目经历 STAR 化",
-        detail: "补充情境、任务、行动和量化结果，例如访谈样本量、核心指标变化和复盘动作。",
-        impact: "提升经历可信度",
+        title: "确认简历证据",
+        detail: profile.resumeConfirmed ? "已确认当前结构；修改原文后需要重新确认。" : "逐项核对模型提取的教育、技能和经历，确认后再生成最终修改稿。",
+        impact: "提高结论可信度",
       },
       {
-        title: "补齐岗位关键词",
-        detail: missingKeywords.length > 0 ? `在技能、项目或经历描述中自然补充 ${missingKeywords.slice(0, 5).join("、")}。` : "保留现有关键词，并增加与业务结果相关的表达。",
-        impact: "提升初筛识别率",
+        title: "补充可验证结果",
+        detail: "仅补充真实存在且可说明来源的指标；未知数字保留为待确认占位，不自动生成。",
+        impact: "降低事实风险",
       },
       {
-        title: "强化岗位动机",
-        detail: `在个人总结中说明对${job.track}方向的兴趣来源，以及已有经历如何支撑该岗位。`,
-        impact: "提升人岗一致性",
+        title: "学习与补强",
+        detail: missingKeywords.length ? `${missingKeywords.slice(0, 5).join("、")}进入学习清单，不自动加入技能栏。` : "暂无需要从岗位要求迁入的缺失技能。",
+        impact: "避免简历造假",
       },
     ],
     actionPlan: [
-      "选择一个最相关项目，压缩为 3 行高证据描述。",
-      "用岗位关键词检查技能栏和项目描述，避免只写泛化能力。",
-      "准备 2 个与岗位职责相关的面试故事，覆盖问题分析、协作推进和结果复盘。",
+      "先核对硬性条件，再决定是否投入简历定制时间。",
+      "逐条确认要求与 Evidence ID 的对应关系。",
+      "只接受有原文和证据引用的简历修改建议。",
     ],
   };
 }

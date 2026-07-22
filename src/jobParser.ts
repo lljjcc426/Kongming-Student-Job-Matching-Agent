@@ -1,4 +1,5 @@
 import type { Job } from "./data";
+import { internetTechDomainAdapter } from "./domain/internetTech";
 
 const keywordBank = [
   "SQL",
@@ -28,11 +29,12 @@ const keywordBank = [
 ];
 
 const inferTrack = (text: string) => {
-  if (/前端|研发|React|JavaScript|TypeScript|工程化/i.test(text)) return "研发";
-  if (/数据|SQL|Python|增长|分析|报表/i.test(text)) return "数据";
-  if (/运营|活动|内容|用户增长/i.test(text)) return "运营";
-  if (/招聘|候选人|HR|人力/i.test(text)) return "HR";
-  return "产品";
+  const family = internetTechDomainAdapter.classifyJob(text);
+  if (family === "software-development") return "软件开发";
+  if (family === "ai-algorithm") return "AI 与算法";
+  if (family === "data") return "数据方向";
+  if (family === "product") return "产品方向";
+  return "当前领域未深度支持";
 };
 
 const inferCity = (text: string) => {
@@ -67,6 +69,7 @@ export function parseCustomJob(title: string, jdText: string): Job | null {
 
   return {
     id: "custom-jd-draft",
+    jobKind: "imported-jd",
     title: inferTitle(title, text),
     track,
     city: inferCity(text),
@@ -75,8 +78,20 @@ export function parseCustomJob(title: string, jdText: string): Job | null {
     summary: text ? text.slice(0, 86) + (text.length > 86 ? "..." : "") : titleText,
     responsibilities: extractLines(text, ["理解岗位职责并拆解核心任务", "结合简历经历寻找可证明的能力证据", "准备与岗位要求相关的项目表达"]),
     requirements: extractLines(text, ["补齐岗位关键词", "突出项目经历中的行动与结果", "说明求职动机与岗位方向的关联"]),
-    bonus: keywords.slice(0, 3).length ? keywords.slice(0, 3).map((keyword) => `简历中能清晰呈现 ${keyword}`) : ["有相关项目经历", "能提供量化结果", "表达清晰且结构完整"],
-    keywords: keywords.length ? keywords : ["需求分析", "数据分析", "沟通协调", "项目复盘", "AI 工具"],
+    bonus: keywords.slice(0, 3).map((keyword) => `简历中能以原文证据呈现 ${keyword}`),
+    keywords,
     priority: "中",
+    sourceMetadata: {
+      sourceType: "user-imported",
+      sourceName: "用户导入 JD",
+      sourceUrl: null,
+      verification: "等待用户核对原始招聘页面",
+      publishedAt: null,
+      updatedAt: null,
+      lastSeenAt: null,
+      verifiedAt: null,
+      status: "unknown",
+      isDemoData: false,
+    },
   };
 }

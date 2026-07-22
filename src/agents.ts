@@ -16,7 +16,7 @@ export type AgentTeamResult = {
   jobSearchAgent: {
     searchQueries: string[];
     sourcePlan: string[];
-    candidates: Array<{ title: string; score: number; reason: string }>;
+    candidates: Array<{ title: string; evidenceCoverage: number; kind: Job["jobKind"]; reason: string }>;
   };
   advisorAgent: {
     decision: string;
@@ -87,16 +87,20 @@ const resumeIntakeAgent: AgentNode<WorkflowInput, WorkflowState> = {
 const jobDiscoveryAgent: AgentNode<WorkflowInput, WorkflowState> = {
   id: "job-discovery",
   name: "岗位搜索智能体",
-  role: "生成联网检索计划并排序候选岗位",
+  role: "生成来源核验计划并按证据覆盖排序候选岗位",
   modalities: ["text", "link"],
   run(context) {
     const { profile, jobs, selectedJob, result } = context.input;
     const sortedCandidates = jobs
       .map((job) => ({
         job,
-        score: job.id === selectedJob.id ? result.total : Math.max(45, result.total - Math.abs(job.keywords.length - selectedJob.keywords.length) * 5),
+        evidenceCoverage: job.id === selectedJob.id
+          ? result.evidenceCoverage
+          : job.keywords.length
+            ? Math.round((job.keywords.filter((keyword) => profile.resumeText.toLowerCase().includes(keyword.toLowerCase())).length / job.keywords.length) * 100)
+            : 0,
       }))
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => b.evidenceCoverage - a.evidenceCoverage)
       .slice(0, 3);
     const searchQueries = unique([
       `${selectedJob.title} ${selectedJob.city} 实习`,
@@ -106,10 +110,11 @@ const jobDiscoveryAgent: AgentNode<WorkflowInput, WorkflowState> = {
     const jobSearchAgent = {
       searchQueries,
       sourcePlan: ["企业招聘官网", "高校就业信息平台", "公开实习岗位平台", "行业社区与公开岗位集合"],
-      candidates: sortedCandidates.map(({ job, score }) => ({
+      candidates: sortedCandidates.map(({ job, evidenceCoverage }) => ({
         title: job.title,
-        score,
-        reason: `${job.track}方向与当前画像存在交集，关键词覆盖 ${job.keywords.filter((keyword) => result.coveredKeywords.includes(keyword)).length}/${job.keywords.length}。`,
+        evidenceCoverage,
+        kind: job.jobKind,
+        reason: `证据覆盖 ${evidenceCoverage}%；${job.jobKind === "verified-job" ? "带官方来源记录" : job.jobKind === "imported-jd" ? "由用户导入" : "仅为职业方向，不代表真实招聘"}。`,
       })),
     };
 
@@ -130,7 +135,7 @@ const jobDiscoveryAgent: AgentNode<WorkflowInput, WorkflowState> = {
 const matchReasoningAgent: AgentNode<WorkflowInput, WorkflowState> = {
   id: "match-reasoning",
   name: "匹配推理智能体",
-  role: "解释匹配分数、优势和风险",
+  role: "解释硬性条件、证据覆盖和风险",
   modalities: ["text"],
   run(context) {
     const { result } = context.input;
@@ -138,7 +143,7 @@ const matchReasoningAgent: AgentNode<WorkflowInput, WorkflowState> = {
       decision: result.verdict,
       reasons: result.strengths,
       nextActions: [
-        "优先处理关键词缺口，再改写项目经历。",
+        "先确认硬性条件和简历证据，再改写项目经历。",
         "将最相关项目放到简历靠前位置。",
         "投递前准备与岗位职责对应的面试故事。",
       ],
@@ -196,12 +201,12 @@ const supervisorAgent: AgentNode<WorkflowInput, WorkflowState> = {
   run(context) {
     const { selectedJob, result } = context.input;
     const supervisorAgent = {
-      priority: result.total >= 82 ? "立即完善材料并优先投递" : "先补齐材料证据，再进入投递",
-      summary: `围绕${selectedJob.title}，当前最重要的是补齐关键词证据、强化项目结果，并准备面试故事。`,
+      priority: result.recommendation === "apply-now" ? "证据较完整，可进入投递准备" : result.recommendation === "hard-condition-failed" ? "先核对硬性条件冲突" : "先补齐材料证据，再进入投递",
+      summary: `围绕${selectedJob.title}，当前最重要的是核对硬性条件、补齐可追溯证据，并准备面试故事。`,
       handoff: [
         "简历解析智能体负责持续更新画像。",
         "岗位搜索智能体负责扩展候选岗位。",
-        "匹配推理智能体负责解释分数和风险。",
+        "匹配推理智能体负责解释证据覆盖和风险。",
         "模拟面试智能体负责求职准备闭环。",
       ],
     };
@@ -240,22 +245,24 @@ export function evaluateInterviewAnswer(answer: string, job: Job, result: MatchR
   const trimmed = answer.trim();
   if (!trimmed) {
     return {
-      score: 0,
+      status: "waiting" as const,
+      structureSignals: [],
+      keywordEvidence: [],
       summary: "等待回答。建议按背景、任务、行动、结果四段组织。",
       suggestions: ["说明项目背景", "讲清个人动作", "补充量化结果"],
     };
   }
 
-  const keywordHits = result.coveredKeywords.filter((keyword) => trimmed.includes(keyword)).length;
-  const structureScore = ["背景", "任务", "行动", "结果", "复盘"].filter((word) => trimmed.includes(word)).length * 8;
-  const lengthScore = Math.min(35, Math.round(trimmed.length / 8));
-  const score = Math.min(100, 35 + keywordHits * 8 + structureScore + lengthScore);
+  const keywordEvidence = result.coveredKeywords.filter((keyword) => trimmed.includes(keyword));
+  const structureSignals = ["背景", "任务", "行动", "结果", "复盘"].filter((word) => trimmed.includes(word));
 
   return {
-    score,
-    summary: `回答与${job.track}方向有一定关联，已命中 ${keywordHits} 个岗位关键词。`,
+    status: "available" as const,
+    structureSignals,
+    keywordEvidence,
+    summary: `回答与${job.track}方向相关，识别到 ${keywordEvidence.length} 个岗位关键词证据和 ${structureSignals.length} 个结构信号；该结果不转换为固定分数。`,
     suggestions: [
-      score < 75 ? "建议补充更明确的量化结果。" : "结构较完整，可进一步压缩表达。",
+      structureSignals.includes("结果") ? "已包含结果表达，可继续核对数字来源。" : "建议补充真实、可核验的结果。",
       "建议明确自己在团队中的职责边界。",
       "结尾补充复盘收获，连接到目标岗位要求。",
     ],
@@ -265,4 +272,3 @@ export function evaluateInterviewAnswer(answer: string, job: Job, result: MatchR
 export function getSearchLinks(queries: string[]) {
   return queries.map((query) => ({ query, url: buildSearchUrl(query) }));
 }
-

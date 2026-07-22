@@ -23,10 +23,11 @@ export type InterviewTurn = {
 };
 
 export type InterviewFeedbackReport = {
-  overallScore: number;
-  expression: number;
-  professionalFit: number;
-  logic: number;
+  scoreAvailable: boolean;
+  overallScore: number | null;
+  expression: number | null;
+  professionalFit: number | null;
+  logic: number | null;
   improvements: string[];
   optimizedAnswer: string;
   summary: string;

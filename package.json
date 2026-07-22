@@ -14,10 +14,12 @@
     "run:harmony:emulator": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-harmony-emulator.ps1",
     "preview": "vite preview --host 0.0.0.0",
     "verify:parsers": "node scripts/verify-parsers.cjs",
+    "verify:evidence": "node scripts/verify-evidence-architecture.cjs",
     "verify:jobs": "node scripts/verify-job-collector.cjs",
     "verify:job-sources": "node scripts/verify-job-sources.cjs",
     "verify:harmony": "node scripts/verify-harmony-project.cjs",
-    "verify:ui": "node scripts/verify-ui.cjs"
+    "verify:ui": "node scripts/verify-ui.cjs",
+    "verify:core": "npm run verify:parsers && npm run verify:evidence && npm run verify:jobs && npm run verify:job-sources && npm run verify:harmony"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",

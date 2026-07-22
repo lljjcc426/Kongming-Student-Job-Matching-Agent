@@ -39,6 +39,7 @@ const arkClientSource = readRepoFile("src/arkClient.ts");
 const jobApiSource = readRepoFile("src/jobApi.ts");
 const harmonyBuildScript = readRepoFile("scripts/build-harmony.ps1");
 const harmonyRunScript = readRepoFile("scripts/run-harmony-emulator.ps1");
+const harmonyBridgeSource = readRepoFile("src/harmonyBridge.ts");
 const pdfSource = readRepoFile("src/pdfResumeReader.ts");
 const live2dSource = readRepoFile("src/components/interview/Live2DInterviewerAvatar.tsx");
 const interviewPageSource = readRepoFile("src/pages/InterviewPage.tsx");
@@ -54,6 +55,8 @@ assert.match(moduleProfile, /ohos\.permission\.CAMERA/);
 assert.match(moduleProfile, /\$string:camera_permission_reason/);
 
 assert.match(page, /from '@kit\.ArkWeb'/);
+assert.match(page, /from '@kit\.CoreVisionKit'/);
+assert.match(page, /from '@kit\.ShareKit'/);
 assert.match(page, /setPathAllowingUniversalAccess\(\[resourceDir\]\)/);
 assert.match(page, /loadUrl\(`file:\/\/\$\{resourceDir\}\/index\.html`\)/);
 assert.match(page, /\.javaScriptAccess\(true\)/);
@@ -62,6 +65,9 @@ assert.match(page, /\.onPermissionRequest\(/);
 assert.match(page, /requestPermissionsFromUser\(context, \[CAMERA_PERMISSION\]\)/);
 assert.doesNotMatch(page, /getContext\(this\)/);
 assert.match(page, /request\.getOrigin\(\)\.startsWith\('file:\/\/'\)/);
+assert.match(page, /recognizeResumeImage/);
+assert.match(page, /textRecognition\.recognizeText/);
+assert.match(page, /shareController\.show/);
 assert.match(page, /requestedResources\.length === 1/);
 assert.doesNotMatch(page, /https?:\/\/[^'"]+/);
 
@@ -86,5 +92,7 @@ assert.match(harmonyRunScript, /rport "tcp:\$LocalDevPort" "tcp:\$LocalDevPort"/
 assert.match(pdfSource, /import\.meta\.env\.BASE_URL\}vendor\/pdfjs\/cmaps\//);
 assert.match(live2dSource, /const PUBLIC_BASE = import\.meta\.env\.BASE_URL/);
 assert.match(interviewPageSource, /import\.meta\.env\.BASE_URL\}avatars\/interviewer\/interview-room\.png/);
+assert.match(harmonyBridgeSource, /recognizeImageWithHarmony/);
+assert.match(harmonyBridgeSource, /shareTextWithHarmony/);
 
 console.log("HarmonyOS hybrid project verification passed");
