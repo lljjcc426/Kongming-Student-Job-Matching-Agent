@@ -153,6 +153,8 @@ async function main() {
   }
   const publicJobCards = await page.locator(".job-card").count();
   const publicSourceText = await page.locator(".job-source-bar p").innerText();
+  await page.locator(".app-nav > div button").filter({ hasText: "岗位证据" }).click();
+  await page.locator(".job-kind-tabs button").filter({ hasText: "已验证岗位" }).click();
   await page.locator(".app-nav > div button").filter({ hasText: "简历解析" }).click();
   const initialJobCards = await page.locator(".job-card").count();
   const uploadControl = await page.locator(".upload-control").count();
@@ -195,18 +197,65 @@ async function main() {
   await page.waitForFunction(() => document.querySelector(".resume-confirmation")?.classList.contains("confirmed"));
   const evidenceCoverageAfterConfirmation = await page.locator(".verdict-card > b").innerText();
   const proposalCount = await page.locator(".resume-proposal").count();
-  if (proposalCount > 0) await page.locator(".resume-proposal").first().getByRole("button", { name: "接受" }).click();
+  if (proposalCount > 0) {
+    const firstProposal = page.locator(".resume-proposal").first();
+    const originalText = await firstProposal.locator("textarea").first().inputValue();
+    await firstProposal.locator("textarea").nth(1).fill(originalText);
+    await firstProposal.getByRole("button", { name: "核对无误并接受" }).click();
+  }
   const acceptedProposalCount = await page.locator(".resume-proposal.accepted").count();
   await page.locator(".app-nav > div button").nth(2).click();
   await page.locator(".job-kind-tabs button").filter({ hasText: "已验证岗位" }).click();
   const verifiedTabCards = await page.locator(".job-card").count();
+  await page.locator(".app-nav > div button").filter({ hasText: "简历解析" }).click();
+  const verifiedProposal = page.locator(".resume-proposal:visible").first();
+  const verifiedOriginalText = await verifiedProposal.locator("textarea").first().inputValue();
+  await verifiedProposal.locator("textarea").nth(1).fill(verifiedOriginalText);
+  await verifiedProposal.getByRole("button", { name: "核对无误并接受" }).click();
+  await page.getByRole("button", { name: "保存投递版本" }).click();
+  const secondVerifiedProposal = page.locator(".resume-proposal:visible").nth(1);
+  if (await secondVerifiedProposal.count()) {
+    const secondOriginalText = await secondVerifiedProposal.locator("textarea").first().inputValue();
+    await secondVerifiedProposal.locator("textarea").nth(1).fill(secondOriginalText);
+    await secondVerifiedProposal.getByRole("button", { name: "核对无误并接受" }).click();
+    await page.getByRole("button", { name: "保存投递版本" }).click();
+  }
+  const savedResumeVersions = await page.locator(".resume-version-list:visible article").count();
+  const latestVersionSummary = await page.locator(".resume-version-list:visible article").first().innerText();
+  await page.locator(".resume-version-list:visible article").first().getByRole("button", { name: "恢复" }).click();
+  const restoreVersionStatus = await page.locator(".resume-version-status:visible").last().innerText();
+  await page.locator(".app-nav > div button").filter({ hasText: "岗位证据" }).click();
   await page.locator(".application-tracker").getByRole("button", { name: "加入追踪" }).click();
-  await page.locator(".application-tracker select").selectOption("applied");
+  const resumeVersionId = await page.locator(".application-tracker select").first().locator("option:not([disabled])").first().getAttribute("value");
+  await page.locator(".application-tracker select").first().selectOption(resumeVersionId);
+  await page.locator(".application-tracker select").nth(1).selectOption("applied");
   const persistedApplications = await page.evaluate(() => JSON.parse(localStorage.getItem("kongming.application-tracker.v1") || "[]"));
+  await page.locator(".application-tracker").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "artifacts/check-application-version-flow.png", fullPage: false });
+  await page.locator(".app-nav > div button").filter({ hasText: "简历解析" }).click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.locator(".resume-version-list:visible article").last().getByRole("button", { name: "删除" }).click();
+  const remainingResumeVersions = await page.locator(".resume-version-list:visible article").count();
+  await page.locator(".resume-version-list:visible").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "artifacts/check-resume-version-manager.png", fullPage: false });
+  await page.waitForTimeout(100);
+  const persistedWorkspace = await page.evaluate(() => JSON.parse(localStorage.getItem("kongming.career-workspace.v1") || "{}"));
+  await page.locator(".app-nav > div button").filter({ hasText: "岗位证据" }).click();
   await page.locator(".job-kind-tabs button").filter({ hasText: "职业方向" }).click();
   const directionTabCards = await page.locator(".job-card").count();
   const directionTrackingBlocked = await page.locator(".tracking-blocked").innerText();
   await page.screenshot({ path: "artifacts/check-resume-after-upload.png", fullPage: false });
+
+  await page.reload({ waitUntil: "networkidle" });
+  if (await page.locator(".loading-start-button").count()) {
+    await page.locator(".loading-start-button").click();
+    await page.locator(".loading-screen").waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+  }
+  await page.locator(".app-nav > div button").filter({ hasText: "岗位证据" }).click();
+  await page.locator(".job-kind-tabs button").filter({ hasText: "已验证岗位" }).click();
+  await page.locator(".app-nav > div button").filter({ hasText: "简历解析" }).click();
+  const restoredStudentName = await page.locator(".identity-card strong").innerText();
+  const restoredResumeVersions = await page.locator(".resume-version-list article").count();
 
   await page.locator(".app-nav > div button").nth(3).click();
   await page.getByLabel("模拟面试回答").waitFor({ state: "visible", timeout: 8000 });
@@ -273,14 +322,20 @@ async function main() {
   if (evidenceCoverageBeforeConfirmation === evidenceCoverageAfterConfirmation) {
     throw new Error(`Expected confirmation to change evidence strength: before=${evidenceCoverageBeforeConfirmation}, after=${evidenceCoverageAfterConfirmation}`);
   }
-  if (proposalCount < 1 || acceptedProposalCount !== 1) {
-    throw new Error(`Expected fact-constrained resume proposals with per-item acceptance: proposals=${proposalCount}, accepted=${acceptedProposalCount}`);
+  if (proposalCount < 1 || acceptedProposalCount !== 1 || savedResumeVersions !== 2 || remainingResumeVersions !== 1) {
+    throw new Error(`Expected fact-constrained resume proposals and managed versions: proposals=${proposalCount}, accepted=${acceptedProposalCount}, saved=${savedResumeVersions}, remaining=${remainingResumeVersions}`);
+  }
+  if (!latestVersionSummary.includes("相较上一版本") || !restoreVersionStatus.includes("恢复到当前修改区")) {
+    throw new Error(`Expected version change summary and restore confirmation: summary=${latestVersionSummary}, restore=${restoreVersionStatus}`);
   }
   if (verifiedTabCards !== 1 || directionTabCards < 6) {
     throw new Error(`Job repositories mixed their records: verified=${verifiedTabCards}, directions=${directionTabCards}`);
   }
-  if (persistedApplications.length !== 1 || persistedApplications[0].stage !== "applied") {
+  if (persistedApplications.length !== 1 || persistedApplications[0].stage !== "applied" || persistedApplications[0].resumeVersionId !== resumeVersionId) {
     throw new Error(`Expected one locally persisted application in applied stage: ${JSON.stringify(persistedApplications)}`);
+  }
+  if (persistedWorkspace.resumeVersions?.length !== 1 || restoredStudentName !== "林晨" || restoredResumeVersions !== 1) {
+    throw new Error(`Expected resume and version to survive reload: workspaceVersions=${persistedWorkspace.resumeVersions?.length}, student=${restoredStudentName}, renderedVersions=${restoredResumeVersions}`);
   }
   if (directionTrackingBlocked !== "不可直接投递") {
     throw new Error(`Career directions must be blocked from application tracking: ${directionTrackingBlocked}`);
@@ -335,9 +390,16 @@ async function main() {
     evidenceCoverageAfterConfirmation,
     proposalCount,
     acceptedProposalCount,
+    savedResumeVersions,
+    remainingResumeVersions,
+    latestVersionSummary,
+    restoreVersionStatus,
+    restoredResumeVersions,
+    restoredStudentName,
     verifiedTabCards,
     directionTabCards,
     persistedApplicationStage: persistedApplications[0]?.stage,
+    persistedResumeVersionId: persistedApplications[0]?.resumeVersionId,
     directionTrackingBlocked,
     dynamicSkillVisible,
     interviewInput,
@@ -356,6 +418,8 @@ async function main() {
     screenshots: [
       "artifacts/check-intro.png",
       "artifacts/check-resume-after-upload.png",
+      "artifacts/check-application-version-flow.png",
+      "artifacts/check-resume-version-manager.png",
       "artifacts/check-interview.png",
       "artifacts/check-assistant.png",
     ],

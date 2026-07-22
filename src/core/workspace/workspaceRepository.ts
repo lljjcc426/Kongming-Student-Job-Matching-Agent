@@ -6,12 +6,15 @@ export type ProposalDecision = "accepted" | "rejected";
 
 export type ResumeVersion = {
   id: string;
+  name: string;
   jobId: string;
   jobTitle: string;
   content: string;
   acceptedProposalIds: string[];
+  proposalEdits: Record<string, string>;
   evidenceCoverage: number;
   sourceFingerprint: string;
+  changeSummary: string;
   createdAt: string;
 };
 
@@ -177,12 +180,15 @@ const sanitizeResumeVersions = (value: unknown): ResumeVersion[] => {
   if (!Array.isArray(value)) return [];
   return value.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).map((item) => ({
     id: asString(item.id, 300),
+    name: asString(item.name, 300) || asString(item.jobTitle, 300) || "历史投递版本",
     jobId: asString(item.jobId, 300),
     jobTitle: asString(item.jobTitle, 300),
     content: asString(item.content, MAX_VERSION_CONTENT_LENGTH),
     acceptedProposalIds: asStringArray(item.acceptedProposalIds, 200, 300),
+    proposalEdits: sanitizeProposalEdits(item.proposalEdits),
     evidenceCoverage: Math.max(0, Math.min(100, Number(item.evidenceCoverage) || 0)),
     sourceFingerprint: asString(item.sourceFingerprint, 100),
+    changeSummary: asString(item.changeSummary, 1_000) || "历史版本未记录差异摘要",
     createdAt: asString(item.createdAt, 100),
   })).filter((item) => item.id && item.jobId && item.content && item.createdAt).slice(0, MAX_RESUME_VERSION_COUNT);
 };
@@ -255,4 +261,14 @@ export function createResumeVersion(input: Omit<ResumeVersion, "id" | "createdAt
     id: `resume-${Date.now()}-${fingerprintText(`${input.jobId}:${input.content}`).slice(0, 6)}`,
     createdAt,
   };
+}
+
+export function summarizeResumeVersionChanges(currentContent: string, previousContent?: string): string {
+  if (!previousContent) return "首个面向该岗位的投递版本";
+  if (currentContent === previousContent) return "内容与上一版本一致，仅重新完成事实确认";
+  const previousLines = new Set(previousContent.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+  const currentLines = new Set(currentContent.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+  const added = [...currentLines].filter((line) => !previousLines.has(line)).length;
+  const removed = [...previousLines].filter((line) => !currentLines.has(line)).length;
+  return `相较上一版本新增 ${added} 行、移除 ${removed} 行`;
 }

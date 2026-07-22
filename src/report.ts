@@ -1,7 +1,7 @@
 import type { Job, StudentProfile } from "./data";
 import type { MatchResult } from "./matchEngine";
 import type { CareerOpsEvaluation } from "./careerOps";
-import type { OptimizedResumeDraft } from "./resumeOptimizer";
+import { formatOptimizedResumeDraft, type OptimizedResumeDraft, type ResumeDraftValidation } from "./resumeOptimizer";
 
 export function buildMatchReport(
   profile: StudentProfile,
@@ -10,6 +10,7 @@ export function buildMatchReport(
   resumeText: string,
   optimizedDraft: OptimizedResumeDraft,
   careerOpsEvaluation?: CareerOpsEvaluation,
+  draftValidation?: ResumeDraftValidation,
 ) {
   return `# 孔明职配分析报告
 
@@ -59,15 +60,22 @@ ${careerOpsEvaluation?.requirementMatrix.map((item) => `- ${item.requirement}｜
 
 ${careerOpsEvaluation?.positioning ?? "暂无"}
 
-## 事实约束修改建议
+## 事实约束状态
+
+- 当前状态：${draftValidation?.ok ? "已通过，可生成已确认投递稿" : "未通过，不能生成投递稿"}
+- 检查说明：${draftValidation?.ok ? `已核对 ${draftValidation.acceptedProposalIds.length} 项修改` : draftValidation?.errors.join("；") || "尚未逐条确认修改"}
+
+## 已确认投递稿
+
+${draftValidation?.ok ? formatOptimizedResumeDraft(optimizedDraft, draftValidation.acceptedProposalIds) : "未生成。待确认、无证据或已失效的修改不会进入本节。"}
+
+## 待确认修改建议（不得直接投递）
 
 ### 个人总结
 
 ${optimizedDraft.summary}
 
-### 待确认修改
-
-${optimizedDraft.projectBullets.map((item) => `- ${item}`).join("\n")}
+${optimizedDraft.proposals.map((item) => `- 原文：${item.originalText}\n  - 建议：${item.suggestedText}\n  - 证据：${item.evidenceIds.join("、") || "无"}\n  - 风险：${item.risk}`).join("\n") || "- 暂无"}
 
 ### 技能关键词
 

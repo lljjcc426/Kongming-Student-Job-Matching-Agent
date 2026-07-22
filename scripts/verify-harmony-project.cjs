@@ -102,6 +102,8 @@ assert.match(harmonyBuildScript, /VITE_JOBS_API_URL/);
 assert.match(harmonyBuildScript, /VITE_HEALTH_API_URL/);
 assert.match(harmonyBuildScript, /RequireOnlineServices/);
 assert.match(harmonyRunScript, /rport "tcp:\$LocalDevPort" "tcp:\$LocalDevPort"/);
+assert.match(harmonyRunScript, /\[string\]\$BootMode = 'coldboot'/);
+assert.match(harmonyRunScript, /Running emulator has no connected HDC target/);
 assert.match(pdfSource, /import\.meta\.env\.BASE_URL\}vendor\/pdfjs\/cmaps\//);
 assert.match(live2dSource, /const PUBLIC_BASE = import\.meta\.env\.BASE_URL/);
 assert.match(interviewPageSource, /import\.meta\.env\.BASE_URL\}avatars\/interviewer\/interview-room\.png/);

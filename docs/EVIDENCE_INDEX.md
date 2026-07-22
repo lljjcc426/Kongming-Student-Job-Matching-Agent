@@ -17,27 +17,36 @@
 | 材料 | 路径 | 说明 | 状态 |
 | --- | --- | --- | --- |
 | 项目展示 PPT | `docs/materials/kongming.pptx` | 项目场景、功能设计、架构与效果展示 | 已补充 |
+| 本轮构建与运行证据 | `docs/RELEASE_EVIDENCE_20260722.md` | 环境、自动化、HAP 哈希、安装和两次启动 | 已补充 |
 
 ## 3. 运行截图
 
 | 截图 | 路径 | 说明 | 状态 |
 | --- | --- | --- | --- |
-| 首页 - 岗位推荐展示 | `docs/evidence-screenshots/app-home-job-matching-20260708.png` | 项目定位、入口和岗位推荐卡片 | 已补充 |
-| 首页 - 能力图谱展示 | `docs/evidence-screenshots/app-home-ability-radar-20260708.png` | 首页能力图谱和核心功能入口 | 已补充 |
+| 历史版首页 - 岗位推荐展示 | `docs/evidence-screenshots/app-home-job-matching-20260708.png` | 旧首页和岗位推荐卡片，仅作 UI 沿革 | 历史材料 |
+| 历史版首页 - 能力图谱展示 | `docs/evidence-screenshots/app-home-ability-radar-20260708.png` | 旧能力图谱已废弃，仅作 UI 沿革 | 历史材料 |
 | 简历解析 | `docs/evidence-screenshots/app-resume-analysis-summary-20260708.png` | 学生画像、识别进度和模型增强结果 | 已补充 |
 | 简历优化建议 | `docs/evidence-screenshots/app-resume-optimization-suggestions-20260708.png` | 经历结构化、优化简历片段和投递清单 | 已补充 |
-| 岗位推荐列表 | `docs/evidence-screenshots/app-job-recommendation-cards-20260708.png` | 推荐岗位列表、匹配分数和优先级 | 已补充 |
+| 历史版岗位推荐列表 | `docs/evidence-screenshots/app-job-recommendation-cards-20260708.png` | 旧推荐列表，仅作 UI 沿革，不作为当前匹配逻辑证据 | 历史材料 |
 | 历史版岗位详情 | `docs/evidence-screenshots/app-job-detail-match-score-20260708.png` | 仅用于 UI 沿革；旧五维评分已废弃，不作为当前业务证据 | 历史材料 |
 | 模拟面试 | `docs/evidence-screenshots/app-interview-simulation-20260708.png` | AI 数字人面试官、面试模式和回答输入 | 已补充 |
 | AI 助手 | `docs/evidence-screenshots/app-ai-assistant-20260708.png` | 多轮求职问答入口和智能体上下文 | 已补充 |
+| HarmonyOS 模拟器首页 | `docs/evidence-screenshots/harmony-emulator-home-20260722.jpeg` | API 24 模拟器安装并二次启动后的当前首页 | 已补充 |
+| 当前简历版本管理 | `docs/evidence-screenshots/resume-version-manager-20260722.png` | 保存两版、差异摘要、恢复、删除以及已绑定版本保护 | 已补充 |
+| 当前投递版本绑定 | `docs/evidence-screenshots/application-version-binding-20260722.png` | 具体简历版本与“已投递”阶段绑定 | 已补充 |
+
+> 2026-07-08 的岗位评分、能力雷达和简历优化截图属于历史界面，只能用于说明 UI 沿革。当前业务证据以 2026-07-22 自动化输出、HAP 运行截图和新版录屏为准。
 
 ## 4. 性能测试证据
 
 | 测试项 | 结果来源 | 状态 |
 | --- | --- | --- |
-| 构建验证 | `npm run build` | 已通过，2026-07-08 |
-| 解析器验证 | `npm run verify:parsers` | 已通过，2026-07-08 |
-| UI 验证 | `npm run verify:ui` | 当前存在选择器失配问题，待后续修复 |
+| 构建验证 | `npm run build` | 已通过，2026-07-22 |
+| 核心可信性 | `npm run verify:evidence` | 已通过，含 20 组对抗样例和版本绑定测试 |
+| 旧评分退出检查 | `npm run verify:claims` | 已通过，同时扫描源码与 HAP 静态资源 |
+| UI 验证 | `npm run verify:ui` | 已通过，含版本保存、投递绑定和刷新恢复 |
+| HAP 构建 | `npm run build:harmony:local` | 已通过，SHA-256 已记录 |
+| HAP 模拟器安装/启动 | `npm run run:harmony:emulator` | 冷启动后安装、首次启动和二次启动通过 |
 | 真实模型调用耗时 | `docs/REAL_MODEL_CALL_EVIDENCE.md`；`docs/PERFORMANCE_TEST_REPORT.md` | 已补充 Gitee AI 控制台记录 |
 | 模型调用成功率 | `docs/REAL_MODEL_CALL_EVIDENCE.md`；`docs/PERFORMANCE_TEST_REPORT.md` | 已补充 200 状态调用记录 |
 

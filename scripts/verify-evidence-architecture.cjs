@@ -5,12 +5,13 @@ const { buildSync } = require("esbuild");
 const repoRoot = path.resolve(__dirname, "..");
 const source = [
   'export { analyzeMatch } from "./src/matchEngine.ts";',
-  'export { buildOptimizedResumeDraft } from "./src/resumeOptimizer.ts";',
+  'export { buildOptimizedResumeDraft, formatOptimizedResumeDraft, validateOptimizedResumeDraft } from "./src/resumeOptimizer.ts";',
   'export { parseCustomJob } from "./src/jobParser.ts";',
   'export { parseModelJobs, parseStructuredResume, profileFromStructuredResume } from "./src/modelParsers.ts";',
   'export { buildJobCatalog, isVerifiedActiveJob } from "./src/core/job/repositories.ts";',
   'export { redactSensitiveText, defaultPrivacyPreferences } from "./src/core/privacy/redaction.ts";',
-  'export { createApplicationRecord, upsertApplication, updateApplicationStage, buildDailyApplicationActions, loadApplicationRecords, saveApplicationRecords } from "./src/core/tracking/applicationRepository.ts";',
+  'export { createApplicationRecord, upsertApplication, updateApplicationStage, bindApplicationResumeVersion, buildDailyApplicationActions, loadApplicationRecords, saveApplicationRecords } from "./src/core/tracking/applicationRepository.ts";',
+  'export { createResumeVersion, summarizeResumeVersionChanges, loadCareerWorkspace, saveCareerWorkspace } from "./src/core/workspace/workspaceRepository.ts";',
 ].join("\n");
 const bundled = buildSync({
   absWorkingDir: repoRoot,
@@ -26,6 +27,8 @@ new Function("module", "exports", "require", bundled)(loadedModule, loadedModule
 const {
   analyzeMatch,
   buildOptimizedResumeDraft,
+  formatOptimizedResumeDraft,
+  validateOptimizedResumeDraft,
   parseCustomJob,
   parseModelJobs,
   parseStructuredResume,
@@ -37,9 +40,14 @@ const {
   createApplicationRecord,
   upsertApplication,
   updateApplicationStage,
+  bindApplicationResumeVersion,
   buildDailyApplicationActions,
   loadApplicationRecords,
   saveApplicationRecords,
+  createResumeVersion,
+  summarizeResumeVersionChanges,
+  loadCareerWorkspace,
+  saveCareerWorkspace,
 } = loadedModule.exports;
 
 const job = {
@@ -124,6 +132,36 @@ assert.equal(draft.skillLine.includes("SQL"), false, "A missing skill must not b
 assert.ok(draft.learningSuggestions.some((item) => item.includes("SQL")));
 assert.ok(draft.proposals.every((item) => item.originalText && item.evidenceIds.length > 0));
 
+const adversarialClaims = [
+  "Java", "Spring Boot", "微服务", "线上部署", "主导项目", "负责架构", "提升50%", "100万用户", "Go", "Kubernetes",
+  "Redis", "Kafka", "React Native", "Flutter", "AWS", "Tableau", "PyTorch", "发表论文", "国家级获奖", "管理十人团队",
+];
+for (const [index, claim] of adversarialClaims.entries()) {
+  const adversarialJob = {
+    ...job,
+    id: `adversarial-${index + 1}`,
+    requirements: [`要求具备${claim}经验`],
+    keywords: [claim],
+  };
+  const adversarialResult = analyzeMatch(confirmedProfile, adversarialJob, confirmedProfile.resumeText);
+  const adversarialDraft = buildOptimizedResumeDraft(confirmedProfile, adversarialJob, adversarialResult);
+  const generatedText = adversarialDraft.proposals.map((item) => item.suggestedText).join("\n");
+  assert.equal(generatedText.includes(claim), false, `Unsupported claim must not enter generated resume text: ${claim}`);
+  assert.ok(adversarialDraft.learningSuggestions.some((item) => item.includes(claim)), `Unsupported claim must enter learning plan: ${claim}`);
+}
+
+const validEvidenceIds = confirmedProfile.experiences.map((item) => item.id);
+assert.equal(validateOptimizedResumeDraft(draft, [], validEvidenceIds).ok, false, "No proposal may be exported without acceptance.");
+assert.equal(validateOptimizedResumeDraft(draft, ["missing-proposal"], validEvidenceIds).ok, false, "Stale proposal IDs must be rejected.");
+assert.equal(validateOptimizedResumeDraft(draft, [draft.proposals[0].id], validEvidenceIds).ok, false, "Placeholder text must be rejected.");
+const confirmedDraft = {
+  ...draft,
+  proposals: draft.proposals.map((item) => ({ ...item, suggestedText: item.originalText })),
+};
+const confirmedValidation = validateOptimizedResumeDraft(confirmedDraft, [confirmedDraft.proposals[0].id], validEvidenceIds);
+assert.equal(confirmedValidation.ok, true);
+assert.match(formatOptimizedResumeDraft(confirmedDraft, confirmedValidation.acceptedProposalIds), /证据：resume-evidence-1/);
+
 const unsupportedJob = parseCustomJob("临床医生", "要求执业医师资格并完成住院医师规范化培训");
 assert.equal(unsupportedJob.track, "当前领域未深度支持");
 assert.deepEqual(unsupportedJob.keywords, [], "Unsupported domains must not receive generic internet keywords.");
@@ -177,6 +215,53 @@ const memoryStorage = {
 saveApplicationRecords(memoryStorage, applied);
 assert.deepEqual(loadApplicationRecords(memoryStorage), applied, "Application records must survive local serialization.");
 
+const resumeVersion = createResumeVersion({
+  name: "数据分析实习生 · 投递版 1",
+  jobId: verifiedJob.id,
+  jobTitle: verifiedJob.title,
+  content: formatOptimizedResumeDraft(confirmedDraft, confirmedValidation.acceptedProposalIds),
+  acceptedProposalIds: confirmedValidation.acceptedProposalIds,
+  proposalEdits: { [confirmedDraft.proposals[0].id]: confirmedDraft.proposals[0].originalText },
+  evidenceCoverage: confirmed.evidenceCoverage,
+  sourceFingerprint: "source-1",
+  changeSummary: summarizeResumeVersionChanges("版本一"),
+});
+const bound = bindApplicationResumeVersion(applied, applied[0].id, resumeVersion.id, new Date("2026-07-20T02:00:00.000Z"));
+assert.equal(bound[0].resumeVersionId, resumeVersion.id, "Application record must bind the actual resume version.");
+
+const workspaceStorage = {
+  value: null,
+  getItem() { return this.value; },
+  setItem(_key, value) { this.value = value; },
+  removeItem() { this.value = null; },
+};
+const workspace = {
+  resumeText: confirmedProfile.resumeText,
+  structuredResume: null,
+  resumeConfirmed: true,
+  resumeSource: "test",
+  customTitle: "",
+  customJdText: "",
+  customJobs: [],
+  publicJobs: [verifiedJob],
+  modelJobs: [],
+  selectedJobId: verifiedJob.id,
+  activeJobTab: "verified-job",
+  proposalContextKey: "context",
+  proposalDecisions: { [confirmedDraft.proposals[0].id]: "accepted" },
+  proposalEdits: resumeVersion.proposalEdits,
+  resumeVersions: [resumeVersion],
+  privacyPreferences: defaultPrivacyPreferences,
+  savedAt: "",
+};
+assert.equal(saveCareerWorkspace(workspaceStorage, workspace), true);
+const restoredWorkspace = loadCareerWorkspace(workspaceStorage);
+assert.equal(restoredWorkspace.resumeText, confirmedProfile.resumeText, "Resume must survive workspace serialization.");
+assert.equal(restoredWorkspace.resumeVersions[0].id, resumeVersion.id, "Resume versions must survive workspace serialization.");
+workspaceStorage.value = "{broken-json";
+assert.equal(loadCareerWorkspace(workspaceStorage).resumeText, "", "Corrupted workspace data must fail closed.");
+assert.equal(summarizeResumeVersionChanges("a\nb", "a\nc"), "相较上一版本新增 1 行、移除 1 行");
+
 const structured = parseStructuredResume(JSON.stringify({
   name: "林晨",
   education: ["示例大学 计算机科学与技术 本科"],
@@ -211,4 +296,6 @@ console.log(JSON.stringify({
   unconfirmedCoverage: unconfirmed.evidenceCoverage,
   hardGate: confirmed.hardGateResult,
   directionCount: directions.length,
+  adversarialCases: adversarialClaims.length,
+  resumeVersionBound: bound[0].resumeVersionId === resumeVersion.id,
 }, null, 2));

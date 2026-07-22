@@ -17,9 +17,9 @@
 | 设备类型 | default、tablet、2in1 |
 | 原生入口 | `EntryAbility` + `pages/Index.ets` |
 | 核心 UI | React/Vite 静态资源随 HAP 打包，由 ArkWeb 本地加载 |
-| 请求权限 | INTERNET、CAMERA（仅使用时申请） |
+| 请求权限 | INTERNET、CAMERA、MICROPHONE（相机和麦克风仅使用时申请） |
 | 正式签名 | 未配置 |
-| 后端 | 仓库含 `/api/ark`、`/api/jobs`，当前 HAP 构建未注入可公网访问的生产地址 |
+| 后端 | 仓库含 `/api/ark`、`/api/jobs`、`/api/job-sources`、`/api/health`；当前 HAP 注入本机联调地址，未注入生产 HTTPS 地址 |
 
 ## 已接入原生能力
 
@@ -29,17 +29,17 @@
 | Core Vision Kit | 图片/PDF 页面优先本机 OCR，失败后才考虑外部视觉模型 | ArkTS 构建通过；模拟器是否具备运行时系统能力需用实际图片复验 |
 | Share Kit | 分析报告调用鸿蒙系统分享面板 | ArkTS 构建通过；需在支持该系统能力的设备上完成交互复验 |
 | Camera | ArkWeb 视频采集只对本地页面授权，运行时请求 CAMERA | 既有模拟器流程已覆盖授权与拒绝逻辑 |
-| Core Speech Kit | 未接入 | 浏览器语音仍是兼容路径，不计为原生能力 |
-| Form Kit | 未接入 | 不计为已完成功能 |
+| Core Speech Kit | TTS 与短语音识别已接入，原生失败时降级浏览器/文字 | ArkTS 构建通过；真机权限、音频和网络异常待验 |
+| Form Kit | 今日行动数据、卡片页面和 `ApplicationFormAbility` 已实现 | `bm dump` 确认 Extension 注册；桌面动态刷新待验 |
 
 ## 最新产物
 
 - 路径：`harmony/entry/build/default/outputs/default/entry-default-unsigned.hap`
-- 大小：34,227,933 bytes
-- SHA-256：`E610F1CFFA111C49B06BF7DFB3A9702B43E35990D97C045DFC1B56CCB004A65D`
+- 大小：34,324,777 bytes
+- SHA-256：`728B5635495DB019DC5C9D34E72CB4745584D4FBAA98F78500C8D6AE7C265A28`
 - API 24 模拟器覆盖安装：成功
-- `EntryAbility` 启动：成功
-- 运行截图：`artifacts/harmony-latest.jpeg`
+- `EntryAbility` 首次和二次启动：成功
+- 运行截图：`docs/evidence-screenshots/harmony-emulator-home-20260722.jpeg`
 
 ## 官方能力依据
 

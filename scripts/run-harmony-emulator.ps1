@@ -4,6 +4,8 @@ param(
   [string]$EmulatorName = 'KongMing_API24',
   [string]$InstancePath = 'D:\HarmonyOS-Emulator\instances',
   [string]$ImageRoot = 'D:\HarmonyOS-Emulator\images',
+  [ValidateSet('coldboot', 'snapshot', 'reset')]
+  [string]$BootMode = 'coldboot',
   [ValidateRange(10000, 16555)]
   [int]$HdcPort = 15555,
   [ValidateRange(1024, 65535)]
@@ -37,20 +39,38 @@ if (-not $instance) {
   throw "Emulator instance '$EmulatorName' does not exist."
 }
 
+if ([string]$instance.isRunning -eq 'true') {
+  & $hdc tconn $preferredTarget 2>&1 | Out-Null
+  $runningTargets = @(& $hdc list targets -v)
+  $runningConnected = $runningTargets | Where-Object { $_ -match '^127\.0\.0\.1:\d+\s+TCP\s+Connected' } | Select-Object -First 1
+  if (-not $runningConnected) {
+    Write-Output 'Running emulator has no connected HDC target; restarting it to recover the debug channel.'
+    & $emulator -stop $EmulatorName | Out-Null
+    for ($attempt = 1; $attempt -le 20; $attempt++) {
+      Start-Sleep -Seconds 2
+      $stoppedState = (& $emulator -list -details | ConvertFrom-Json) |
+        Where-Object { $_.name -eq $EmulatorName } |
+        Select-Object -First 1
+      if ([string]$stoppedState.isRunning -ne 'true') { break }
+    }
+    $instance.isRunning = 'false'
+  }
+}
+
 if ([string]$instance.isRunning -ne 'true') {
   $arguments = @(
     '-start', $EmulatorName,
     '-instancePath', $InstancePath,
     '-imageRoot', $ImageRoot,
     '-hdcPort', $HdcPort,
-    '-bootmode', 'snapshot'
+    '-bootmode', $BootMode
   )
   Start-Process -FilePath $emulator -ArgumentList $arguments | Out-Null
 }
 
 $connected = $false
 $target = $null
-for ($attempt = 1; $attempt -le 40; $attempt++) {
+for ($attempt = 1; $attempt -le 60; $attempt++) {
   & $hdc tconn $preferredTarget 2>&1 | Out-Null
   $targets = @(& $hdc list targets -v)
   $connectedLine = $targets |
@@ -94,6 +114,7 @@ if ($LASTEXITCODE -ne 0 -or $launchText -match '\[Fail\]|failed to start ability
 
 [pscustomobject]@{
   Emulator = $EmulatorName
+  BootMode = $BootMode
   Target = $target
   Bundle = $BundleName
   HAP = $hapPath

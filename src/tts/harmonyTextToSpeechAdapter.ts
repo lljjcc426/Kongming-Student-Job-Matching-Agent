@@ -3,12 +3,13 @@ import { BrowserSpeechSynthesisAdapter, type TextToSpeechAdapter } from "./brows
 
 class HarmonyTextToSpeechAdapter implements TextToSpeechAdapter {
   private speaking = false;
+  private readonly browserFallback = new BrowserSpeechSynthesisAdapter();
 
   async speak(text: string) {
     if (!text.trim()) return { durationMs: 0 };
     this.stop();
     const result = await speakTextWithHarmony(text);
-    if (!result.ok) return { durationMs: Math.max(1200, Math.min(12000, text.length * 90)) };
+    if (!result.ok) return this.browserFallback.speak(text);
     this.speaking = true;
     const durationMs = Math.max(1600, Math.min(12000, text.length * 110));
     await new Promise<void>((resolve) => window.setTimeout(resolve, durationMs));
@@ -18,11 +19,12 @@ class HarmonyTextToSpeechAdapter implements TextToSpeechAdapter {
 
   stop() {
     if (this.speaking) void stopSpeakingWithHarmony();
+    this.browserFallback.stop();
     this.speaking = false;
   }
 
   isSpeaking() {
-    return this.speaking;
+    return this.speaking || this.browserFallback.isSpeaking();
   }
 }
 

@@ -30,6 +30,7 @@ import type { Job, JobKind } from "./data";
 import { buildJobCatalog } from "./core/job/repositories";
 import {
   applicationStageOptions,
+  bindApplicationResumeVersion,
   buildDailyApplicationActions,
   loadApplicationRecords,
   saveApplicationRecords,
@@ -44,6 +45,7 @@ import {
   fingerprintText,
   loadCareerWorkspace,
   saveCareerWorkspace,
+  summarizeResumeVersionChanges,
   type CareerWorkspace,
   type ResumeVersion,
 } from "./core/workspace/workspaceRepository";
@@ -468,6 +470,10 @@ function App() {
   const [proposalDecisions, setProposalDecisions] = useState<Record<string, "accepted" | "rejected">>(initialWorkspace.proposalDecisions);
   const [proposalEdits, setProposalEdits] = useState<Record<string, string>>(initialWorkspace.proposalEdits);
   const [resumeVersions, setResumeVersions] = useState<ResumeVersion[]>(initialWorkspace.resumeVersions);
+  const currentJobVersions = useMemo(
+    () => resumeVersions.filter((version) => version.jobId === selectedJob.id),
+    [resumeVersions, selectedJob.id],
+  );
   const currentProposalContextKey = useMemo(
     () => buildProposalContextKey(selectedJob.id, resumeText),
     [resumeText, selectedJob.id],
@@ -734,13 +740,13 @@ function App() {
 
   const handleDownloadReport = () => {
     if (!hasResume) return;
-    const report = buildMatchReport(activeProfile, selectedJob, result, resumeText, optimizedDraft, careerOpsEvaluation);
+    const report = buildMatchReport(activeProfile, selectedJob, result, resumeText, editedDraft, careerOpsEvaluation, draftValidation);
     downloadTextFile("kongming-match-report.md", report);
   };
 
   const handleShareReport = async () => {
     if (!hasResume || !hasAnalysis) return;
-    const report = buildMatchReport(activeProfile, selectedJob, result, resumeText, optimizedDraft, careerOpsEvaluation);
+    const report = buildMatchReport(activeProfile, selectedJob, result, resumeText, editedDraft, careerOpsEvaluation, draftValidation);
     const shareResult = await shareTextWithHarmony(`${selectedJob.title} · 孔明职配分析`, report);
     setShareStatus(shareResult.message);
     window.setTimeout(() => setShareStatus(""), 3600);
@@ -752,7 +758,22 @@ function App() {
 
   const handleApplicationStage = (stage: ApplicationStage) => {
     if (!trackedApplication) return;
+    if (stage === "applied" && !trackedApplication.resumeVersionId) {
+      setResumeVersionStatus("进入已投递前，请先保存并绑定本次实际使用的简历版本。");
+      return;
+    }
     setApplications((current) => updateApplicationStage(current, trackedApplication.id, stage));
+  };
+
+  const handleBindResumeVersion = (resumeVersionId: string) => {
+    if (!trackedApplication) return;
+    const version = currentJobVersions.find((item) => item.id === resumeVersionId);
+    if (!version) {
+      setResumeVersionStatus("所选版本不属于当前岗位，未执行绑定。");
+      return;
+    }
+    setApplications((current) => bindApplicationResumeVersion(current, trackedApplication.id, version.id));
+    setResumeVersionStatus(`已将“${version.name}”绑定到当前投递记录。`);
   };
 
   const handleProposalEdit = (proposalId: string, value: string) => {
@@ -782,13 +803,21 @@ function App() {
       setResumeVersionStatus(draftValidation.errors[0] || "请先完成事实确认。");
       return;
     }
+    const content = formatOptimizedResumeDraft(editedDraft, draftValidation.acceptedProposalIds);
+    const previousVersion = currentJobVersions[0];
     const version = createResumeVersion({
+      name: `${selectedJob.title} · 投递版 ${currentJobVersions.length + 1}`,
       jobId: selectedJob.id,
       jobTitle: selectedJob.title,
-      content: formatOptimizedResumeDraft(editedDraft, draftValidation.acceptedProposalIds),
+      content,
       acceptedProposalIds: draftValidation.acceptedProposalIds,
+      proposalEdits: Object.fromEntries(draftValidation.acceptedProposalIds.map((id) => [
+        id,
+        proposalEdits[id] ?? optimizedDraft.proposals.find((proposal) => proposal.id === id)?.suggestedText ?? "",
+      ])),
       evidenceCoverage: result.evidenceCoverage,
       sourceFingerprint: fingerprintText(resumeText),
+      changeSummary: summarizeResumeVersionChanges(content, previousVersion?.content),
     });
     setResumeVersions((current) => [version, ...current].slice(0, 30));
     setResumeVersionStatus("投递版本已保存在本机；后续修改不会覆盖该版本。");
@@ -797,6 +826,28 @@ function App() {
   const handleCopyResumeVersion = async (version: ResumeVersion) => {
     await navigator.clipboard.writeText(version.content);
     setResumeVersionStatus(`已复制“${version.jobTitle}”的历史投递版本。`);
+  };
+
+  const handleRestoreResumeVersion = (version: ResumeVersion) => {
+    if (version.jobId !== selectedJob.id || version.sourceFingerprint !== fingerprintText(resumeText)) {
+      setResumeVersionStatus("该版本对应的岗位或简历原文已经变化。为避免错绑证据，只允许复制查看，不能直接恢复。");
+      return;
+    }
+    setProposalContextKey(currentProposalContextKey);
+    setProposalEdits({ ...version.proposalEdits });
+    setProposalDecisions(Object.fromEntries(version.acceptedProposalIds.map((id) => [id, "accepted" as const])));
+    setResumeVersionStatus(`已把“${version.name}”恢复到当前修改区，请再次检查后使用。`);
+  };
+
+  const handleDeleteResumeVersion = (version: ResumeVersion) => {
+    const boundApplication = applications.find((application) => application.resumeVersionId === version.id);
+    if (boundApplication) {
+      setResumeVersionStatus(`“${version.name}”已绑定到“${boundApplication.title}”的投递记录，请先更换绑定版本。`);
+      return;
+    }
+    if (!window.confirm(`确定删除“${version.name}”吗？删除后无法恢复。`)) return;
+    setResumeVersions((current) => current.filter((item) => item.id !== version.id));
+    setResumeVersionStatus(`已删除“${version.name}”。`);
   };
 
   const clearLocalCareerData = () => {
@@ -1527,16 +1578,30 @@ function App() {
                     {selectedJob.jobKind === "career-direction" ? (
                       <span className="tracking-blocked">不可直接投递</span>
                     ) : trackedApplication ? (
-                      <label>
-                        当前阶段
-                        <select value={trackedApplication.stage} onChange={(event) => handleApplicationStage(event.target.value as ApplicationStage)}>
-                          {applicationStageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                        </select>
-                      </label>
+                      <div className="tracking-controls">
+                        <label>
+                          投递简历版本
+                          <select
+                            value={trackedApplication.resumeVersionId ?? ""}
+                            onChange={(event) => handleBindResumeVersion(event.target.value)}
+                            disabled={!currentJobVersions.length}
+                          >
+                            <option value="" disabled>{currentJobVersions.length ? "请选择实际使用版本" : "请先保存投递版本"}</option>
+                            {currentJobVersions.map((version) => <option key={version.id} value={version.id}>{version.name}</option>)}
+                          </select>
+                        </label>
+                        <label>
+                          当前阶段
+                          <select value={trackedApplication.stage} onChange={(event) => handleApplicationStage(event.target.value as ApplicationStage)}>
+                            {applicationStageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </label>
+                      </div>
                     ) : (
                       <button type="button" className="secondary-action compact-action" onClick={handleTrackSelectedJob}>加入追踪</button>
                     )}
                   </div>
+                  {resumeVersionStatus ? <p className="resume-version-status application-tracker-status" role="status">{resumeVersionStatus}</p> : null}
 
                   {selectedJob.jdAnalysis ? (
                     <div className="jd-analysis-panel">
@@ -1707,16 +1772,26 @@ function App() {
                       </button>
                     </div>
                     {resumeVersionStatus ? <p className="resume-version-status" role="status">{resumeVersionStatus}</p> : null}
-                    {resumeVersions.length ? (
+                    {currentJobVersions.length ? (
                       <div className="resume-version-list">
-                        <span>本机投递版本</span>
-                        {resumeVersions.slice(0, 5).map((version) => (
+                        <span>当前岗位的本机投递版本</span>
+                        {currentJobVersions.slice(0, 8).map((version) => (
                           <article key={version.id}>
-                            <div>
-                              <strong>{version.jobTitle}</strong>
+                            <div className="resume-version-summary">
+                              <strong>{version.name}</strong>
                               <small>{new Date(version.createdAt).toLocaleString("zh-CN")} · {version.acceptedProposalIds.length} 项事实确认 · 证据覆盖 {version.evidenceCoverage}%</small>
+                              <small>{version.changeSummary}</small>
+                              {trackedApplication?.resumeVersionId === version.id ? <b>当前投递记录使用版本</b> : null}
+                              <details>
+                                <summary>查看版本内容</summary>
+                                <pre>{version.content}</pre>
+                              </details>
                             </div>
-                            <button type="button" className="secondary-action compact-action" onClick={() => void handleCopyResumeVersion(version)}>复制此版本</button>
+                            <div className="resume-version-actions">
+                              <button type="button" className="secondary-action compact-action" onClick={() => void handleCopyResumeVersion(version)}>复制</button>
+                              <button type="button" className="secondary-action compact-action" onClick={() => handleRestoreResumeVersion(version)}>恢复</button>
+                              <button type="button" className="secondary-action compact-action danger-action" onClick={() => handleDeleteResumeVersion(version)}>删除</button>
+                            </div>
                           </article>
                         ))}
                       </div>

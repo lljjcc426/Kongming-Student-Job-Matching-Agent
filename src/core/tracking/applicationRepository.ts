@@ -24,6 +24,7 @@ export type ApplicationRecord = {
   title: string;
   company: string;
   sourceUrl: string | null;
+  resumeVersionId: string | null;
   stage: ApplicationStage;
   createdAt: string;
   updatedAt: string;
@@ -60,6 +61,7 @@ const isRecord = (value: unknown): value is ApplicationRecord => {
     && (record.jobKind === "verified-job" || record.jobKind === "imported-jd")
     && typeof record.title === "string"
     && typeof record.company === "string"
+    && (record.resumeVersionId === undefined || record.resumeVersionId === null || typeof record.resumeVersionId === "string")
     && validStages.has(record.stage as ApplicationStage)
     && typeof record.createdAt === "string"
     && typeof record.updatedAt === "string"
@@ -71,7 +73,10 @@ export function loadApplicationRecords(storage: StorageLike): ApplicationRecord[
     const raw = storage.getItem(APPLICATION_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter(isRecord) : [];
+    return Array.isArray(parsed) ? parsed.filter(isRecord).map((record) => ({
+      ...record,
+      resumeVersionId: record.resumeVersionId ?? null,
+    })) : [];
   } catch {
     return [];
   }
@@ -95,11 +100,24 @@ export function createApplicationRecord(job: Job, now = new Date()): Application
     title: job.title,
     company: job.companyScenario,
     sourceUrl: job.sourceMetadata?.sourceUrl ?? job.applicationLinks?.[0]?.url ?? null,
+    resumeVersionId: null,
     stage: "interested",
     createdAt: timestamp,
     updatedAt: timestamp,
     events: [{ stage: "interested", occurredAt: timestamp }],
   };
+}
+
+export function bindApplicationResumeVersion(
+  records: ApplicationRecord[],
+  applicationId: string,
+  resumeVersionId: string | null,
+  now = new Date(),
+): ApplicationRecord[] {
+  const timestamp = now.toISOString();
+  return records.map((record) => record.id === applicationId
+    ? { ...record, resumeVersionId, updatedAt: timestamp }
+    : record);
 }
 
 export function upsertApplication(records: ApplicationRecord[], job: Job, now = new Date()): ApplicationRecord[] {

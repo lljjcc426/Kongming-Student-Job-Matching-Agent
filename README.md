@@ -1,287 +1,195 @@
-# Kongming Student Job Matching Agent
+# 孔明职配
 
-> HarmonyOS 端采用“ArkUI 原生容器 + ArkWeb 本地业务包 + 受信原生桥接”的混合架构。当前已接入华为账号、Core Vision 本机 OCR、Share Kit 系统分享和相机运行时授权；核心业务页面尚未全部 ArkUI 原生化。构建说明见 [harmony/README.md](harmony/README.md)，比赛任务链见 [docs/HARMONYOS_COMPETITION_PLAN.md](docs/HARMONYOS_COMPETITION_PLAN.md)。
+面向高校学生的求职证据工作台。项目聚焦互联网与数字技术岗位，把简历原文、岗位要求、事实确认、定制简历版本和投递进度组织成可追溯的求职闭环。
 
-孔明职配是面向学生求职场景的 AI 岗位匹配与简历优化智能体。项目通过简历解析、岗位推荐、JD 分析、匹配解释、简历优化建议、模拟面试和 AI 求职助手，帮助学生完成从“理解自身画像”到“准备投递材料”的求职分析闭环。
+HarmonyOS 端采用“ArkUI 原生容器 + ArkWeb 本地业务包 + 受信原生桥接”的混合架构。应用界面和核心业务随 HAP 本地打包；华为账号、Core Vision OCR、Share Kit、Core Speech 和 Form Kit 由 ArkTS 桥接。架构边界和迁移策略见 [HarmonyOS 原生 UI 映射](docs/HARMONYOS_ORIGINAL_UI_MAPPING.md)。
 
-## 项目简介
+> 当前可交付状态：Web 构建、核心自动化、浏览器冷启动持久化、ArkTS 编译、unsigned HAP 打包、HarmonyOS 6.1.1(24) 模拟器安装及两次启动均已验证。正式签名、华为账号和部分 Kit 的真机运行仍待完成，不能把“编译通过”写成“真机通过”。
 
-难以判断岗位与自身经历是否匹配是学生在求职过程中常见的问题，同时学生也缺少面向目标 JD 的具体简历优化建议。孔明职配将简历、岗位 JD、面试回答和用户追问统一到一个求职上下文中，使用轻量多智能体流程和模型代理生成可解释结果。
+![HarmonyOS 模拟器首页](docs/evidence-screenshots/harmony-emulator-home-20260722.jpeg)
 
-当前仓库已实现 Web Demo，主要面向以下场景：
+## 核心价值
 
-- 学生上传或粘贴 PDF、图片、文本简历。
-- 系统结构化提取学生画像、经历证据、技能和求职方向。
-- 系统严格区分已验证岗位、用户导入 JD 与 AI 职业方向，并给出硬性条件、证据覆盖、风险和行动建议。
-- 用户粘贴目标 JD 后进行二次分析。
-- 用户进入模拟面试，获得面试追问和反馈。
-- 用户通过 AI 助手进行连续求职问答。
+- 区分企业官方岗位、用户导入 JD 和 AI 职业方向，三类数据不混排。
+- 先判断学历、地点等硬性条件，再把每项岗位要求映射到简历原文 Evidence ID。
+- 证据覆盖率只表示“可评估要求中有原文证据的比例”，不是录用率、通过率或能力分。
+- 缺失技能只进入学习与补强计划，不自动写进简历。
+- 修改建议保留原文、证据 ID、对应岗位要求和风险，并要求用户逐条接受。
+- 投递稿在导出和保存前再次执行事实检查；占位符、无证据项和失效证据会被拦截。
+- 每个投递版本记录名称、目标岗位、创建时间、差异摘要、事实确认项和原文指纹，可复制、恢复和删除。
+- 投递记录绑定实际使用的简历版本；没有绑定版本时不能进入“已投递”。
+- 简历、岗位缓存、修改记录、版本和投递进度默认保存在当前设备，可一键清除。
 
-## 核心功能
+## 当前功能
 
-| 功能 | 当前实现 |
+| 模块 | 当前实现 |
 | --- | --- |
-| 简历输入 | 支持文本文件、PDF、图片简历；PDF 优先读取文本层，质量不足时转视觉识别。 |
-| 简历结构化 | 通过模型任务 `resume-structure` 提取姓名、学历、经历、技能、求职方向等字段。 |
-| 岗位分层 | 已验证岗位、用户导入 JD、AI 职业方向使用独立仓储和页签，不混排。 |
-| 证据化匹配 | `src/matchEngine.ts` 先判断硬性条件，再把岗位要求映射到简历 Evidence ID；覆盖率不代表录用概率。 |
-| JD 分析 | 支持用户输入岗位名称和 JD，生成岗位结构、投递优先级、优势、风险和行动建议。 |
-| 事实约束改写 | 建议绑定原文、岗位要求和 Evidence ID，缺失技能只进入学习清单，由用户逐条接受或拒绝。 |
-| 求职追踪 | 具体岗位可在本机记录收藏、材料准备、投递、测评、面试和结果阶段；职业方向不可加入。 |
-| 隐私控制 | 文本统一脱敏、外部模型会话授权、Core Vision 本机 OCR 优先、一键清除本地求职数据。 |
-| 模拟面试 | 支持综合面、技术面、HR 面三种模式；无法解析模型反馈时明确标为评分不可用。 |
-| AI 求职助手 | 支持多轮对话，带入简历、岗位和匹配结果上下文。 |
-| 报告导出 | 可导出 Markdown 分析报告，并通过 Share Kit 调用鸿蒙系统分享。 |
+| 简历输入 | 文本、PDF、图片；PDF 优先读取文本层，图片优先调用本机 OCR，必要时才在用户同意后使用外部模型。 |
+| 简历结构化 | 提取教育、实习、项目、校园经历、技能和求职方向；结构化结果需用户确认。 |
+| 真实岗位 | 聚合企业公开招聘入口和 ATS 适配器，保留来源 URL、更新时间、最近发现时间和验证状态。 |
+| 证据匹配 | 硬性条件、满足/部分满足/无证据/待确认、Evidence ID、证据覆盖和风险等级。 |
+| 事实约束改写 | 原文与建议并排、逐项接受/拒绝/编辑、导出前校验、缺失技能学习清单。 |
+| 简历版本 | 本机保存、差异摘要、内容预览、恢复、删除、投递记录绑定。 |
+| 求职追踪 | 收藏、材料准备、已投递、测评、面试、Offer、未通过和终止；保存追加式阶段事件。 |
+| 模拟面试 | 综合面、技术面、HR 面；文本回答、语音输入、问题播报和证据等级反馈。 |
+| AI 助手 | 基于当前简历、岗位和匹配上下文进行多轮求职问答。 |
+| 隐私 | 会话级外部模型授权、敏感字段脱敏、本机数据清除、服务不可用时本地降级。 |
+| HarmonyOS | 华为账号、OCR、系统分享、TTS、语音识别、服务卡片和能力检测桥接。 |
 
-## 使用的模型与算力环境
+当前端到端回归中的版本管理与投递绑定：
 
-当前代码中的模型调用由后端代理统一封装：
+![简历版本管理](docs/evidence-screenshots/resume-version-manager-20260722.png)
 
-- 前端调用：`src/arkClient.ts`
-- 开发环境代理：`vite.config.ts` 中的 `/api/ark`
-- Vercel API：`api/ark.js`
-- 核心模型调用：`server/arkCore.js`
+![投递记录绑定具体简历版本](docs/evidence-screenshots/application-version-binding-20260722.png)
 
-当前默认配置为 Ark 兼容接口：
+## 可信性规则
 
-```text
-ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
-ARK_API_KEY=your_model_api_key
-ARK_REQUEST_TIMEOUT_MS=65000
+系统不会输出综合能力分或录用概率。岗位排序只使用：
+
+1. 硬性条件和投递建议等级；
+2. 可追溯证据覆盖；
+3. 来源是否为可验证的具体岗位。
+
+首页演示卡也只展示“有证据、部分证据、待确认”等离散状态，不再生成随机百分比或能力雷达分。以下旧逻辑由自动化检查阻止重新进入源码和 HAP 静态资源：固定能力分、简历长度加分、城市偏好增加专业分、固定分数阈值决定投递建议等。
+
+运行可信性测试：
+
+```powershell
+npm run verify:evidence
+npm run verify:claims
 ```
 
-默认模型常量为 `doubao-seed-2-0-lite-260215`，同时已支持通过环境变量切换到 Gitee AI / 沐曦 Token 资源包。当前真实调用环境使用 `https://ai.gitee.com/v1`、资源包 `1492`、文本模型 `Qwen3-4B` 和视觉模型 `Qwen3-VL-8B-Instruct`，并已补充脱敏调用记录与截图证据。
-
-## 仓库结构
-
-```text
-.
-├── api/                         Vercel API 入口，转发模型请求
-├── docs/                        项目架构、技术说明、部署、证据与运行文档
-├── public/                      静态资源、Live2D/2D 面试官、PDF.js CMap
-├── scripts/                     解析器与 UI 验证脚本
-├── server/                      服务端模型代理核心逻辑
-├── harmony/                     HarmonyOS 工程、ArkWeb 容器与原生能力桥接
-├── src/core/                    岗位仓储、隐私和求职追踪基础设施
-├── src/domain/                  互联网与数字技术领域适配器
-├── src/                         React 前端、智能体、解析器、页面和样式
-├── index.html                   Vite HTML 入口
-├── package.json                 Node 依赖和脚本
-├── vite.config.ts               Vite 配置和本地 API 代理
-├── vercel.json                  Vercel 安全头配置
-└── tsconfig.json                TypeScript 配置
-```
-
-更完整的结构说明见 [项目架构与理解文档](docs/PROJECT_ARCHITECTURE_AND_UNDERSTANDING.md)。
+`verify:evidence` 当前包含 20 组事实约束对抗样例，覆盖简历没有的技能、职责、量化结果、上线经历和无效 Evidence ID。
 
 ## 快速开始
 
-环境要求：
+要求：Node.js 20 或更新版本、npm。
 
-- Node.js 版本建议使用当前 Vite 7 可兼容版本，推荐 Node.js 20 或更新版本。
-- npm。
-
-安装依赖：
-
-```bash
+```powershell
 npm install
-```
-
-本地开发：
-
-```bash
 npm run dev
 ```
 
-浏览器访问 Vite 输出的本地地址，默认通常为：
+默认访问：`http://localhost:5173`。
 
-```text
-http://localhost:5173
-```
+Web 生产构建：
 
-构建：
-
-```bash
+```powershell
 npm run build
 ```
 
 核心验证：
 
-```bash
-npm run verify:parsers
-npm run verify:evidence
-npm run verify:jobs
-npm run verify:job-sources
-npm run verify:harmony
+```powershell
+npm run verify:core
 ```
 
-HAP 构建：
+UI 验证需要先保持 `npm run dev -- --port 5173 --strictPort` 运行，然后在另一个终端执行：
 
-```bash
+```powershell
+npm run verify:ui
+```
+
+UI 脚本会验证隐私门禁、岗位分层、事实确认、版本保存、投递绑定以及刷新后的数据恢复，并将脱敏截图写入忽略提交的 `artifacts/`。
+
+## HarmonyOS 构建与运行
+
+工程要求：DevEco Studio 6.1.1、HarmonyOS SDK 6.1.1(24)。
+
+不依赖本机接口的普通构建：
+
+```powershell
 npm run build:harmony
 ```
 
-预览构建产物：
+模拟器本地联调：
 
-```bash
-npm run preview
+```powershell
+npm run dev -- --port 5173 --strictPort
+npm run build:harmony:local
+npm run run:harmony:emulator
 ```
 
-## 配置说明
+`build:harmony:local` 将 `http://127.0.0.1:5173/api/*` 写入调试 HAP；运行脚本通过 HDC 反向端口转发访问电脑上的服务。模拟器脚本默认冷启动，以规避部分快照启动后 HDC Offline 的问题。
 
-| 配置项 | 是否必填 | 用途 | 示例 |
-| --- | --- | --- | --- |
-| `ARK_API_KEY` | 模型能力必填 | 服务端模型代理鉴权 | `your_model_api_key` |
-| `ARK_BASE_URL` | 否 | 覆盖默认 Ark 兼容接口地址 | `https://ark.cn-beijing.volces.com/api/v3` |
-| `ARK_MODEL` | 否 | 文本任务模型名称 | `Qwen3-4B` |
-| `ARK_VISION_MODEL` | 否 | 图片/PDF 视觉兜底模型名称 | `Qwen3-VL-8B-Instruct` |
-| `ARK_PACKAGE` | 否 | Gitee AI / 沐曦 Token 资源包编号 | `1492` |
-| `ARK_REQUEST_TIMEOUT_MS` | 否 | 服务端模型请求超时时间 | `65000` |
-| `VITE_ARK_API_URL` | 否 | 前端覆盖模型代理地址 | `/api/ark` |
-| `VITE_JOBS_API_URL` | HAP 联网岗位必填 | 企业官方岗位聚合接口 | `https://example.com/api/jobs` |
-| `JOB_STORE_PATH` | 否 | 长驻服务的岗位 JSON 快照路径 | `E:\KongMing-Job-Matching-Agent\.runtime\jobs.json` |
-| `JOB_SOURCE_CONFIG_JSON` | 否 | 追加 ATS 来源的 JSON 配置 | `[]` |
-| `VITE_AVATAR_MODE` | 否 | 数字人模式标记 | `static` |
-
-## 真实岗位接口
-
-`GET /api/jobs` 聚合腾讯公开接口、Moka、Greenhouse、Lever、Ashby，以及企业官网索引和 `JobPosting` JSON-LD。支持 `q`、`city`、`company`、`employmentType`、`sourceType`、`updatedAfter`、`cursor`、`limit` 参数，并返回官方投递链接、来源类型、验证状态和分页信息。
-
-`GET /api/job-sources` 返回采集源健康状态、最近成功/失败时间、岗位数量与当前仓库统计。内置注册表覆盖 31 家互联网企业；可以通过 `JOB_SOURCE_CONFIG_JSON` 继续追加同类 ATS 来源。
-
-开发环境运行 `npm run dev` 后可直接访问：
+当前产物位置：
 
 ```text
-http://localhost:5173/api/jobs?q=前端&city=上海&limit=20
-http://localhost:5173/api/job-sources
+harmony/entry/build/default/outputs/default/entry-default-unsigned.hap
 ```
 
+详细环境、HAP 大小、SHA-256、安装输出、两次启动结果和设备信息见 [2026-07-22 交付证据](docs/RELEASE_EVIDENCE_20260722.md)。更完整的构建说明见 [HarmonyOS 工程说明](harmony/README.md)。
 
-## 示例输入输出与运行流程
+## 联网服务配置
 
-以下示例基于已脱敏的演示数据，展示从首页入口到简历分析、岗位推荐、模拟面试和 AI 助手的完整使用链路。
+浏览器开发模式可以使用同源 `/api`；HAP 正式构建必须注入可公开访问的 HTTPS 地址。
 
-示例输入：学生简历 PDF、图片或文本内容，以及可选的目标岗位名称/JD。
+| 配置 | 用途 |
+| --- | --- |
+| `ARK_API_KEY` | 仅服务端使用的模型密钥，禁止进入前端或 HAP。 |
+| `ARK_BASE_URL` | Ark/OpenAI 兼容模型服务地址。 |
+| `ARK_MODEL` | 文本模型。 |
+| `ARK_VISION_MODEL` | 图片/PDF 视觉兜底模型。 |
+| `VITE_ARK_API_URL` | HAP 可访问的 HTTPS 模型代理。 |
+| `VITE_JOBS_API_URL` | HAP 可访问的 HTTPS 岗位聚合接口。 |
+| `VITE_HEALTH_API_URL` | HAP 可访问的 HTTPS 健康检查。 |
+| `JOB_STORE_PATH` | 可选的岗位 JSON 快照路径。 |
+| `JOB_SOURCE_CONFIG_JSON` | 可选的额外 ATS 来源配置。 |
 
-示例输出：待确认学生画像、三类岗位数据、要求证据矩阵、事实约束改写建议、模拟面试追问和 AI 助手多轮问答回复。
+正式地址构建会拒绝非 HTTPS 地址：
 
-### 1. 首页与能力入口
+```powershell
+npm run build:harmony:release -- `
+  -PublicApiBaseUrl https://your-domain.example/api
+```
 
-首页展示项目定位、核心能力入口和岗位推荐/能力图谱预览。
+仓库不包含生产密钥、证书、Profile 或完整后端数据库。当前 `api/` 和 `server/` 可部署为轻量无服务器代理；正式运营仍需增加账号数据治理、监控、限流、关闭岗位对账和隐私合规流程。
 
-![首页 - 岗位推荐展示](docs/evidence-screenshots/app-home-job-matching-20260708.png)
+## 数据与隐私边界
 
-![首页 - 能力图谱展示](docs/evidence-screenshots/app-home-ability-radar-20260708.png)
+- 外部模型授权只在当前会话有效，应用重启后必须重新同意。
+- 本机工作区保存简历文本、结构化结果、岗位缓存、修改决定和投递版本；投递追踪单独保存岗位阶段和绑定的版本 ID。
+- 服务卡片只同步岗位数量、待办数量、下一行动和岗位名称，不同步简历正文。
+- 华为账号本机只保存登录提示和 OpenID 尾部提示，不保存密码或访问令牌。
+- 模型密钥只允许保存在服务端环境变量中。
+- “清除本地求职数据”会删除工作区和投递追踪，不影响华为账号系统登录态。
 
-### 2. 简历解析与优化建议
+## HarmonyOS 能力状态
 
-用户上传或粘贴简历后，系统提取学生画像、项目经历、技能关键词和求职方向，并基于目标岗位生成简历优化建议。
+| 能力 | 源码/构建 | 模拟器运行 | 真机待验 |
+| --- | --- | --- | --- |
+| ArkWeb 本地业务包 | 通过 | 安装、首次和二次启动通过 | 多设备布局 |
+| Form Kit | 编译并注册扩展 | `bm dump` 确认 `ApplicationFormAbility` 已安装 | 桌面添加、杀进程后刷新和精准跳转 |
+| 华为账号 | 已接入 | 未执行登录 | 包名、签名指纹和控制台授权 |
+| Core Vision OCR | 已接入 | 未用真实图片触发 | 中文识别质量和取消流程 |
+| Share Kit | 已接入 | 未触发系统面板 | 成功、取消和异常回调 |
+| Core Speech | TTS/STT 已接入，浏览器能力可降级 | 当前模拟器未做麦克风质量验收 | 权限拒绝、中英混合、后台和超时 |
 
-![简历解析结果](docs/evidence-screenshots/app-resume-analysis-summary-20260708.png)
+## 仓库结构
 
-![简历优化建议](docs/evidence-screenshots/app-resume-optimization-suggestions-20260708.png)
+```text
+api/        无服务器 API 入口与健康检查
+docs/       架构、部署、测试、证据和竞赛材料
+harmony/    HarmonyOS Stage 工程与本地 Web 资源
+public/     图片、视频、PDF.js 和数字人资源
+scripts/    构建、岗位、可信性、UI 和模拟器验证脚本
+server/     模型代理与岗位采集服务
+src/        React 业务、领域、存储、桥接和页面
+```
 
-### 3. 岗位推荐与匹配解释
-
-系统分开显示已验证岗位、用户导入 JD 与职业方向；选择具体岗位后展示硬性条件、要求证据矩阵、证据覆盖率、风险和行动建议。
-
-![岗位推荐列表](docs/evidence-screenshots/app-job-recommendation-cards-20260708.png)
-
-![历史版岗位详情截图](docs/evidence-screenshots/app-job-detail-match-score-20260708.png)
-
-### 4. 模拟面试与 AI 助手
-
-用户可以进入综合面、技术面或 HR 面模拟面试，也可以在 AI 助手中围绕简历诊断、岗位澄清、面试准备进行多轮问答。
-
-![模拟面试](docs/evidence-screenshots/app-interview-simulation-20260708.png)
-
-![AI 求职助手](docs/evidence-screenshots/app-ai-assistant-20260708.png)
-
-### 5. 模型真实调用记录
-
-项目已通过 Gitee AI / 沐曦 Token 资源包完成真实模型调用。下图为脱敏后的控制台调用记录，不包含访问令牌、Authorization header、Cookie 或完整 IP。
-
-![Gitee AI 真实调用记录](docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png)
-
-## 部署方法
-
-当前项目包含 Vercel API 入口和 `vercel.json` 安全头配置，适合部署到 Vercel。
-
-基本流程：
-
-1. 在部署平台连接仓库。
-2. 配置构建命令：`npm run build`。
-3. 配置输出目录：`dist`。
-4. 在部署平台配置 `ARK_API_KEY` 等环境变量。
-5. 部署后访问公网链接并验证简历上传、岗位推荐、JD 分析和模拟面试流程。
-
-详细步骤见 [部署指南](docs/DEPLOYMENT_GUIDE.md)。
-
-## 证据材料
-
-仓库已补充 Demo 视频网盘链接、项目展示 PPT、核心页面运行截图、模型真实调用证据、脱敏日志说明和性能测试记录。材料清单见 [证据材料索引](docs/EVIDENCE_INDEX.md)，整理说明见 [演示材料与证据指南](docs/DEMO_AND_EVIDENCE_GUIDE.md)。
-
-## 性能测试与运行日志
-
-仓库当前包含：
-
-- `scripts/verify-parsers.cjs`：解析器验证脚本。
-- `scripts/verify-ui.cjs`：Playwright UI 验证脚本，使用 Mock `/api/ark` 响应。
-
-仓库已补充 Gitee AI / 沐曦 Token 资源包真实调用证据。相关材料见：
-
-- [性能测试报告](docs/PERFORMANCE_TEST_REPORT.md)
-- [真实调用日志说明](docs/RUNTIME_LOG_GUIDE.md)
-- [Gitee AI 真实调用证据](docs/REAL_MODEL_CALL_EVIDENCE.md)
-- [真实调用记录截图](docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png)
-
-## 开源代码参考来源
-
-项目开源参考与第三方依赖说明详见：
-
-- [NOTICE](NOTICE)
-- [开源来源说明](docs/OPEN_SOURCE_ATTRIBUTION.md)
-- [第三方依赖与素材 License 汇总](docs/THIRD_PARTY_LICENSES.md)
-
-当前仓库根目录包含 Apache-2.0 许可证和 NOTICE 文件。原创代码按 Apache License 2.0 开源；第三方依赖、运行时资源和素材仍遵循其各自许可证或授权边界，不能仅用本仓库 License 覆盖。
-
-本项目为 Nanshan von Neumann Team 面向学生求职匹配场景开发的 AI 智能体 Demo。项目核心包括简历解析、岗位推荐、JD 分析、匹配解释、简历优化、模拟面试和 AI 求职助手等功能。
-
-本仓库当前公开发布目的为本次竞赛提交、评审展示、可复现检查和学习参考。参赛、评审、商业展示、二次分发或修改版本应保留原始项目来源、Apache License 2.0 文本、NOTICE 文件和作者/团队署名。项目名称、截图、文档、PPT、演示材料、品牌标识和非代码素材不因代码采用 Apache-2.0 而自动放弃署名权或其他未明确授予的权利。
-
-## 安全边界
-
-- 前端不直接保存或展示模型密钥。
-- 模型请求通过 `/api/ark` 后端代理转发。
-- API 响应设置 `Cache-Control: no-store`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`。
-- `.gitignore` 已排除 `.env`、`.env.*`、日志文件和构建产物。
-- 用户简历主要保存在当前运行状态；本机求职追踪只保存岗位快照、阶段和事件时间，不保存完整简历。
-- 外部模型调用前要求当前会话同意，并可统一脱敏姓名、手机号、邮箱、详细地址和证件号。
-- 公开演示和日志发布前仍需再次检查学校、岗位来源、API Key 与模型响应原文。
+`harmony/entry/src/main/resources/resfile/` 是构建生成目录，不应手工修改。
 
 ## 文档索引
 
-- [项目架构与理解文档](docs/PROJECT_ARCHITECTURE_AND_UNDERSTANDING.md)
-- [技术说明文档](docs/TECHNICAL_DESIGN.md)
-- [竞赛基线审计](docs/competition/00_BASELINE_AUDIT.md)
-- [架构与竞赛策略](docs/competition/01_ARCHITECTURE_AND_STRATEGY.md)
+- [2026-07-22 交付证据](docs/RELEASE_EVIDENCE_20260722.md)
+- [HarmonyOS 工程说明](harmony/README.md)
 - [测试计划与本轮报告](docs/competition/02_TEST_PLAN_AND_REPORT.md)
 - [已知限制](docs/competition/03_KNOWN_LIMITATIONS.md)
 - [竞赛提交清单](docs/competition/04_SUBMISSION_CHECKLIST.md)
 - [部署指南](docs/DEPLOYMENT_GUIDE.md)
-- [NOTICE](NOTICE)
-- [Demo 视频（百度网盘，提取码 48mf）](https://pan.baidu.com/s/1u9xx_ODpfSq4vFZOGi6qlA?pwd=48mf)
-- [项目展示 PPT](docs/materials/kongming.pptx)
 - [证据材料索引](docs/EVIDENCE_INDEX.md)
-- [Gitee AI 真实调用证据](docs/REAL_MODEL_CALL_EVIDENCE.md)
-- [真实调用记录截图](docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png)
-- [首页运行截图](docs/evidence-screenshots/app-home-job-matching-20260708.png)
-- [简历解析截图](docs/evidence-screenshots/app-resume-analysis-summary-20260708.png)
-- [岗位推荐截图](docs/evidence-screenshots/app-job-recommendation-cards-20260708.png)
-- [模拟面试截图](docs/evidence-screenshots/app-interview-simulation-20260708.png)
-- [AI 助手截图](docs/evidence-screenshots/app-ai-assistant-20260708.png)
+- [架构与竞赛策略](docs/competition/01_ARCHITECTURE_AND_STRATEGY.md)
 - [开源来源说明](docs/OPEN_SOURCE_ATTRIBUTION.md)
-- [第三方依赖与素材 License 汇总](docs/THIRD_PARTY_LICENSES.md)
-- [演示材料与证据指南](docs/DEMO_AND_EVIDENCE_GUIDE.md)
-- [性能测试报告](docs/PERFORMANCE_TEST_REPORT.md)
-- [真实调用日志说明](docs/RUNTIME_LOG_GUIDE.md)
+- [第三方依赖与素材 License](docs/THIRD_PARTY_LICENSES.md)
+
+代码采用 Apache License 2.0；第三方依赖、模型、媒体、品牌和演示素材仍遵循各自许可与授权边界。

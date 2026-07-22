@@ -96,15 +96,19 @@ npm run preview
 
 ## 6. 测试验证
 
-当前仓库提供两个验证脚本：
+当前仓库提供分层验证脚本：
 
 ```bash
 npm run verify:parsers
+npm run verify:evidence
+npm run verify:jobs
+npm run verify:job-sources
+npm run verify:harmony
+npm run verify:claims
+npm run verify:core
 ```
 
-用途：
-
-- 验证模型返回 JSON 带尾随文本时，简历解析器和岗位解析器仍能处理。
+`verify:core` 汇总解析、证据约束、岗位来源、Harmony 工程和旧评分退出检查。`verify:evidence` 包含 20 组虚构事实对抗样例、工作区恢复、简历版本和投递绑定测试。
 
 ```bash
 npm run verify:ui
@@ -113,7 +117,8 @@ npm run verify:ui
 用途：
 
 - 使用 Playwright 验证核心 UI 流程。
-- 脚本会 Mock `/api/ark`，覆盖简历上传、岗位推荐、模拟面试入口和 AI 助手页面。
+- 脚本会 Mock `/api/ark` 与 `/api/jobs`，覆盖隐私门禁、简历确认、版本保存、投递绑定、刷新恢复、模拟面试和 AI 助手页面。
+- Mock 测试通过不表示生产岗位或模型服务已上线。
 
 运行 `verify:ui` 前需要先启动本地开发服务器：
 
@@ -134,6 +139,9 @@ npm run verify:ui
 当前仓库包含：
 
 - `api/ark.js`
+- `api/jobs.js`
+- `api/job-sources.js`
+- `api/health.js`
 - `vercel.json`
 - `vite.config.ts`
 
@@ -147,7 +155,7 @@ npm run verify:ui
 | Install Command | `npm install` |
 | Build Command | `npm run build` |
 | Output Directory | `dist` |
-| API Route | `api/ark.js` |
+| API Routes | `api/ark.js`、`api/jobs.js`、`api/job-sources.js`、`api/health.js` |
 
 部署平台环境变量：
 
@@ -169,8 +177,30 @@ ARK_REQUEST_TIMEOUT_MS=65000
 6. 进入模拟面试页面，验证问题生成、文本回答和反馈。
 7. 进入 AI 助手页面，验证多轮问答。
 8. 检查部署平台日志中是否出现模型请求错误。
+9. 请求 `/api/health`，确认岗位与模型配置状态符合预期。
 
-## 9. 常见问题
+## 9. HarmonyOS 安装包
+
+本机模拟器联调：
+
+```powershell
+npm run dev -- --port 5173 --strictPort
+npm run build:harmony:local
+npm run run:harmony:emulator
+```
+
+正式 HAP 必须使用公网 HTTPS API：
+
+```powershell
+npm run build:harmony:release -- `
+  -PublicApiBaseUrl https://your-domain.example/api
+```
+
+发布构建会拒绝非 HTTPS 地址。当前仓库没有签名证书和 Profile，生成的是 unsigned 调试 HAP；签名、App ID、包名和华为账号指纹需要在团队开发者账号下配置。
+
+本轮模拟器构建和安装证据见 `docs/RELEASE_EVIDENCE_20260722.md`。
+
+## 10. 常见问题
 
 ### 模型服务不可用
 
@@ -210,14 +240,14 @@ ARK_REQUEST_TIMEOUT_MS=65000
 - 检查 `public/avatars/interviewer-live2d/` 下模型文件是否完整。
 - 检查 `public/vendor/live2d/live2dcubismcore.min.js` 是否可访问。
 
-## 10. 敏感信息配置方式
+## 11. 敏感信息配置方式
 
 - 本地使用 `.env.local` 保存密钥。
 - Vercel 使用 Project Settings 中的 Environment Variables。
 - 不要在 Git 仓库、截图、运行日志或演示视频中公开真实密钥。
 - 真实调用日志公开前必须脱敏。
 
-## 11. 当前未提供的部署能力
+## 12. 当前未提供的部署能力
 
 当前仓库未提供：
 
@@ -226,5 +256,7 @@ ARK_REQUEST_TIMEOUT_MS=65000
 - GitHub Actions 或其他 CI 配置。
 - 数据库部署配置。
 - 对象存储配置。
+- 正式 HarmonyOS 签名配置。
+- 已部署的公网生产岗位与模型 API。
 
 如需一键容器化部署，需要后续补充。

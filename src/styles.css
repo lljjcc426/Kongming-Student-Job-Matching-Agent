@@ -9719,6 +9719,18 @@ input {
   gap: 5px;
 }
 
+.tracking-controls {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: min(100%, 390px);
+}
+
+.tracking-controls label:first-child {
+  flex: 1 1 220px;
+}
+
 .application-tracker select {
   min-height: 34px;
   padding: 0 9px;
@@ -10134,6 +10146,11 @@ input {
   line-height: 1.5;
 }
 
+.application-tracker-status {
+  margin: -6px 0 12px;
+  color: #1d4ed8;
+}
+
 .draft-version-actions {
   display: flex;
   flex-wrap: wrap;
@@ -10162,6 +10179,54 @@ input {
   gap: 3px;
 }
 
+.resume-version-list .resume-version-summary {
+  min-width: 0;
+}
+
+.resume-version-list .resume-version-summary > b {
+  width: fit-content;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 11px;
+}
+
+.resume-version-list details {
+  margin-top: 4px;
+}
+
+.resume-version-list summary {
+  cursor: pointer;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.resume-version-list pre {
+  max-height: 220px;
+  margin: 8px 0 0;
+  padding: 10px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre-wrap;
+}
+
+.resume-version-actions {
+  display: flex !important;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 6px !important;
+}
+
+.danger-action {
+  color: #b91c1c !important;
+  border-color: #fecaca !important;
+}
+
 .resume-version-list article strong,
 .resume-version-list article small {
   color: #334155;
@@ -10186,6 +10251,56 @@ input {
   backdrop-filter: blur(10px);
 }
 
+.evidence-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px !important;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.evidence-state.state-covered {
+  background: rgba(220, 252, 231, 0.92);
+  color: #166534 !important;
+}
+
+.evidence-state.state-partial {
+  background: rgba(254, 249, 195, 0.94);
+  color: #854d0e !important;
+}
+
+.evidence-state.state-unknown {
+  background: rgba(226, 232, 240, 0.94);
+  color: #475569 !important;
+}
+
+.evidence-matrix-preview {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  padding: 28px !important;
+}
+
+.evidence-matrix-preview section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 13px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+  animation: swap-list-reveal 0.45s both;
+  animation-delay: calc(var(--item-index) * 65ms);
+}
+
 @media (max-width: 720px) {
   .job-kind-tabs,
   .evidence-summary-grid {
@@ -10197,6 +10312,13 @@ input {
   }
 
   .resume-version-list article {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tracking-controls {
+    width: 100%;
+    min-width: 0;
     align-items: stretch;
     flex-direction: column;
   }
