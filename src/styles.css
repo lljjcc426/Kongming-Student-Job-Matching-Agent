@@ -11738,3 +11738,695 @@ body:has(.resume-editor-page) {
     grid-template-columns: repeat(2, minmax(286px, 1fr));
   }
 }
+
+/* Responsive layout stabilization
+   Keep the existing visual components intact while allowing the shell,
+   navigation and page workspaces to follow the live viewport. */
+.app-shell,
+.app-shell > :not(.app-nav) {
+  min-width: 0;
+}
+
+.app-shell {
+  --app-shell-block-gap: clamp(10px, 1.5dvh, 24px);
+  --app-page-height: calc(100dvh - var(--app-shell-block-gap) - var(--app-shell-block-gap));
+}
+
+@media (min-width: 921px) {
+  .app-shell {
+    width: 100%;
+    min-height: 100dvh;
+    padding: var(--app-shell-block-gap) clamp(12px, 1.5vw, 24px);
+    grid-template-columns: clamp(178px, 14.2vw, 232px) minmax(0, 1fr);
+    gap: clamp(10px, 1.15vw, 18px);
+    align-items: start;
+  }
+
+  .app-nav {
+    top: var(--app-shell-block-gap);
+    height: var(--app-page-height);
+    min-height: 0;
+    max-height: var(--app-page-height);
+    padding: clamp(10px, 2.5dvh, 32px) clamp(9px, 1vw, 18px) clamp(10px, 1.7dvh, 18px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .app-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-brand {
+    flex: 0 0 auto;
+    gap: clamp(4px, 1.15dvh, 14px);
+    padding: clamp(2px, 0.8dvh, 8px) 4px clamp(6px, 1.3dvh, 14px);
+  }
+
+  .nav-brand .product-avatar {
+    width: clamp(58px, 12.8dvh, 144px);
+    height: clamp(58px, 12.8dvh, 144px);
+  }
+
+  .nav-brand .brand-name {
+    font-size: clamp(20px, 3.25dvh, 36px);
+  }
+
+  .nav-brand small {
+    font-size: clamp(10px, 1.52dvh, 17px);
+  }
+
+  .app-nav > div {
+    flex: 1 1 auto;
+    grid-template-rows: repeat(6, minmax(0, clamp(40px, 6.3dvh, 68px)));
+    align-content: center;
+    gap: clamp(5px, 1.25dvh, 16px);
+    min-height: 0;
+    margin-top: clamp(6px, 4.5dvh, 56px);
+  }
+
+  .app-nav > div button {
+    min-height: 0;
+    height: clamp(40px, 6.3dvh, 68px);
+    padding: 0 clamp(28px, 2.4vw, 44px) 0 clamp(10px, 1.2vw, 20px);
+    border-radius: clamp(11px, 1.2vw, 16px);
+    gap: clamp(7px, 0.85vw, 13px);
+    font-size: clamp(12px, 1.65dvh, 17px);
+    white-space: nowrap;
+  }
+
+  .app-nav > div button svg {
+    width: clamp(15px, 1.9dvh, 18px);
+    height: clamp(15px, 1.9dvh, 18px);
+  }
+
+  .app-nav > div button::after {
+    right: clamp(10px, 1.2vw, 18px);
+    font-size: clamp(18px, 2.5dvh, 24px);
+  }
+
+  .km-home-page,
+  .dashboard-resume,
+  .assistant-panel,
+  .ai-assistant-page,
+  .interview-panel,
+  .resume-editor-page {
+    height: var(--app-page-height);
+    min-height: 0;
+  }
+
+  .km-home-page,
+  .interview-panel {
+    margin: 0;
+  }
+
+  .dashboard-resume .panel {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .dashboard-resume .profile-column,
+  .dashboard-resume .insight-column {
+    height: 100%;
+    min-height: 0;
+    max-height: var(--app-page-height);
+  }
+
+  .dashboard-resume .profile-column > .panel,
+  .dashboard-resume .insight-column > .panel {
+    height: 100%;
+  }
+
+  .dashboard-jobs,
+  .dashboard-jobs .panel,
+  .assistant-loading-fallback {
+    min-height: var(--app-page-height);
+  }
+
+  .dashboard-jobs {
+    height: var(--app-page-height);
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .dashboard-jobs .panel {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .assistant-panel {
+    overflow: hidden;
+  }
+
+  .ai-assistant-page {
+    grid-template-columns: minmax(240px, 0.64fr) minmax(0, 1.36fr);
+    gap: clamp(14px, 1.6vw, 22px);
+    padding: clamp(16px, 2.4vw, 38px);
+  }
+
+  .assistant-chat-panel,
+  .interview-page-grid,
+  .avatar-panel,
+  .interview-console {
+    min-height: 0;
+  }
+
+  .app-shell:has(.resume-editor-page) {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .app-shell:has(.resume-editor-page) .app-nav {
+    top: 0;
+    height: var(--app-page-height);
+  }
+}
+
+@media (min-width: 921px) and (max-height: 720px) {
+  .app-shell {
+    --app-shell-block-gap: 8px;
+    grid-template-columns: clamp(170px, 13.8vw, 206px) minmax(0, 1fr);
+  }
+
+  .app-nav {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .nav-brand {
+    gap: 4px;
+    padding-top: 0;
+    padding-bottom: 4px;
+  }
+
+  .nav-brand .product-avatar {
+    width: clamp(54px, 10.5dvh, 76px);
+    height: clamp(54px, 10.5dvh, 76px);
+  }
+
+  .nav-brand .brand-name {
+    font-size: clamp(19px, 3.3dvh, 25px);
+  }
+
+  .nav-brand small {
+    font-size: clamp(9px, 1.65dvh, 12px);
+  }
+
+  .app-nav > div {
+    gap: clamp(4px, 0.9dvh, 7px);
+    margin-top: clamp(4px, 2dvh, 14px);
+  }
+
+  .app-nav > div button {
+    height: clamp(36px, 6.5dvh, 44px);
+    font-size: clamp(11px, 1.8dvh, 13px);
+  }
+
+  .app-nav > div button svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .km-home-canvas {
+    padding-top: clamp(22px, 4dvh, 38px);
+    padding-bottom: clamp(22px, 4dvh, 38px);
+  }
+
+  .ai-assistant-page {
+    padding: clamp(12px, 2.2dvh, 20px);
+  }
+
+  .assistant-title-block {
+    padding: 12px;
+  }
+
+  .assistant-title-block h1 {
+    font-size: clamp(25px, 4.6dvh, 34px);
+  }
+
+  .interview-panel {
+    min-height: 0;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1180px) {
+  .app-shell {
+    grid-template-columns: clamp(168px, 16vw, 188px) minmax(0, 1fr);
+  }
+
+  .app-nav > div button {
+    padding-right: 26px;
+  }
+
+  .ai-assistant-page {
+    grid-template-columns: minmax(228px, 0.58fr) minmax(0, 1.42fr);
+  }
+
+  .interview-page-grid {
+    grid-template-columns: minmax(280px, 0.78fr) minmax(420px, 1.22fr);
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1024px) {
+  .km-home-canvas {
+    min-height: 0;
+    padding-inline: 16px;
+  }
+
+  .km-hero-left {
+    left: 16px;
+    top: clamp(72px, 14dvh, 94px);
+    width: min(45%, 340px);
+  }
+
+  .km-hero-copy {
+    width: 100%;
+  }
+
+  .card-swap-showcase {
+    left: auto;
+    right: -24px;
+    top: 50%;
+    width: 620px;
+    height: 650px;
+    transform: translateY(-50%) scale(0.52);
+    transform-origin: center right;
+  }
+
+  .card-swap-item {
+    width: 430px;
+    height: 560px;
+  }
+}
+
+@media (max-width: 920px) {
+  body,
+  body:has(.resume-editor-page) {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .app-shell,
+  .app-shell:has(.resume-editor-page) {
+    --app-shell-block-gap: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+    gap: 10px;
+    padding: 10px;
+    overflow: visible;
+  }
+
+  .app-shell > :not(.app-nav) {
+    grid-column: 1;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .app-nav,
+  .app-shell:has(.resume-editor-page) .app-nav {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: minmax(190px, 0.72fr) minmax(0, 1.28fr);
+    align-items: center;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    margin: 0;
+    padding: 8px;
+    overflow: hidden;
+    border-radius: 18px;
+  }
+
+  .nav-brand {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 1px 9px;
+    min-width: 0;
+    padding: 4px 8px;
+    text-align: left;
+  }
+
+  .nav-brand .product-avatar {
+    grid-row: 1 / span 2;
+    width: 48px;
+    height: 48px;
+  }
+
+  .nav-brand .brand-name {
+    overflow: hidden;
+    font-size: clamp(18px, 2.8vw, 22px);
+    letter-spacing: 0.02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-brand small {
+    overflow: hidden;
+    font-size: clamp(9px, 1.5vw, 11px);
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-nav > div {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .app-nav > div button {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 3px;
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    height: auto;
+    padding: 5px 3px;
+    border-radius: 12px;
+    font-size: clamp(9px, 1.25vw, 11px);
+    line-height: 1.1;
+    letter-spacing: 0;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .app-nav > div button svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .app-nav > div button::after {
+    display: none;
+  }
+
+  .km-home-page,
+  .dashboard-resume,
+  .dashboard-jobs,
+  .assistant-panel,
+  .ai-assistant-page,
+  .interview-panel,
+  .resume-editor-page {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .dashboard-resume,
+  .dashboard-jobs,
+  .assistant-panel,
+  .interview-panel,
+  .resume-editor-page {
+    height: auto;
+    min-height: calc(100dvh - 94px);
+  }
+
+  .dashboard-resume .panel,
+  .dashboard-jobs .panel,
+  .dashboard-resume .profile-column,
+  .dashboard-resume .insight-column {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .dashboard-resume,
+  .dashboard-jobs,
+  .interview-page-grid,
+  .ai-assistant-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ai-assistant-page {
+    height: auto;
+    min-height: calc(100dvh - 94px);
+    padding: clamp(12px, 2.4vw, 20px);
+    overflow: visible;
+  }
+
+  .assistant-chat-panel {
+    width: 100%;
+    height: min(720px, 72dvh);
+    min-height: 520px;
+    max-height: 720px;
+  }
+
+  .particle-galaxy-core {
+    height: clamp(260px, 48vw, 380px);
+  }
+
+  .interview-panel,
+  .interview-page-grid {
+    overflow: visible;
+  }
+
+  .interview-page-grid {
+    height: auto;
+  }
+
+  .avatar-panel {
+    height: clamp(420px, 62vw, 580px);
+    min-height: 420px;
+  }
+
+  .interview-console {
+    height: min(760px, 78dvh);
+    min-height: 590px;
+  }
+
+  .resume-editor-page {
+    display: grid;
+    grid-template-rows: auto auto;
+    overflow: visible;
+  }
+
+  .resume-editor-grid {
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .resume-editor-column {
+    min-height: 560px;
+    overflow: hidden;
+    border: 1px solid rgba(191, 219, 254, 0.88);
+  }
+
+  .resume-editor-column-body {
+    max-height: 68dvh;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 920px) {
+  .resume-editor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .resume-editor-column + .resume-editor-column {
+    border-left: 1px solid rgba(191, 219, 254, 0.88);
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell,
+  .app-shell:has(.resume-editor-page) {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .app-nav,
+  .app-shell:has(.resume-editor-page) .app-nav {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .nav-brand {
+    grid-template-columns: 44px minmax(0, 1fr);
+    width: min(100%, 360px);
+    justify-self: start;
+  }
+
+  .nav-brand .product-avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .app-nav > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .app-nav > div button {
+    display: flex;
+    justify-content: center;
+    min-height: 42px;
+    gap: 6px;
+    padding: 5px 6px;
+    font-size: clamp(10px, 2.7vw, 12px);
+  }
+
+  .app-nav > div button svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .km-home-page {
+    min-height: 0;
+  }
+
+  .km-home-canvas {
+    width: 100%;
+  }
+
+  .dashboard-resume,
+  .dashboard-jobs,
+  .assistant-panel,
+  .interview-panel,
+  .resume-editor-page {
+    min-height: calc(100dvh - 164px);
+  }
+
+  .assistant-title-block,
+  .assistant-chat-panel,
+  .panel {
+    padding: 14px;
+  }
+
+  .assistant-chat-panel {
+    height: min(680px, 74dvh);
+    min-height: 500px;
+  }
+
+  .assistant-quick-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .interview-console {
+    height: min(720px, 76dvh);
+    min-height: 560px;
+  }
+
+  .resume-editor-page-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .resume-editor-page-head > p {
+    max-width: none;
+    text-align: left;
+  }
+
+  .resume-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .resume-editor-column + .resume-editor-column {
+    border-left: 1px solid rgba(191, 219, 254, 0.88);
+  }
+
+  .resume-editor-column {
+    min-height: min(680px, 82dvh);
+  }
+
+  .resume-editor-column-body {
+    max-height: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-shell,
+  .app-shell:has(.resume-editor-page) {
+    padding: 6px;
+  }
+
+  .app-nav {
+    padding: 7px;
+    border-radius: 15px;
+  }
+
+  .nav-brand {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .nav-brand .product-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .nav-brand .brand-name {
+    font-size: 18px;
+  }
+
+  .nav-brand small {
+    font-size: 9px;
+  }
+
+  .app-nav > div {
+    gap: 4px;
+  }
+
+  .app-nav > div button {
+    min-height: 40px;
+    padding-inline: 3px;
+    font-size: 10px;
+  }
+
+  .app-nav > div button svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .assistant-quick-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .assistant-chat-composer {
+    grid-template-columns: minmax(0, 1fr) 40px 40px;
+  }
+
+  .assistant-round-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .avatar-panel {
+    height: 430px;
+    min-height: 430px;
+  }
+
+  .interview-console {
+    min-height: 540px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-nav,
+  .app-nav > div button,
+  .km-home-page,
+  .ai-assistant-page,
+  .interview-panel,
+  .resume-editor-page {
+    scroll-behavior: auto;
+  }
+}
