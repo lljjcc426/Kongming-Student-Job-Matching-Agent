@@ -22,3 +22,20 @@
 - [开源项目能力选择矩阵](docs/05-open-source-selection-matrix.md)
 - [Skill、MCP 与部署准备](docs/06-skills-mcp-and-deployment-prep.md)
 - [多智能体与多模态架构设计](docs/08-multi-agent-multimodal-architecture.md)
+- [简历 OCR 坐标识别](docs/12-ocr-integration.md)
+
+## 本地开发
+
+首次使用扫描版 PDF 或图片简历前，先在 D 盘建立本地 OCR 环境：
+
+```powershell
+npm run setup:ocr
+```
+
+启动前端和同源模型/OCR 代理：
+
+```powershell
+npm run dev
+```
+
+有文字层的 PDF 会继续使用 PDF.js；仅当文字层为空或质量不足时，系统才调用 RapidOCR，并把识别到的文字坐标用于简历字段高亮。部署环境可按 [OCR 接入文档](docs/12-ocr-integration.md) 切换到火山 OCR。

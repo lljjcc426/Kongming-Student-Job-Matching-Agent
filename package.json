@@ -6,8 +6,17 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
+    "build:job-index": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-job-index.ps1",
     "preview": "vite preview --host 0.0.0.0",
+    "setup:ocr": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-ocr.ps1",
+    "setup:rag": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-rag.ps1",
+    "collect:jobs": "node scripts/collect-official-jobs.cjs",
     "verify:parsers": "node scripts/verify-parsers.cjs",
+    "verify:jobs": "node scripts/verify-job-dataset.cjs",
+    "verify:job-db": "node scripts/verify-job-database.cjs",
+    "verify:job-rag": "node scripts/verify-job-rag.cjs",
+    "verify:job-rerank": "node scripts/verify-job-reranker.cjs",
+    "verify:resume-processing": "node scripts/verify-resume-processing.cjs",
     "verify:ui": "node scripts/verify-ui.cjs"
   },
   "dependencies": {

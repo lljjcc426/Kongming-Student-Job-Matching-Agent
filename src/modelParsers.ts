@@ -1,6 +1,11 @@
 import type { Job, StudentProfile } from "./data";
 
 export type StructuredResume = {
+  basicInfo: string[];
+  competitions: string[];
+  certificates: string[];
+  languages: string[];
+  socialAccounts: string[];
   name: string;
   education: string[];
   internships: string[];
@@ -31,6 +36,11 @@ export type JdAnalysis = {
 };
 
 const emptyStructuredResume: StructuredResume = {
+  basicInfo: [],
+  competitions: [],
+  certificates: [],
+  languages: [],
+  socialAccounts: [],
   name: "",
   education: [],
   internships: [],
@@ -184,6 +194,11 @@ const readLooseArray = (source: string, key: keyof StructuredResume) => {
 const parseLooseStructuredResume = (content: string): StructuredResume => {
   const source = normalizeJsonCandidate(content);
   const parsed = {
+    basicInfo: readLooseArray(source, "basicInfo"),
+    competitions: readLooseArray(source, "competitions"),
+    certificates: readLooseArray(source, "certificates"),
+    languages: readLooseArray(source, "languages"),
+    socialAccounts: readLooseArray(source, "socialAccounts"),
     name: readLooseString(source, "name"),
     education: readLooseArray(source, "education"),
     internships: readLooseArray(source, "internships"),
@@ -202,23 +217,147 @@ const parseLooseStructuredResume = (content: string): StructuredResume => {
   return parsed;
 };
 
-export function parseStructuredResume(content: string): StructuredResume {
+const labeledValue = (items: string[], labels: string[]) => {
+  const normalizedLabels = labels.map((label) => label.toLocaleLowerCase());
+  for (const item of items) {
+    const separator = item.search(/[:：]/);
+    if (separator < 0) continue;
+    const label = item.slice(0, separator).trim().toLocaleLowerCase();
+    if (normalizedLabels.some((candidate) => label === candidate || label.includes(candidate))) {
+      return item.slice(separator + 1).trim();
+    }
+  }
+  return "";
+};
+
+const splitTargets = (value: string) => value
+  .split(/[，,、/|；;]/)
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+const certificatePattern = /证书|认证|资格|等级|CET|TEM|雅思|托福|普通话|License|Certificate/i;
+const languagePattern = /英语|中文|汉语|普通话|日语|韩语|法语|德语|西班牙语|俄语|粤语|雅思|托福|CET|TEM|English|Japanese|Korean|French|German/i;
+const socialPattern = /GitHub|Gitee|LinkedIn|博客|个人主页|作品集|公众号|知乎|小红书|抖音|https?:\/\/|@[\w.-]+/i;
+
+type VisibleResumeField = "basicInfo" | "education" | "projects" | "competitions" | "certificates" | "languages" | "socialAccounts";
+
+const sourceSectionPatterns: Array<{ key: VisibleResumeField; pattern: RegExp }> = [
+  { key: "basicInfo", pattern: /^(?:基础信息|基本信息|个人信息|联系方式|Personal Information|Contact Information)\s*[:：]?\s*(.*)$/i },
+  { key: "education", pattern: /^(?:教育经历|教育背景|学历背景|Education|Academic Background)\s*[:：]?\s*(.*)$/i },
+  { key: "projects", pattern: /^(?:项目经历|项目经验|科研项目|Projects?|Project Experience)\s*[:：]?\s*(.*)$/i },
+  { key: "competitions", pattern: /^(?:竞赛|竞赛经历|比赛经历|赛事经历|Competitions?|Contest Experience)\s*[:：]?\s*(.*)$/i },
+  { key: "certificates", pattern: /^(?:证书|资格证书|认证证书|Certificates?|Certifications?|Licenses?)\s*[:：]?\s*(.*)$/i },
+  { key: "languages", pattern: /^(?:语言能力|外语能力|语言水平|Languages?|Language Skills|Language Proficiency)\s*[:：]?\s*(.*)$/i },
+  { key: "socialAccounts", pattern: /^(?:社交帐号|社交账号|个人链接|个人主页|作品链接|Social Links|Online Profiles|Portfolio Links)\s*[:：]?\s*(.*)$/i },
+];
+
+const otherSourceSectionPattern = /^(?:实习经历|工作经历|职业经历|校园经历|学生工作|社团经历|专业技能|技能特长|荣誉奖项|获奖经历|兴趣爱好|研究经历|论文发表|Summary|Internship(?: Experience)?|Work Experience|Professional Experience|Technical Skills|Professional Skills|Skills|Activities|Campus Experience|Honors|Awards|Research Experience|Publications|Interests)\s*[:：]?$/i;
+
+const extractVisibleFieldsFromSource = (sourceText: string): Record<VisibleResumeField, string[]> => {
+  const fields: Record<VisibleResumeField, string[]> = {
+    basicInfo: [],
+    education: [],
+    projects: [],
+    competitions: [],
+    certificates: [],
+    languages: [],
+    socialAccounts: [],
+  };
+  let activeField: VisibleResumeField | null = null;
+  const append = (key: VisibleResumeField, value: string) => {
+    const normalized = value.replace(/^[-•·]\s*/, "").trim();
+    if (normalized && !fields[key].includes(normalized)) fields[key].push(normalized);
+  };
+
+  sourceText.split(/\r?\n/).forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return;
+    const section = sourceSectionPatterns
+      .map((candidate) => ({ ...candidate, match: line.match(candidate.pattern) }))
+      .find((candidate) => candidate.match);
+    if (section?.match) {
+      activeField = section.key;
+      append(section.key, section.match[1] || "");
+      return;
+    }
+    if (/^(?:姓名|名字|电话|手机|邮箱|电子邮箱|所在地|现居|求职意向|求职方向|目标岗位|个人简介|个人总结|Name|Phone|Email|Location|Objective|Profile)\s*[:：]/i.test(line)) {
+      append("basicInfo", line);
+      return;
+    }
+    if (socialPattern.test(line)) {
+      append("socialAccounts", line);
+      return;
+    }
+    if (otherSourceSectionPattern.test(line)) {
+      activeField = null;
+      return;
+    }
+    if (activeField) append(activeField, line);
+  });
+
+  return fields;
+};
+
+const mergeUnique = (...groups: string[][]) => [...new Set(groups.flat().map((item) => item.trim()).filter(Boolean))];
+
+export function parseStructuredResume(content: string, sourceText = ""): StructuredResume {
   let data: Partial<StructuredResume>;
   try {
     data = parseJsonWithBasicRepair<Partial<StructuredResume>>(content);
   } catch {
     data = parseLooseStructuredResume(content);
   }
+  const sourceFields = extractVisibleFieldsFromSource(sourceText);
+  const legacyHonors = asStringArray(data.honors);
+  const legacySkills = asStringArray(data.skills);
+  const rawBasicInfo = mergeUnique(asStringArray(data.basicInfo), sourceFields.basicInfo);
+  const education = mergeUnique(asStringArray(data.education), sourceFields.education);
+  const projects = mergeUnique(asStringArray(data.projects), sourceFields.projects);
+  const competitions = mergeUnique(asStringArray(data.competitions), sourceFields.competitions);
+  const certificates = mergeUnique(asStringArray(data.certificates), sourceFields.certificates);
+  const languages = mergeUnique(asStringArray(data.languages), sourceFields.languages);
+  const socialAccounts = mergeUnique(asStringArray(data.socialAccounts), sourceFields.socialAccounts);
+  const name = (typeof data.name === "string" ? data.name.trim() : "")
+    || labeledValue(rawBasicInfo, ["姓名", "名字", "Name"]);
+  const targetRoles = asStringArray(data.targetRoles);
+  const basicTarget = labeledValue(rawBasicInfo, ["求职意向", "目标岗位", "应聘岗位", "求职方向", "Objective"]);
+  const summary = (typeof data.summary === "string" ? data.summary.trim() : "")
+    || labeledValue(rawBasicInfo, ["个人简介", "个人总结", "自我评价", "简介", "Summary", "Profile"]);
+  const normalizedCompetitions = competitions.length
+    ? competitions
+    : legacyHonors.filter((item) => !certificatePattern.test(item));
+  const normalizedCertificates = certificates.length
+    ? certificates
+    : legacyHonors.filter((item) => certificatePattern.test(item));
+  const normalizedLanguages = languages.length
+    ? languages
+    : legacySkills.filter((item) => languagePattern.test(item));
+  const normalizedSocialAccounts = socialAccounts.length
+    ? socialAccounts
+    : rawBasicInfo.filter((item) => socialPattern.test(item));
+  const normalizedBasicInfo = rawBasicInfo.length
+    ? rawBasicInfo
+    : [
+        name ? `姓名：${name}` : "",
+        targetRoles.length ? `求职意向：${targetRoles.join("、")}` : "",
+        summary ? `个人简介：${summary}` : "",
+      ].filter(Boolean);
+
   return {
-    name: typeof data.name === "string" ? data.name.trim() : "",
-    education: asStringArray(data.education),
+    basicInfo: normalizedBasicInfo,
+    competitions: normalizedCompetitions,
+    certificates: normalizedCertificates,
+    languages: normalizedLanguages,
+    socialAccounts: normalizedSocialAccounts,
+    name,
+    education,
     internships: asStringArray(data.internships),
-    projects: asStringArray(data.projects),
+    projects,
     campus: asStringArray(data.campus),
-    honors: asStringArray(data.honors),
-    skills: asStringArray(data.skills),
-    targetRoles: asStringArray(data.targetRoles),
-    summary: typeof data.summary === "string" ? data.summary.trim() : "",
+    honors: legacyHonors.length ? legacyHonors : [...normalizedCompetitions, ...normalizedCertificates],
+    skills: legacySkills.length ? legacySkills : normalizedLanguages,
+    targetRoles: targetRoles.length ? targetRoles : splitTargets(basicTarget),
+    summary,
   };
 }
 

@@ -10,6 +10,13 @@ const REQUEST_TIMEOUT_MS = Number(process.env.ARK_REQUEST_TIMEOUT_MS || 65000);
 const SEARCH_TIMEOUT_MS = 5000;
 const SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; StudentJobMatcher/0.1)";
 
+const modelForTask = (task) => {
+  if (task === "resume-vision") {
+    return process.env.ARK_VISION_MODEL || process.env.ARK_MODEL || process.env.ARK_TEXT_MODEL || DEFAULT_MODEL;
+  }
+  return process.env.ARK_TEXT_MODEL || process.env.ARK_MODEL || DEFAULT_MODEL;
+};
+
 const asText = (value, maxLength) => {
   if (typeof value !== "string") return "";
   return value.slice(0, maxLength);
@@ -114,14 +121,15 @@ const buildTextPrompt = (body) => {
       "如果文本包含“未识别”“看不清”“无法确认”等不确定信息，对应字段保持空数组或空字符串，不要自行猜测。",
       "请输出严格 JSON，不要输出 Markdown，不要解释。",
       "JSON 结构如下：",
-      '{"name":"","education":[],"internships":[],"projects":[],"campus":[],"honors":[],"skills":[],"targetRoles":[],"summary":""}',
+      '{"basicInfo":[],"education":[],"projects":[],"competitions":[],"certificates":[],"languages":[],"socialAccounts":[],"internships":[],"skills":[]}',
       "字段要求：",
-      "1. name 提取学生姓名；没有明确姓名时填空字符串，不要写候选人。",
-      "2. education/internships/projects/campus/honors 每项为字符串数组。",
-      "3. targetRoles 只读取简历中明确写出的求职意向、目标岗位、应聘方向；没有明确内容就返回空数组，不要推断。",
-      "4. skills 只提取简历中明确出现的能力、工具、语言、证书或方法。",
-      "5. summary 只能概括已出现的事实，不要添加评价性或想象性的经历。",
-      "6. 如果文本中出现学校、专业、学历、项目、求职意向等字样，应放入对应字段。",
+      "1. basicInfo 每项使用“字段：内容”格式，只提取姓名、电话、邮箱、所在地、求职意向和个人简介等明确出现的信息。",
+      "2. education、projects、competitions、certificates、languages、socialAccounts 均为字符串数组，分别对应教育经历、项目经历、竞赛、证书、语言能力和社交帐号。",
+      "3. competitions 只放竞赛或比赛经历；certificates 只放资格、等级和认证证书，不要混合。",
+      "4. languages 只放中文、英语、日语等自然语言及熟练度；编程语言放入辅助字段 skills。",
+      "5. socialAccounts 提取 GitHub、Gitee、LinkedIn、个人网站、博客和作品集链接或帐号。",
+      "6. internships 和 skills 是供岗位匹配使用的辅助数组，仍需按原文提取，但不会显示为简历编辑分组。",
+      "7. 不要编造缺失字段，不要将同一内容重复放入多个分组。",
       `简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
     ].join("\n\n");
   }
@@ -448,7 +456,7 @@ export async function runArkCompletion(body) {
   }
 
   const baseUrl = process.env.ARK_BASE_URL || DEFAULT_BASE_URL;
-  const model = DEFAULT_MODEL;
+  const model = modelForTask(body.task);
   let response;
   try {
     response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -480,11 +488,14 @@ export async function runArkCompletion(body) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    const upstreamCode = typeof data?.error?.code === "string" ? data.error.code : "";
+    const upstreamMessage = typeof data?.error?.message === "string" ? data.error.message : "";
+    const upstreamDetail = [upstreamCode, upstreamMessage].filter(Boolean).join(": ").slice(0, 240);
     return {
       status: response.status,
       payload: {
         ok: false,
-        error: "模型接口调用失败，请稍后重试。",
+        error: upstreamDetail ? `模型接口调用失败：${upstreamDetail}` : "模型接口调用失败，请稍后重试。",
       },
     };
   }

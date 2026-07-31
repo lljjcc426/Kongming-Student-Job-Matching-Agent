@@ -1,5 +1,6 @@
 import { getDocument, GlobalWorkerOptions, type PDFPageProxy } from "pdfjs-dist";
 import workerSrc from "pdfjs-dist/build/pdf.worker.mjs?url";
+import type { OcrPageInput } from "./ocrTypes";
 
 GlobalWorkerOptions.workerSrc = workerSrc;
 
@@ -10,15 +11,15 @@ export type PdfReadResult = {
   quality: number;
   coverage: number;
   imageDataUrls: string[];
+  pageImages: OcrPageInput[];
   pageTexts: string[];
 };
 
-const MAX_VISION_PAGES = 4;
 const MIN_TEXT_LENGTH = 70;
 const MIN_PAGE_TEXT_CHARS = 12;
 const MIN_TEXT_QUALITY = 0.56;
 const MIN_TEXT_COVERAGE = 0.35;
-const MAX_PAGE_IMAGE_CHARS = 950_000;
+const MAX_PAGE_IMAGE_CHARS = 1_450_000;
 const PDF_CMAP_URL = "/vendor/pdfjs/cmaps/";
 
 const RESUME_SIGNAL_TERMS = [
@@ -114,10 +115,10 @@ const isTextLayerCompleteEnough = (text: string, quality: number, coverage: numb
 
 const compressCanvas = (canvas: HTMLCanvasElement) => {
   const attempts = [
-    { type: "image/jpeg", quality: 0.72 },
-    { type: "image/jpeg", quality: 0.6 },
-    { type: "image/jpeg", quality: 0.5 },
-    { type: "image/jpeg", quality: 0.42 },
+    { type: "image/jpeg", quality: 0.82 },
+    { type: "image/jpeg", quality: 0.7 },
+    { type: "image/jpeg", quality: 0.58 },
+    { type: "image/jpeg", quality: 0.46 },
   ];
 
   for (const attempt of attempts) {
@@ -130,19 +131,24 @@ const compressCanvas = (canvas: HTMLCanvasElement) => {
 
 const renderPageToImage = async (page: PDFPageProxy) => {
   const baseViewport = page.getViewport({ scale: 1 });
-  const maxSide = 1600;
-  const scale = Math.min(1.5, maxSide / Math.max(baseViewport.width, baseViewport.height));
+  const maxSide = 1900;
+  const scale = Math.min(2, maxSide / Math.max(baseViewport.width, baseViewport.height));
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
-  if (!context) return "";
+  if (!context) return null;
 
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, canvas.width, canvas.height);
   await page.render({ canvas, canvasContext: context, viewport }).promise;
-  return compressCanvas(canvas);
+  return {
+    pageNumber: page.pageNumber,
+    imageDataUrl: compressCanvas(canvas),
+    width: canvas.width,
+    height: canvas.height,
+  } satisfies OcrPageInput;
 };
 
 const extractPageText = async (page: PDFPageProxy) => {
@@ -169,6 +175,7 @@ export async function readPdfResume(file: File): Promise<PdfReadResult> {
   const pdf = await getDocument({ data, cMapUrl: PDF_CMAP_URL, cMapPacked: true }).promise;
   const pageTexts: string[] = [];
   const imageDataUrls: string[] = [];
+  const pageImages: OcrPageInput[] = [];
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
@@ -188,14 +195,18 @@ export async function readPdfResume(file: File): Promise<PdfReadResult> {
       quality,
       coverage,
       imageDataUrls,
+      pageImages,
       pageTexts,
     };
   }
 
-  for (let pageNumber = 1; pageNumber <= Math.min(pdf.numPages, MAX_VISION_PAGES); pageNumber += 1) {
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const image = await renderPageToImage(page);
-    if (image) imageDataUrls.push(image);
+    if (image) {
+      pageImages.push(image);
+      imageDataUrls.push(image.imageDataUrl);
+    }
   }
 
   return {
@@ -205,6 +216,7 @@ export async function readPdfResume(file: File): Promise<PdfReadResult> {
     quality,
     coverage,
     imageDataUrls,
+    pageImages,
     pageTexts,
   };
 }

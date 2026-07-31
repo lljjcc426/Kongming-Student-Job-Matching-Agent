@@ -33,7 +33,9 @@ export function analyzeMatch(profile: StudentProfile, job: Job, resumeText: stri
 
   const coveredKeywords = job.keywords.filter((keyword) => resume.includes(keyword.toLowerCase()) || countHits(profileSignals, [keyword]).length > 0);
   const missingKeywords = job.keywords.filter((keyword) => !coveredKeywords.includes(keyword));
-  const keywordScore = clamp((coveredKeywords.length / job.keywords.length) * 100);
+  const keywordScore = job.keywords.length
+    ? clamp((coveredKeywords.length / job.keywords.length) * 100)
+    : 0;
 
   const abilityHits = countHits(profile.skills, job.keywords);
   const abilityScore = clamp(52 + abilityHits.length * 9 + (profile.cityPreference.includes(job.city) ? 6 : 0));

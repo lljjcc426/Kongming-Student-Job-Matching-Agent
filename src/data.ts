@@ -40,4 +40,17 @@ export type Job = {
     risks: string[];
     actions: string[];
   };
+  knowledgeBase?: {
+    source: string;
+    sourceJobId: string;
+    lastVerifiedAt: string;
+    retrievalScore: number;
+    retrievalRankScore: number;
+    matchScore?: number;
+    rankingScore?: number;
+    rerankScore?: number;
+    rerankRank?: number;
+    matchedTerms: string[];
+    matchedSections: string[];
+  };
 };

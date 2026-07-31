@@ -1,4 +1,16 @@
 const { chromium } = require("playwright");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const UI_ARTIFACT_DIR =
+  process.env.JOB_RAG_UI_ARTIFACT_DIR
+  || "D:\\Kongming-RAG\\jobs-v1\\test-artifacts";
+const screenshotPaths = {
+  intro: path.join(UI_ARTIFACT_DIR, "check-intro.png"),
+  resume: path.join(UI_ARTIFACT_DIR, "check-resume-after-upload.png"),
+  interview: path.join(UI_ARTIFACT_DIR, "check-interview.png"),
+  assistant: path.join(UI_ARTIFACT_DIR, "check-assistant.png"),
+};
 
 const mockJobs = [
   ["ux-research-intern", "用户研究实习生", "用户研究", "实习"],
@@ -26,6 +38,47 @@ const mockJobs = [
   ],
 }));
 
+const mockKnowledgeJobs = mockJobs.map((job, index) => ({
+  id: `official-${job.id}`,
+  source: index === 5 ? "meituan" : "bytedance",
+  source_name: index === 5 ? "美团" : "字节跳动",
+  source_job_id: `ui-${index + 1}`,
+  source_url:
+    index === 5
+      ? "https://zhaopin.meituan.com/web/position"
+      : "https://jobs.bytedance.com/campus/position/7664535650662123829/detail",
+  company_name: index === 5 ? "美团" : "字节跳动",
+  title: job.title,
+  recruitment_type: "实习",
+  employment_type: "实习",
+  city: index % 2 === 0 ? "北京" : "上海",
+  department: "",
+  job_family: job.track,
+  responsibilities: job.responsibilities,
+  requirements: job.requirements,
+  preferred_qualifications: job.bonus,
+  skills: job.keywords,
+  education_requirement: "本科及以上学历在读",
+  experience_requirement: "具备相关项目或校园实践经历",
+  published_at: "",
+  refreshed_at: "",
+  expires_at: "",
+  last_verified_at: "2026-07-31T00:00:00.000Z",
+  status: "active",
+  retrieval: {
+    score: Number((1 - index * 0.08).toFixed(2)),
+    confidence: Number((0.92 - index * 0.05).toFixed(2)),
+    denseScore: Number((0.82 - index * 0.04).toFixed(2)),
+    lexicalScore: Number((8 - index * 0.5).toFixed(2)),
+    denseRank: index + 1,
+    lexicalRank: index + 1,
+    rerankScore: null,
+    rerankRank: null,
+    matchedTerms: ["心理学", "访谈", "数据分析"],
+    matchedSections: ["overview", "requirements"],
+  },
+}));
+
 async function launchBrowser() {
   try {
     return await chromium.launch({ channel: "chrome", headless: true });
@@ -35,8 +88,68 @@ async function launchBrowser() {
 }
 
 async function main() {
+  fs.mkdirSync(UI_ARTIFACT_DIR, { recursive: true });
   const browser = await launchBrowser();
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
+  let jobKnowledgeRequestBody = null;
+  page.on("request", (request) => {
+    if (!request.url().includes("/api/jobs/search") || request.method() !== "POST") return;
+    try {
+      jobKnowledgeRequestBody = request.postDataJSON();
+    } catch {
+      jobKnowledgeRequestBody = null;
+    }
+  });
+
+  await page.route("**/api/jobs/search", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          ready: true,
+          stale: false,
+        }),
+      });
+      return;
+    }
+    const body = route.request().postDataJSON();
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        query: body.query,
+        queries: [body.query, ...(body.queries || [])],
+        queryCount: 1 + (body.queries || []).length,
+        topK: body.topK,
+        filters: body.filters,
+        totalCandidates: mockKnowledgeJobs.length,
+        elapsedMs: 3.2,
+        indexVersion: "ui-mock-sections-v1",
+        retrievalDiagnostics: {
+          queryCount: 1 + (body.queries || []).length,
+          denseLimitPerQuery: 36,
+          denseNodesRetrieved: 18,
+          denseCandidatesRetrieved: 6,
+          nodesPerRecord: 3,
+          filterPushdown: true,
+          rerankerEnabled: false,
+          rerankerApplied: false,
+          rerankerModel: null,
+          rerankCandidates: 0,
+          rerankElapsedMs: 0,
+          rerankerError: null,
+          cacheHit: false,
+          cacheAgeMs: 0,
+          cacheEntries: 1,
+          cacheMaxEntries: 64,
+          cacheTtlSeconds: 900,
+          cacheBypassed: false,
+        },
+        results: mockKnowledgeJobs,
+      }),
+    });
+  });
 
   await page.route("**/api/ark", async (route) => {
     const body = route.request().postDataJSON();
@@ -70,6 +183,34 @@ async function main() {
       return;
     }
 
+    if (body.task === "jd-analysis") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          model: "mock",
+          content: JSON.stringify({
+            title: "用户研究实习生",
+            priority: "高",
+            track: "用户研究",
+            city: "上海",
+            level: "实习",
+            summary: "负责用户访谈、问卷研究和洞察输出。",
+            conclusion: "与心理学、访谈和 SPSS 经历高度相关。",
+            strengths: ["心理学专业", "具备问卷与访谈经验"],
+            risks: ["缺少企业实习量化成果"],
+            actions: ["补充项目影响和样本规模"],
+            keywords: ["用户访谈", "问卷研究", "SPSS"],
+            responsibilities: ["执行用户访谈", "整理研究数据", "输出研究报告"],
+            requirements: ["心理学或相关专业", "掌握定性与定量研究方法"],
+            bonus: ["SPSS", "校园调研经历"],
+            applicationLinks: [],
+          }),
+        }),
+      });
+      return;
+    }
+
     if (body.task === "career-chat") {
       await route.fulfill({
         contentType: "application/json",
@@ -90,14 +231,14 @@ async function main() {
 
   await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
   const introStage = await page.locator(".loading-screen").count();
-  const introProgress = await page.locator(".loading-progress-track").count();
-  const introProgressCard = await page.locator(".loading-progress-card").count();
-  const introParticles = await page.locator(".loading-stars > i").count();
-  const introVideoBackdrop = await page.locator(".loading-video-backdrop video").count();
-  await page.screenshot({ path: "artifacts/check-intro.png", fullPage: false });
+  const introProgress = await page.locator(".loading-brand-progress-track").count();
+  const introProgressCard = await page.locator(".loading-brand-progress").count();
+  const introDecorations = await page.locator(".loading-voltage-button .dot").count();
+  const introVideoBackdrop = await page.locator(".loading-video-stage video").count();
+  await page.screenshot({ path: screenshotPaths.intro, fullPage: false });
   await page.waitForTimeout(1400);
-  const introProgressAfterWheel = Number(await page.locator(".loading-progress-track").getAttribute("aria-valuenow"));
-  await page.dblclick(".loading-screen").catch(() => {});
+  const introProgressAfterWheel = Number(await page.locator(".loading-brand-progress-track").getAttribute("aria-valuenow"));
+  await page.locator(".loading-start-button").click();
   await page.locator(".loading-screen").waitFor({ state: "detached", timeout: 5000 }).catch(async () => {
     await page.waitForFunction(() => !document.querySelector(".loading-screen"), null, { timeout: 5000 });
   });
@@ -105,7 +246,7 @@ async function main() {
   const title = await page.locator("h1").first().innerText();
   await page.locator(".app-nav > div button").nth(1).click();
   const initialJobCards = await page.locator(".job-card").count();
-  const uploadControl = await page.locator(".upload-control").count();
+  const uploadControl = await page.locator(".resume-editor-upload-control").count();
   const uploadedResume = [
     "姓名：陈雨",
     "华东师范大学 心理学 本科",
@@ -115,7 +256,7 @@ async function main() {
     "技能：SPSS、问卷设计、访谈、数据分析。",
   ].join("\n");
 
-  await page.locator(".upload-control input").setInputFiles({
+  await page.locator(".resume-editor-upload-control input").setInputFiles({
     name: "frontend-resume.txt",
     mimeType: "text/plain",
     buffer: Buffer.from(uploadedResume, "utf8"),
@@ -124,17 +265,39 @@ async function main() {
   await page.waitForFunction(() => document.querySelectorAll(".job-card").length >= 6);
 
   const jobCards = await page.locator(".job-card").count();
-  const uploadMessage = await page.locator(".upload-message").innerText();
-  const studentName = await page.locator(".identity-card strong").innerText();
-  const educationCard = await page.locator(".resume-section-card").filter({ hasText: "学历" }).innerText();
-  const dynamicSkillVisible = await page.getByText("SPSS", { exact: true }).count();
-  await page.screenshot({ path: "artifacts/check-resume-after-upload.png", fullPage: false });
+  const activeJobCards = await page.locator(".job-card.active").count();
+  const uploadMessage = await page.locator(".resume-original-upload-bar small").innerText();
+  await page.locator(".app-nav > div button").nth(2).click();
+  const studentPortrait = await page.locator(".student-portrait-card p").innerText();
+  const educationCard = await page.locator(".completeness-reasons article").filter({ hasText: "教育经历" }).innerText();
+  const skillsCard = await page.locator(".completeness-reasons article").filter({ hasText: "专业技能" }).innerText();
+  await page.screenshot({ path: screenshotPaths.resume, fullPage: false });
 
   await page.locator(".app-nav > div button").nth(3).click();
-  const interviewInput = await page.getByLabel("模拟面试回答").count();
-  await page.screenshot({ path: "artifacts/check-interview.png", fullPage: false });
+  const knowledgeJobCards = await page.locator(".job-card small").filter({ hasText: "职业知识库" }).count();
+  const knowledgeJobLevels = await page.locator(".job-card p").allInnerTexts();
+  const officialJobLink = await page.locator(".selected-job .apply-links a").first().getAttribute("href");
+  await page.locator(".jd-lab input").fill("用户研究实习生");
+  await page.locator(".jd-textarea").fill("负责用户访谈、问卷研究、数据分析和用户洞察报告输出。");
+  await page.getByRole("button", { name: "分析该岗位" }).click();
+  await page.waitForFunction(() => document.querySelectorAll(".custom-job-list article").length === 1);
+  const customJobTitle = await page.locator(".custom-job-list article strong").innerText();
+  const selectedJobTitle = await page.locator(".selected-job h2").innerText();
+  const jdMessage = await page.locator(".jd-actions span").innerText();
+  await page.locator(".app-nav > div button").nth(2).click();
+  await page.getByRole("button", { name: "复制优化稿" }).click();
+  await page.getByRole("button", { name: "已复制" }).waitFor({ state: "visible" });
+  const copyStatus = await page.getByRole("button", { name: "已复制" }).innerText();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载分析报告" }).click();
+  const reportFilename = (await downloadPromise).suggestedFilename();
 
   await page.locator(".app-nav > div button").nth(4).click();
+  await page.getByLabel("模拟面试回答").waitFor({ state: "visible", timeout: 8000 });
+  const interviewInput = await page.getByLabel("模拟面试回答").count();
+  await page.screenshot({ path: screenshotPaths.interview, fullPage: false });
+
+  await page.locator(".app-nav > div button").nth(5).click();
   await page.waitForSelector(".particle-galaxy-core canvas", { timeout: 8000 });
   const assistantPage = await page.locator(".ai-assistant-page").count();
   const chatPanel = await page.locator(".assistant-chat-panel").count();
@@ -149,14 +312,14 @@ async function main() {
   const chatPanelRadius = await page.locator(".assistant-chat-panel").evaluate((node) => getComputedStyle(node).borderRadius);
   await page.getByText("推荐适合我的岗位").click();
   const quickQuestionFilled = await page.locator(".assistant-chat-panel textarea[aria-label='AI 助手输入']").inputValue();
-  await page.screenshot({ path: "artifacts/check-assistant.png", fullPage: false });
+  await page.screenshot({ path: screenshotPaths.assistant, fullPage: false });
   await browser.close();
 
   if (introStage !== 1 || introProgress !== 1 || introProgressCard !== 1 || introVideoBackdrop !== 1) {
     throw new Error(`Expected intro video loading screen, found stage=${introStage}, progress=${introProgress}, card=${introProgressCard}, video=${introVideoBackdrop}`);
   }
-  if (introParticles < 180 || introParticles > 320) {
-    throw new Error(`Expected 180-320 background particles, found ${introParticles}`);
+  if (introDecorations !== 5) {
+    throw new Error(`Expected five loading button decorations, found ${introDecorations}`);
   }
   if (introProgressAfterWheel <= 0) {
     throw new Error(`Expected loading progress to advance, found ${introProgressAfterWheel}`);
@@ -173,17 +336,51 @@ async function main() {
   if (!uploadMessage.includes("frontend-resume.txt")) {
     throw new Error(`Upload did not update message: ${uploadMessage}`);
   }
-  if (studentName !== "陈雨") {
-    throw new Error(`Student name did not update from model: ${studentName}`);
+  if (!studentPortrait.includes("陈雨")) {
+    throw new Error(`Student portrait did not update from model: ${studentPortrait}`);
   }
-  if (!educationCard.includes("心理学")) {
+  if (!educationCard.includes("已识别")) {
     throw new Error(`Education card did not update from model: ${educationCard}`);
   }
   if (jobCards < 6) {
     throw new Error(`Expected at least 6 recommended job cards, found ${jobCards}`);
   }
-  if (dynamicSkillVisible < 1) {
-    throw new Error("Expected uploaded resume skill SPSS to be visible");
+  if (activeJobCards !== 1) {
+    throw new Error(`Expected one active recommended job card, found ${activeJobCards}`);
+  }
+  if (knowledgeJobCards < 1) {
+    throw new Error("Expected recommended jobs to come from the career knowledge base");
+  }
+  if (knowledgeJobLevels.some((text) => /社会招聘|全职/.test(text))) {
+    throw new Error(
+      `Student recommendations should not contain social jobs: ${knowledgeJobLevels.join(" | ")}`,
+    );
+  }
+  if (
+    !jobKnowledgeRequestBody
+    || jobKnowledgeRequestBody.filters?.studentOnly !== true
+    || !Array.isArray(jobKnowledgeRequestBody.queries)
+    || jobKnowledgeRequestBody.queries.length !== 2
+  ) {
+    throw new Error(
+      `Expected three-query student retrieval request, found ${JSON.stringify(jobKnowledgeRequestBody)}`,
+    );
+  }
+  if (!officialJobLink || ![
+    "jobs.bytedance.com",
+    "careers.tencent.com",
+    "zhaopin.meituan.com",
+  ].includes(new URL(officialJobLink).hostname)) {
+    throw new Error(`Expected an official recruiting link, found ${officialJobLink}`);
+  }
+  if (customJobTitle !== "用户研究实习生" || selectedJobTitle !== customJobTitle || jdMessage !== "意向岗位分析已完成") {
+    throw new Error(`Expected analyzed custom job to become selected, found custom=${customJobTitle}, selected=${selectedJobTitle}, message=${jdMessage}`);
+  }
+  if (copyStatus !== "已复制" || reportFilename !== "kongming-match-report.md") {
+    throw new Error(`Expected copy and report actions to work, found copy=${copyStatus}, report=${reportFilename}`);
+  }
+  if (!skillsCard.includes("已识别 4 项技能")) {
+    throw new Error(`Skills card did not update from model: ${skillsCard}`);
   }
   if (interviewInput !== 1) {
     throw new Error(`Expected interview practice input after analysis, found ${interviewInput}`);
@@ -212,16 +409,26 @@ async function main() {
     introStage,
     introProgress,
     introProgressCard,
-    introParticles,
+    introDecorations,
     introVideoBackdrop,
     introProgressAfterWheel,
     initialJobCards,
     uploadControl,
     uploadMessage,
-    studentName,
+    studentPortrait,
     educationCard,
     jobCards,
-    dynamicSkillVisible,
+    activeJobCards,
+    knowledgeJobCards,
+    knowledgeJobLevels,
+    knowledgeQueryCount: 1 + jobKnowledgeRequestBody.queries.length,
+    officialJobLink,
+    customJobTitle,
+    selectedJobTitle,
+    jdMessage,
+    copyStatus,
+    reportFilename,
+    skillsCard,
     interviewInput,
     assistantPage,
     chatPanel,
@@ -235,12 +442,7 @@ async function main() {
     galaxyCanvas,
     galaxyLabel,
     chatPanelRadius,
-    screenshots: [
-      "artifacts/check-intro.png",
-      "artifacts/check-resume-after-upload.png",
-      "artifacts/check-interview.png",
-      "artifacts/check-assistant.png",
-    ],
+    screenshots: Object.values(screenshotPaths),
   }, null, 2));
 }
 
