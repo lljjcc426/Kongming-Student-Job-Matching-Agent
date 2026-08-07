@@ -109,6 +109,9 @@ async function main() {
           if (diagnostics.rerankCandidates < jobs.length) {
             errors.push("参与重排的候选数量少于最终结果数量");
           }
+          if (diagnostics.cacheBypassed !== true) {
+            errors.push("严格重排验证没有按请求绕过查询缓存");
+          }
           if (
             !jobs.every(
               (job) =>

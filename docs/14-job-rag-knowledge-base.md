@@ -71,6 +71,7 @@ npm run setup:job-reranker
 npm run verify:job-db
 npm run verify:job-rag
 npm run verify:job-rerank
+npm run verify:job-remote
 ```
 
 首次初始化需要下载 Python 依赖、本地嵌入模型和约 2.3 GB 的重排模型。之后启动前端时，Vite 会在后台预热常驻 Python 工作进程，并同时加载嵌入模型与已启用的重排模型；CPU 冷启动在不同系统负载下可能需要几十秒至两分钟，预热完成后的岗位检索通常不再承担模型加载时间。
@@ -254,9 +255,34 @@ UI 回归截图保存到 `D:\Kongming-RAG\jobs-v1\test-artifacts`。
 
 `D:\Kongming-RAG\jobs-v1\index\reranker-cache-verification.json`
 
-## 部署边界
+远程服务、Vercel 网关和认证回归结果写入：
 
-当前实现面向本地开发，使用 Qdrant Client 的磁盘本地模式，不需要 Docker，
-但同一数据库目录应由单个 Python 工作进程持有，不适用于 Vercel Serverless。
-生产部署时应保持相同的数据契约，把 Qdrant 切换为独立服务或 Qdrant Cloud；
-应用层的 LlamaIndex 检索接口和岗位数据结构可以继续复用。
+`D:\Kongming-RAG\jobs-v1\index\remote-rag-verification.json`
+
+## 生产部署
+
+Vercel 已提供以下 Node.js 网关接口：
+
+- `GET /api/jobs/status`
+- `GET /api/jobs/search`
+- `POST /api/jobs/search`
+
+网关只负责请求规范化、私有服务认证、45 秒超时、HTTPS 限制、响应大小限制和
+上游错误脱敏。LlamaIndex、嵌入模型、Qdrant、BM25 和可选重排器运行在独立
+Python 服务中，前端数据契约保持不变。
+
+Vercel 环境变量：
+
+```text
+JOB_RAG_BACKEND=remote
+JOB_RAG_REMOTE_BASE_URL=https://<私有岗位服务域名>
+JOB_RAG_REMOTE_TOKEN=<通过 Vercel Secret 注入>
+JOB_RAG_REMOTE_TIMEOUT_MS=45000
+```
+
+远程容器使用相同值配置 `JOB_RAG_SERVICE_TOKEN`。服务令牌不得提交到仓库、
+前端变量或构建日志。完整容器说明见 `deploy/job-rag/README.md`。
+
+当前容器继续使用 Qdrant Local 与持久磁盘，因此只运行一个服务副本。该方式
+适合比赛和中小规模演示；需要水平扩展时，把相同集合迁移到 Qdrant Cloud 或
+独立 Qdrant 集群，LlamaIndex 查询和岗位返回结构可以继续复用。

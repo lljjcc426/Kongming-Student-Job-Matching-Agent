@@ -81,6 +81,11 @@ def _qdrant_path():
     return Path(os.environ.get("JOB_RAG_QDRANT_PATH", DEFAULT_QDRANT_PATH))
 
 
+def _manifest_qdrant_path(database):
+    configured_path = os.environ.get("JOB_RAG_QDRANT_PATH")
+    return Path(configured_path or database.get("path") or _qdrant_path())
+
+
 def _model_name():
     return os.environ.get("JOB_RAG_EMBED_MODEL", DEFAULT_MODEL_NAME)
 
@@ -400,7 +405,7 @@ def _make_embed_model():
 
 def _inspect_qdrant(manifest, client=None):
     database = manifest.get("database") or {}
-    database_path = Path(database.get("path") or _qdrant_path())
+    database_path = _manifest_qdrant_path(database)
     collection_name = database.get("collection")
     record_count = int(manifest.get("record_count") or 0)
     node_count = int(manifest.get("node_count") or record_count)
@@ -1088,6 +1093,8 @@ class JobKnowledgeBase:
             )
         pointer = _read_json(pointer_path)
         version_dir = Path(pointer["version_dir"])
+        if not version_dir.exists():
+            version_dir = _index_root() / "versions" / pointer["version_id"]
         return {
             "pointer": pointer,
             "version_dir": version_dir,
@@ -1101,7 +1108,9 @@ class JobKnowledgeBase:
         try:
             paths = self._active_paths()
             manifest = _read_json(paths["manifest"])
-            data_path = Path(manifest["dataset_path"])
+            data_path = Path(
+                os.environ.get("JOB_RAG_DATA_PATH", manifest["dataset_path"])
+            )
             current_hash = _sha256_file(data_path) if data_path.exists() else ""
             common_ready = all(
                 paths[key].exists()
@@ -1168,7 +1177,8 @@ class JobKnowledgeBase:
                     "缺少 Qdrant RAG 依赖，请先运行 npm run setup:rag"
                 ) from error
             database = self.manifest["database"]
-            self.qdrant_client = QdrantClient(path=database["path"])
+            database_path = _manifest_qdrant_path(database)
+            self.qdrant_client = QdrantClient(path=str(database_path))
             vector_store = QdrantVectorStore(
                 client=self.qdrant_client,
                 collection_name=database["collection"],

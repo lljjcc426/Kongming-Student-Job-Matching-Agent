@@ -18,6 +18,7 @@
     "verify:job-db": "node scripts/verify-job-database.cjs",
     "verify:job-rag": "node scripts/verify-job-rag.cjs",
     "verify:job-rerank": "node scripts/verify-job-reranker.cjs",
+    "verify:job-remote": "node scripts/verify-job-remote.cjs",
     "verify:provider": "node scripts/verify-provider-config.cjs",
     "verify:resume-processing": "node scripts/verify-resume-processing.cjs",
     "verify:ui": "node scripts/verify-ui.cjs",

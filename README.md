@@ -62,4 +62,12 @@ npm run verify:job-rerank
 npm run dev
 ```
 
+生产环境的 Vercel 函数通过 `/api/jobs/search` 转发到独立岗位 RAG 服务，不会
+在 Serverless 函数中加载本地 Python、Qdrant 数据目录或重排模型。部署变量和
+容器运行说明见 [岗位 RAG 独立服务](deploy/job-rag/README.md)，配置后可运行：
+
+```powershell
+npm run verify:job-remote
+```
+
 有文字层的 PDF 会继续使用 PDF.js；仅当文字层为空或质量不足时，系统才调用 RapidOCR，并把识别到的文字坐标用于简历字段高亮。OCR 置信度不足时，语义识别任务通过 Gitee AI / 沐曦视觉模型完成。

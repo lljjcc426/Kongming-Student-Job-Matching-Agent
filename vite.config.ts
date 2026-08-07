@@ -107,6 +107,7 @@ const jobKnowledgeDevProxy = (): Plugin => ({
     server.httpServer?.once("close", closeLocalJobKnowledgeWorker);
     server.httpServer?.once("listening", () => {
       if (process.env.JOB_RAG_SKIP_WARMUP === "true") return;
+      if (process.env.JOB_RAG_BACKEND?.toLowerCase() === "remote") return;
       void warmLocalJobKnowledge()
         .then(() => console.log("[job-rag] 岗位知识库预热完成"))
         .catch((error) => console.warn("[job-rag] 岗位知识库预热失败", error));
