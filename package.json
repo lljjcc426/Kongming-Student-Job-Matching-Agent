@@ -11,6 +11,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "setup:ocr": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-ocr.ps1",
     "setup:rag": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-rag.ps1",
+    "setup:job-reranker": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cache-job-reranker.ps1",
     "collect:jobs": "node scripts/collect-official-jobs.cjs",
     "verify:parsers": "node scripts/verify-parsers.cjs",
     "verify:jobs": "node scripts/verify-job-dataset.cjs",

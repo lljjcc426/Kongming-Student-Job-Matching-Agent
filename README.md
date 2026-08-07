@@ -48,7 +48,13 @@ npm run setup:ocr
 ```powershell
 npm run setup:rag
 npm run build:job-index
+npm run setup:job-reranker
+npm run verify:job-rerank
 ```
+
+重排模型约占 2.3 GB，默认缓存到
+`D:\ai_models\kongming-rerankers\bge-reranker-v2-m3`。缓存完成后，本地岗位
+检索会自动启用二阶段重排；页面请求不会联网下载模型。
 
 启动前端和同源模型、OCR、岗位知识库代理：
 

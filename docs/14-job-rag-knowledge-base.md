@@ -67,12 +67,13 @@ D:\Kongming-RAG\jobs-v1\jobs-500.jsonl
 ```powershell
 npm run setup:rag
 npm run build:job-index
+npm run setup:job-reranker
 npm run verify:job-db
 npm run verify:job-rag
 npm run verify:job-rerank
 ```
 
-首次初始化需要下载 Python 依赖和本地嵌入模型。之后启动前端时，Vite 会在后台预热常驻 Python 工作进程；CPU 冷启动在不同系统负载下可能需要几十秒至两分钟，预热完成后的岗位检索通常不再承担模型加载时间。
+首次初始化需要下载 Python 依赖、本地嵌入模型和约 2.3 GB 的重排模型。之后启动前端时，Vite 会在后台预热常驻 Python 工作进程，并同时加载嵌入模型与已启用的重排模型；CPU 冷启动在不同系统负载下可能需要几十秒至两分钟，预热完成后的岗位检索通常不再承担模型加载时间。
 
 Qdrant 本地模式使用目录锁。重新构建索引或单独运行数据库验证前，应先停止
 正在运行的前端开发服务，避免两个 Python 进程同时打开同一数据库目录。
@@ -157,27 +158,32 @@ TTL 为 900 秒；索引版本、三路查询、Top-K、规范化过滤条件和
 `retrievalDiagnostics` 会返回 `cacheHit`、`cacheAgeMs`、当前缓存项数、容量和
 TTL。当前重复检索回归由首次 1529.59ms 降至 0.38ms，岗位 ID 与顺序完全一致。
 
-## 可选二阶段重排
+## 二阶段重排
 
-系统预留 `BAAI/bge-reranker-v2-m3` CrossEncoder 重排层，但默认关闭且不会
-自动下载模型。启用后仅重排混合检索头部候选，默认候选数为
-`max(topK, 12)`、最大 30 条；最终使用“原混合排名 35% + 重排排名 65%”的
+系统使用 `BAAI/bge-reranker-v2-m3` CrossEncoder 重排层。运行
+`npm run setup:job-reranker` 后，模型保存在稳定的 D 盘目录并执行一次相关、
+无关岗位排序冒烟测试。运行时只从本地目录加载，不会由页面请求触发联网下载。
+本地模型存在时重排默认启用，仅重排混合检索头部候选，默认候选数为
+`max(topK, 8)`、最大 30 条；最终使用“原混合排名 35% + 重排排名 65%”的
 加权 RRF，避免重排模型单次异常彻底覆盖稳定基线。
 
 配置项：
 
 - `JOB_RAG_RERANK_ENABLED=true`：允许重排；
 - `JOB_RAG_RERANK_MODEL`：默认 `BAAI/bge-reranker-v2-m3`；
+- `JOB_RAG_RERANK_MODEL_PATH`：默认
+  `D:\ai_models\kongming-rerankers\bge-reranker-v2-m3`；
 - `JOB_RAG_RERANK_DEVICE`：默认 `cpu`；
-- `JOB_RAG_RERANK_TOP_N`：默认 `12`，范围 1–30；
+- `JOB_RAG_RERANK_TOP_N`：默认 `8`，范围 1–30；
+- `JOB_RAG_RERANK_MAX_LENGTH`：默认 `384`，范围 128–2048；
 - `JOB_RAG_RERANK_BATCH_SIZE`：默认 `4`；
 - `JOB_RAG_RERANK_LOCAL_FILES_ONLY`：默认 `true`，防止页面请求隐式下载权重；
 - `JOB_RAG_RERANK_STRICT`：默认 `false`，模型缺失或推理失败时回退混合检索。
 
-当前机器虽然有 RTX 4070 8GB，但 `kongming-rag` 环境安装的是 CPU 版 PyTorch，
-且重排模型权重尚未完整缓存，因此生产默认仍保持关闭。下载权重或切换 CUDA
-运行时后，运行 `npm run verify:job-rerank`；脚本会分别验证真实重排分数或
-模型缺失时的安全回退，不会把失败重排结果冒充成功。
+当前 `kongming-rag` 环境安装的是 CPU 版 PyTorch，因此默认使用 CPU 推理。
+业务运行时 `JOB_RAG_RERANK_STRICT=false`，模型损坏或推理失败时仍会安全回退
+到混合检索；但 `npm run verify:job-rerank` 会强制启用严格模式，只有本地模型
+真实加载、执行重排并返回有效分数时才通过，降级检索不再计为验证成功。
 
 检索返回的主要证据字段包括：
 
@@ -226,8 +232,10 @@ TTL。当前重复检索回归由首次 1529.59ms 降至 0.38ms，岗位 ID 与�
 过滤合规性、三路查询数量、Qdrant 过滤下推、节点与岗位聚合诊断、命中分区、
 检索分数边界和官方链接域名；报告同时记录 Hit@5、MRR 和 nDCG@5。
 
-2026-07-31 的当前活动索引回归结果为：10/10 场景通过，Hit@5 为 1，
-MRR 为 1，nDCG@5 为 0.9967。
+2026-08-07 在 CPU 重排配置 `topN=8`、`maxLength=384` 下，当前活动索引
+10/10 场景通过，Hit@5、MRR 和 nDCG@5 均为 1。10 组请求耗时约
+3.23–6.52 秒，重复查询缓存命中约 0.84ms；单独严格链路验证的重排阶段约
+4.09 秒。
 
 `npm run verify:ui` 使用固定岗位知识库响应验证页面请求与渲染，避免把模型冷
 启动的内存波动误报为前端失败；真实 Qdrant、嵌入、缓存和排序链路由
@@ -241,6 +249,10 @@ UI 回归截图保存到 `D:\Kongming-RAG\jobs-v1\test-artifacts`。
 重排验证结果写入：
 
 `D:\Kongming-RAG\jobs-v1\index\reranker-verification.json`
+
+模型缓存和独立冒烟测试结果写入：
+
+`D:\Kongming-RAG\jobs-v1\index\reranker-cache-verification.json`
 
 ## 部署边界
 
