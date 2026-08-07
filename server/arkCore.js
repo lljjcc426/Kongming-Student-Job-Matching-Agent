@@ -1,3 +1,5 @@
+import { readBoundedIntegerEnv } from "./runtimeConfig.js";
+
 const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 const DEFAULT_MODEL = "doubao-seed-2-0-lite-260215";
 const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "jd-analysis", "interview-feedback", "career-chat"]);
@@ -6,7 +8,7 @@ const MAX_INTERVIEW_CHARS = 4000;
 const MAX_CHAT_CHARS = 6000;
 const MAX_IMAGE_DATA_URL_CHARS = 10_000_000;
 const MAX_IMAGE_COUNT = 4;
-const REQUEST_TIMEOUT_MS = Number(process.env.ARK_REQUEST_TIMEOUT_MS || 65000);
+const DEFAULT_REQUEST_TIMEOUT_MS = 65_000;
 const SEARCH_TIMEOUT_MS = 5000;
 const SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; StudentJobMatcher/0.1)";
 
@@ -14,7 +16,7 @@ const modelForTask = (task) => {
   if (task === "resume-vision") {
     return process.env.ARK_VISION_MODEL || process.env.ARK_MODEL || process.env.ARK_TEXT_MODEL || DEFAULT_MODEL;
   }
-  return process.env.ARK_TEXT_MODEL || process.env.ARK_MODEL || DEFAULT_MODEL;
+  return process.env.ARK_MODEL || process.env.ARK_TEXT_MODEL || DEFAULT_MODEL;
 };
 
 const asText = (value, maxLength) => {
@@ -31,6 +33,59 @@ const asCount = (value, fallback = 6) => {
 const imageCountOf = (body) => {
   if (Array.isArray(body.imageDataUrls)) return body.imageDataUrls.length;
   return body.imageDataUrl ? 1 : 0;
+};
+
+const isGiteeAiProvider = (baseUrl) => /ai\.gitee\.com/i.test(baseUrl);
+
+const requestTimeoutMs = () => readBoundedIntegerEnv(
+  "ARK_REQUEST_TIMEOUT_MS",
+  DEFAULT_REQUEST_TIMEOUT_MS,
+);
+
+const maxTokensForTask = (body) => {
+  if (body.task === "job-recommendations") return Math.max(700, asCount(body.jobCount) * 420);
+  if (body.task === "jd-analysis") return 1400;
+  if (body.task === "career-chat") return 1600;
+  if (body.task === "resume-vision") return imageCountOf(body) > 1 ? 2200 : 1500;
+  if (body.task === "resume-structure") return 2400;
+  return 1200;
+};
+
+const buildCompletionPayload = (body, baseUrl, model) => {
+  const payload = {
+    model,
+    messages: buildMessages(body),
+    temperature: 0.25,
+  };
+
+  const maxTokens = maxTokensForTask(body);
+  if (isGiteeAiProvider(baseUrl)) {
+    payload.max_tokens = maxTokens;
+    return payload;
+  }
+
+  payload.thinking = {
+    type: "disabled",
+  };
+  payload.max_completion_tokens = maxTokens;
+  return payload;
+};
+
+const buildProviderHeaders = (apiKey, baseUrl) => {
+  const headers = {
+    "Content-Type": "application/json; charset=utf-8",
+    Authorization: `Bearer ${apiKey}`,
+  };
+
+  if (isGiteeAiProvider(baseUrl) && process.env.ARK_PACKAGE) {
+    headers["X-Package"] = process.env.ARK_PACKAGE;
+  }
+
+  if (isGiteeAiProvider(baseUrl) && process.env.ARK_FAILOVER_ENABLED) {
+    headers["X-Failover-Enabled"] = process.env.ARK_FAILOVER_ENABLED;
+  }
+
+  return headers;
 };
 
 const validateRequest = (body) => {
@@ -461,20 +516,9 @@ export async function runArkCompletion(body) {
   try {
     response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: buildMessages(body),
-        temperature: 0.25,
-        thinking: {
-          type: "disabled",
-        },
-        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? (imageCountOf(body) > 1 ? 2200 : 1500) : body.task === "resume-structure" ? 2400 : 1200,
-      }),
+      signal: AbortSignal.timeout(requestTimeoutMs()),
+      headers: buildProviderHeaders(apiKey, baseUrl),
+      body: JSON.stringify(buildCompletionPayload(body, baseUrl, model)),
     });
   } catch (error) {
     return {
@@ -488,14 +532,17 @@ export async function runArkCompletion(body) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const upstreamCode = typeof data?.error?.code === "string" ? data.error.code : "";
-    const upstreamMessage = typeof data?.error?.message === "string" ? data.error.message : "";
-    const upstreamDetail = [upstreamCode, upstreamMessage].filter(Boolean).join(": ").slice(0, 240);
+    const upstreamCode = typeof data?.error?.code === "string"
+      ? data.error.code.replace(/[^a-zA-Z0-9_.-]/g, "").slice(0, 64)
+      : "";
+    console.warn(`[ark-proxy] upstream request failed: HTTP ${response.status}${upstreamCode ? ` ${upstreamCode}` : ""}`);
     return {
       status: response.status,
       payload: {
         ok: false,
-        error: upstreamDetail ? `模型接口调用失败：${upstreamDetail}` : "模型接口调用失败，请稍后重试。",
+        error: upstreamCode
+          ? `模型接口调用失败（${upstreamCode}），请稍后重试。`
+          : "模型接口调用失败，请稍后重试。",
       },
     };
   }

@@ -2,8 +2,9 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
+import { readBoundedIntegerEnv } from "./runtimeConfig.js";
 
-const DEFAULT_TIMEOUT_MS = Number(process.env.OCR_LOCAL_TIMEOUT_MS || 95_000);
+const DEFAULT_TIMEOUT_MS = 95_000;
 const DEFAULT_WINDOWS_PYTHON = "D:\\conda_envs\\kongming-ocr\\python.exe";
 const DEFAULT_WINDOWS_CACHE = "D:\\ai_models\\kongming-ocr\\modelscope";
 const WORKER_PATH = fileURLToPath(new URL("./local_ocr_worker.py", import.meta.url));
@@ -73,7 +74,12 @@ const startWorker = () => {
   return worker;
 };
 
-export const runLocalOcr = (imageDataUrl, timeoutMs = DEFAULT_TIMEOUT_MS) => new Promise((resolve, reject) => {
+const localOcrTimeoutMs = () => readBoundedIntegerEnv(
+  "OCR_LOCAL_TIMEOUT_MS",
+  DEFAULT_TIMEOUT_MS,
+);
+
+export const runLocalOcr = (imageDataUrl, timeoutMs = localOcrTimeoutMs()) => new Promise((resolve, reject) => {
   const processHandle = startWorker();
   const id = `ocr-${Date.now()}-${requestSequence += 1}`;
   const timer = setTimeout(() => {

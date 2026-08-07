@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { runArkCompletion } from "./server/arkCore.js";
 import {
@@ -141,17 +141,28 @@ const jobKnowledgeDevProxy = (): Plugin => ({
   },
 });
 
-export default defineConfig({
-  plugins: [react(), arkDevProxy(), ocrDevProxy(), jobKnowledgeDevProxy()],
-  build: {
-    sourcemap: false,
-    minify: "esbuild",
-    rollupOptions: {
-      output: {
-        entryFileNames: "assets/[hash].js",
-        chunkFileNames: "assets/[hash].js",
-        assetFileNames: "assets/[hash][extname]",
+const serverEnvPrefixes = ["ARK_", "JOB_RAG_", "OCR_", "VOLC_OCR_", "HF_", "MODELSCOPE_"];
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  for (const [key, value] of Object.entries(env)) {
+    if (serverEnvPrefixes.some((prefix) => key.startsWith(prefix)) && process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+
+  return {
+    plugins: [react(), arkDevProxy(), ocrDevProxy(), jobKnowledgeDevProxy()],
+    build: {
+      sourcemap: false,
+      minify: "esbuild",
+      rollupOptions: {
+        output: {
+          entryFileNames: "assets/[hash].js",
+          chunkFileNames: "assets/[hash].js",
+          assetFileNames: "assets/[hash][extname]",
+        },
       },
     },
-  },
+  };
 });

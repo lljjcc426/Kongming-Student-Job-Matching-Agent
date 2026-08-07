@@ -23,8 +23,19 @@
 - [Skill、MCP 与部署准备](docs/06-skills-mcp-and-deployment-prep.md)
 - [多智能体与多模态架构设计](docs/08-multi-agent-multimodal-architecture.md)
 - [简历 OCR 坐标识别](docs/12-ocr-integration.md)
+- [前端模块化拆分](docs/13-frontend-modularization.md)
+- [岗位 RAG 知识库](docs/14-job-rag-knowledge-base.md)
 
 ## 本地开发
+
+比赛模型调用使用 Gitee AI 模力方舟上的沐曦 Token 资源包。请参考 `.env.example` 在本地创建不提交的 `.env.local`，并通过安全方式填写访问令牌：
+
+```text
+ARK_BASE_URL=https://ai.gitee.com/v1
+ARK_PACKAGE=1492
+ARK_MODEL=Qwen3-4B
+ARK_VISION_MODEL=Qwen3-VL-8B-Instruct
+```
 
 首次使用扫描版 PDF 或图片简历前，先在 D 盘建立本地 OCR 环境：
 
@@ -32,10 +43,17 @@
 npm run setup:ocr
 ```
 
-启动前端和同源模型/OCR 代理：
+首次构建岗位知识库时执行：
+
+```powershell
+npm run setup:rag
+npm run build:job-index
+```
+
+启动前端和同源模型、OCR、岗位知识库代理：
 
 ```powershell
 npm run dev
 ```
 
-有文字层的 PDF 会继续使用 PDF.js；仅当文字层为空或质量不足时，系统才调用 RapidOCR，并把识别到的文字坐标用于简历字段高亮。部署环境可按 [OCR 接入文档](docs/12-ocr-integration.md) 切换到火山 OCR。
+有文字层的 PDF 会继续使用 PDF.js；仅当文字层为空或质量不足时，系统才调用 RapidOCR，并把识别到的文字坐标用于简历字段高亮。OCR 置信度不足时，语义识别任务通过 Gitee AI / 沐曦视觉模型完成。

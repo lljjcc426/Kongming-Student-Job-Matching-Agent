@@ -1,5 +1,6 @@
 import { createHash, createHmac } from "node:crypto";
 import { runLocalOcr } from "./localOcrWorker.js";
+import { readBoundedIntegerEnv } from "./runtimeConfig.js";
 
 const MAX_IMAGE_DATA_URL_CHARS = 2_000_000;
 const VOLC_HOST = "visual.volcengineapi.com";
@@ -87,7 +88,7 @@ const runVolcengineOcr = async (imageDataUrl) => {
     method: "POST",
     headers,
     body,
-    signal: AbortSignal.timeout(Number(process.env.VOLC_OCR_TIMEOUT_MS || 60_000)),
+    signal: AbortSignal.timeout(readBoundedIntegerEnv("VOLC_OCR_TIMEOUT_MS", 60_000)),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data?.ResponseMetadata?.Error) {

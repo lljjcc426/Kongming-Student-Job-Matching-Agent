@@ -10,6 +10,7 @@ const screenshotPaths = {
   resume: path.join(UI_ARTIFACT_DIR, "check-resume-after-upload.png"),
   interview: path.join(UI_ARTIFACT_DIR, "check-interview.png"),
   assistant: path.join(UI_ARTIFACT_DIR, "check-assistant.png"),
+  assistantMobile: path.join(UI_ARTIFACT_DIR, "check-assistant-mobile.png"),
 };
 
 const mockJobs = [
@@ -313,6 +314,19 @@ async function main() {
   await page.getByText("推荐适合我的岗位").click();
   const quickQuestionFilled = await page.locator(".assistant-chat-panel textarea[aria-label='AI 助手输入']").inputValue();
   await page.screenshot({ path: screenshotPaths.assistant, fullPage: false });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(500);
+  const assistantMobileLayout = await page.evaluate(() => {
+    const chatPanelNode = document.querySelector(".assistant-chat-panel");
+    const chatPanelRect = chatPanelNode?.getBoundingClientRect();
+    return {
+      viewportWidth: document.documentElement.clientWidth,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      chatPanelLeft: chatPanelRect?.left ?? null,
+      chatPanelRight: chatPanelRect?.right ?? null,
+    };
+  });
+  await page.screenshot({ path: screenshotPaths.assistantMobile, fullPage: false });
   await browser.close();
 
   if (introStage !== 1 || introProgress !== 1 || introProgressCard !== 1 || introVideoBackdrop !== 1) {
@@ -403,6 +417,15 @@ async function main() {
   if (!chatPanelRadius || chatPanelRadius === "0px") {
     throw new Error(`Expected rounded assistant chat panel, found radius=${chatPanelRadius}`);
   }
+  if (
+    assistantMobileLayout.documentScrollWidth > assistantMobileLayout.viewportWidth + 1
+    || assistantMobileLayout.chatPanelLeft === null
+    || assistantMobileLayout.chatPanelRight === null
+    || assistantMobileLayout.chatPanelLeft < -1
+    || assistantMobileLayout.chatPanelRight > assistantMobileLayout.viewportWidth + 1
+  ) {
+    throw new Error(`Assistant mobile layout overflowed: ${JSON.stringify(assistantMobileLayout)}`);
+  }
 
   console.log(JSON.stringify({
     title,
@@ -442,6 +465,7 @@ async function main() {
     galaxyCanvas,
     galaxyLabel,
     chatPanelRadius,
+    assistantMobileLayout,
     screenshots: Object.values(screenshotPaths),
   }, null, 2));
 }
