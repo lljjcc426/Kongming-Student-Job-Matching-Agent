@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: kongming-job-rag
+    runtime: docker
+    repo: https://github.com/lljjcc426/Kongming-Student-Job-Matching-Agent
+    branch: deploy/online-rag
+    region: singapore
+    plan: standard
+    numInstances: 1
+    autoDeployTrigger: commit
+    dockerfilePath: ./deploy/job-rag/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    maxShutdownDelaySeconds: 60
+    disk:
+      name: job-rag-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: JOB_RAG_DATA_ROOT
+        value: /var/data/jobs-v1
+      - key: JOB_RAG_DATA_PATH
+        value: /var/data/jobs-v1/jobs-500.jsonl
+      - key: JOB_RAG_INDEX_ROOT
+        value: /var/data/jobs-v1/index
+      - key: JOB_RAG_QDRANT_PATH
+        value: /var/data/jobs-v1/database/qdrant
+      - key: JOB_RAG_BOOTSTRAP_REQUIRED
+        value: "true"
+      - key: JOB_RAG_DATA_ARCHIVE_URL
+        value: https://github.com/lljjcc426/Kongming-Student-Job-Matching-Agent/releases/download/job-rag-data-v1.0.0/kongming-job-rag-data-807dcda612e0-fb38bc02-qdrant-sections-v1.zip
+      - key: JOB_RAG_DATA_ARCHIVE_SHA256
+        value: a99c2d0f18ba8e09be247e7b1940b504d802c1ac058591c0d708ecdfa5af1d49
+      - key: JOB_RAG_SERVICE_TOKEN
+        generateValue: true
+      - key: JOB_RAG_RERANK_ENABLED
+        value: "false"
+      - key: JOB_RAG_DEVICE
+        value: cpu
+      - key: JOB_RAG_EMBED_BATCH_SIZE
+        value: "16"

@@ -8,6 +8,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "build:job-index": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-job-index.ps1",
+    "package:job-rag-data": "powershell -NoProfile -ExecutionPolicy Bypass -File deploy/job-rag/package-data.ps1",
     "preview": "vite preview --host 0.0.0.0",
     "setup:ocr": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-ocr.ps1",
     "setup:rag": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-rag.ps1",
