@@ -125,6 +125,12 @@ async function main() {
   try {
     const directStatus = await waitForService(baseUrl, serviceProcess, stderrLines);
     assert.equal(directStatus.payload.database.pointsCount, 1500);
+    assert.equal("path" in directStatus.payload.database, false);
+    assert.equal("dataset_path" in directStatus.payload.manifest, false);
+    assert.equal("storage_dir" in directStatus.payload.manifest, false);
+    assert.equal("modelPath" in directStatus.payload.reranker, false);
+    assert.equal("source" in directStatus.payload.reranker, false);
+    assert.equal(JSON.stringify(directStatus.payload).includes("D:\\"), false);
 
     const health = await fetchJson(`${baseUrl}/health`);
     assert.equal(health.status, 200);
@@ -133,6 +139,25 @@ async function main() {
     const unauthorized = await fetchJson(`${baseUrl}/api/jobs/status`);
     assert.equal(unauthorized.status, 401);
     assert.equal(unauthorized.payload.code, "UNAUTHORIZED");
+
+    const directSearch = await fetchJson(`${baseUrl}/api/jobs/search`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TEST_TOKEN}`,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({
+        query: "北京大模型算法实习生",
+        topK: 3,
+        rerank: false,
+        bypassCache: true,
+      }),
+    });
+    assert.equal(directSearch.status, 200);
+    assert.equal(directSearch.payload.results.length, 3);
+    assert.equal(directSearch.payload.retrievalDiagnostics.rerankerSource, null);
+    assert.equal(directSearch.payload.retrievalDiagnostics.rerankerError, null);
+    assert.equal(JSON.stringify(directSearch.payload).includes("D:\\"), false);
 
     process.env.JOB_RAG_BACKEND = "remote";
     process.env.JOB_RAG_REMOTE_BASE_URL = baseUrl;

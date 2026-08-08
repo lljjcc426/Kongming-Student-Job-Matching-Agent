@@ -31,6 +31,10 @@ docker run --rm -p 8080:8080 `
   kongming-job-rag
 ```
 
+镜像固定从 PyTorch 官方 CPU wheel 源安装 `torch==2.13.0+cpu`，避免默认 PyPI
+解析出不需要的 CUDA 运行库。需要 GPU 推理时应单独维护 CUDA 基础镜像，不能
+直接复用该 CPU 镜像。
+
 不要把服务令牌写入命令历史、仓库或镜像。生产环境应通过部署平台的 Secret
 功能注入，并使用 HTTPS。该 Qdrant Local 方案只运行一个服务副本；需要水平
 扩展时再迁移到 Qdrant Cloud 或独立 Qdrant 集群。
@@ -43,4 +47,5 @@ docker run --rm -p 8080:8080 `
 
 岗位状态和检索接口要求
 `Authorization: Bearer <JOB_RAG_SERVICE_TOKEN>`；健康检查不返回数据库、模型或
-路径信息，因此不要求服务令牌。
+路径信息，因此不要求服务令牌。鉴权后的状态与检索响应同样采用字段白名单，
+不会返回宿主路径、索引存储路径、模型路径或底层异常详情。

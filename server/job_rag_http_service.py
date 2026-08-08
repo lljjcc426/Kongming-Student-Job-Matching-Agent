@@ -19,6 +19,70 @@ ALLOW_UNAUTHENTICATED = (
 )
 
 
+def _public_status(result):
+    manifest = result.get("manifest") or {}
+    database = result.get("database") or {}
+    reranker = result.get("reranker") or {}
+    return {
+        "ready": result.get("ready") is True,
+        "loaded": result.get("loaded") is True,
+        "stale": result.get("stale") is True,
+        "manifest": {
+            "schema_version": manifest.get("schema_version"),
+            "version_id": manifest.get("version_id"),
+            "record_count": int(manifest.get("record_count") or 0),
+            "node_count": int(manifest.get("node_count") or 0),
+            "nodes_per_record": int(manifest.get("nodes_per_record") or 0),
+            "index_strategy": manifest.get("index_strategy"),
+            "embedding_model": manifest.get("embedding_model"),
+            "vector_backend": manifest.get("vector_backend"),
+            "built_at": manifest.get("built_at"),
+        },
+        "database": {
+            "type": database.get("type"),
+            "backend": database.get("backend"),
+            "collection": database.get("collection"),
+            "ready": database.get("ready") is True,
+            "pointsCount": int(database.get("pointsCount") or 0),
+            "expectedPointsCount": int(
+                database.get("expectedPointsCount") or 0
+            ),
+            "recordCount": int(database.get("recordCount") or 0),
+            "nodesPerRecord": int(database.get("nodesPerRecord") or 0),
+            "storesFullJobPayload": (
+                database.get("storesFullJobPayload") is True
+            ),
+        },
+        "cache": result.get("cache"),
+        "reranker": {
+            "configured": reranker.get("configured") is True,
+            "loaded": reranker.get("loaded") is True,
+            "model": reranker.get("model"),
+            "localModelAvailable": (
+                reranker.get("localModelAvailable") is True
+            ),
+            "device": reranker.get("device"),
+            "topN": int(reranker.get("topN") or 0),
+            "maxLength": int(reranker.get("maxLength") or 0),
+            "localFilesOnly": reranker.get("localFilesOnly") is True,
+            "error": (
+                "RERANKER_UNAVAILABLE" if reranker.get("error") else None
+            ),
+        },
+        "loaded_at": result.get("loaded_at"),
+        "error": "RAG_UNAVAILABLE" if result.get("error") else None,
+    }
+
+
+def _public_search(result):
+    diagnostics = dict(result.get("retrievalDiagnostics") or {})
+    diagnostics["rerankerSource"] = None
+    diagnostics["rerankerError"] = (
+        "RERANKER_UNAVAILABLE" if diagnostics.get("rerankerError") else None
+    )
+    return {**result, "retrievalDiagnostics": diagnostics}
+
+
 def _authorized(header_value):
     if not SERVICE_TOKEN:
         return ALLOW_UNAUTHENTICATED
@@ -68,8 +132,9 @@ class JobRagHandler(BaseHTTPRequestHandler):
     def _status(self):
         with self.knowledge_lock:
             result = self.knowledge_base.status()
-        ready = result.get("ready") is True
-        self._json(200 if ready else 503, {"ok": ready, **result})
+        public_result = _public_status(result)
+        ready = public_result["ready"]
+        self._json(200 if ready else 503, {"ok": ready, **public_result})
 
     def do_GET(self):
         if self.path not in ("/health", "/api/jobs/status", "/api/jobs/search"):
@@ -106,7 +171,7 @@ class JobRagHandler(BaseHTTPRequestHandler):
                 raise ValueError("请求体必须是 JSON 对象")
             with self.knowledge_lock:
                 result = self.knowledge_base.search(body)
-            self._json(200, {"ok": True, **result})
+            self._json(200, {"ok": True, **_public_search(result)})
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
             self._json(400, {"ok": False, "error": "岗位检索请求格式不正确。"})
         except Exception:

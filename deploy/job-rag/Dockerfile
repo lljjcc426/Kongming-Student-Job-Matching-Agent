@@ -3,6 +3,8 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONUTF8=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     TOKENIZERS_PARALLELISM=false \
     HF_HOME=/models/huggingface \
     HF_HUB_CACHE=/models/huggingface/hub \
@@ -15,7 +17,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY scripts/rag-requirements.txt /app/scripts/rag-requirements.txt
-RUN python -m pip install --no-cache-dir -r /app/scripts/rag-requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir --retries 10 \
+      --index-url https://download.pytorch.org/whl/cpu \
+      torch==2.13.0+cpu \
+    && python -m pip install --no-cache-dir --retries 10 \
+      -r /app/scripts/rag-requirements.txt
+
+ENV JOB_RAG_RERANK_MODEL_PATH=/models/kongming-rerankers/bge-reranker-v2-m3
 
 COPY server /app/server
 
