@@ -11,7 +11,6 @@ services:
     dockerfilePath: ./deploy/job-rag/Dockerfile
     dockerContext: .
     healthCheckPath: /health
-    maxShutdownDelaySeconds: 60
     disk:
       name: job-rag-data
       mountPath: /var/data
