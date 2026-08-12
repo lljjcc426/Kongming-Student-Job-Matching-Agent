@@ -9,6 +9,7 @@ const USER_ID_PATTERN = /^[a-zA-Z0-9_-]{8,80}$/;
 const MAX_MESSAGE_CHARS = 6000;
 const MAX_FEEDBACK_CORRECTION_CHARS = 1000;
 const MAX_CONTEXT_CHARS = 120_000;
+const MAX_GROWTH_PLAN_CHARS = 500_000;
 const DEFAULT_MAX_MESSAGES = 120;
 const DEFAULT_RETENTION_DAYS = 180;
 
@@ -93,6 +94,14 @@ const openDatabase = () => {
 
     CREATE INDEX IF NOT EXISTS idx_agent_memory_feedback_user_id
       ON agent_memory_feedback(user_id, id DESC);
+
+    CREATE TABLE IF NOT EXISTS career_growth_plans (
+      user_id TEXT PRIMARY KEY,
+      plan_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES agent_memory_profiles(user_id) ON DELETE CASCADE
+    );
   `);
   return database;
 };
@@ -360,6 +369,52 @@ const saveFeedback = (db, userId, body) => {
   return { status: 200, payload: memoryPayload(db, userId) };
 };
 
+const growthPlanPayload = (db, userId) => {
+  const row = db.prepare(`
+    SELECT plan_json, created_at AS createdAt, updated_at AS updatedAt
+    FROM career_growth_plans
+    WHERE user_id = ?
+  `).get(userId);
+  return {
+    ok: true,
+    userId,
+    plan: row ? parseJson(row.plan_json, null) : null,
+    createdAt: row?.createdAt ?? null,
+    updatedAt: row?.updatedAt ?? null,
+  };
+};
+
+const saveGrowthPlan = (db, userId, body) => {
+  if (!body.plan || typeof body.plan !== "object") {
+    return { status: 400, payload: { ok: false, error: "成长计划格式不正确。" } };
+  }
+  if (
+    body.plan.version !== 1
+    || typeof body.plan.id !== "string"
+    || typeof body.plan.targetJobTitle !== "string"
+    || !Array.isArray(body.plan.gaps)
+    || !Array.isArray(body.plan.stages)
+    || !Array.isArray(body.plan.tasks)
+    || !body.plan.tasks.length
+  ) {
+    return { status: 400, payload: { ok: false, error: "成长计划缺少必要字段。" } };
+  }
+  const serialized = JSON.stringify(body.plan);
+  if (serialized.length > MAX_GROWTH_PLAN_CHARS) {
+    return { status: 413, payload: { ok: false, error: "成长计划内容过大。" } };
+  }
+  ensureProfile(db, userId);
+  const timestamp = nowIso();
+  db.prepare(`
+    INSERT INTO career_growth_plans (user_id, plan_json, created_at, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      plan_json = excluded.plan_json,
+      updated_at = excluded.updated_at
+  `).run(userId, serialized, timestamp, timestamp);
+  return { status: 200, payload: growthPlanPayload(db, userId) };
+};
+
 export const runAgentMemoryRequest = async (body = {}) => {
   const userId = validateUserId(body.userId);
   if (!userId) {
@@ -376,6 +431,12 @@ export const runAgentMemoryRequest = async (body = {}) => {
     }
     if (body.action === "save-feedback") {
       return saveFeedback(db, userId, body);
+    }
+    if (body.action === "load-growth") {
+      return { status: 200, payload: growthPlanPayload(db, userId) };
+    }
+    if (body.action === "save-growth") {
+      return saveGrowthPlan(db, userId, body);
     }
     if (body.action === "clear") {
       db.prepare("DELETE FROM agent_memory_profiles WHERE user_id = ?").run(userId);

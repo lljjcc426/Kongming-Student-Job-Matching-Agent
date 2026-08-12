@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Brain, BriefcaseBusiness, Code2, Mic, MicOff, RotateCcw, SkipForward, Sparkles, Square, UsersRound, Video } from "lucide-react";
+import { ArrowUp, Brain, BriefcaseBusiness, Code2, Mic, MicOff, RotateCcw, SkipForward, Sparkles, Square, TrendingUp, UsersRound, Video } from "lucide-react";
 import type { Job, StudentProfile } from "../data";
 import { getInterviewModelProvider } from "../modelProviders/interviewProvider";
 import { BrowserSpeechRecognitionAdapter } from "../speechToText/browserSpeechRecognitionAdapter";
@@ -14,6 +14,8 @@ type InterviewPageProps = {
   profile: StudentProfile;
   resumeText: string;
   hasAnalysis: boolean;
+  onComplete: (feedback: InterviewFeedbackReport, turns: InterviewTurn[], interviewType: InterviewType) => Promise<void>;
+  onOpenGrowthPlan: () => void;
 };
 
 const interviewTypes: Array<{ value: InterviewType; label: string; description: string; icon: typeof Brain }> = [
@@ -65,7 +67,7 @@ const firstOpeningOf = (type: InterviewType) => {
   return "你好，我是今天的 AI 面试官。接下来我会围绕你的目标岗位进行综合模拟面试，请尽量用真实面试的方式回答。";
 };
 
-export default function InterviewPage({ job, profile, resumeText, hasAnalysis }: InterviewPageProps) {
+export default function InterviewPage({ job, profile, resumeText, hasAnalysis, onComplete, onOpenGrowthPlan }: InterviewPageProps) {
   const [status, setStatus] = useState<InterviewStatus>("idle");
   const [messages, setMessages] = useState<InterviewMessage[]>([]);
   const [turns, setTurns] = useState<InterviewTurn[]>([]);
@@ -77,6 +79,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
   const [inputMode, setInputMode] = useState<InterviewInputMode>("text");
   const [adapterNotice, setAdapterNotice] = useState("");
   const [interviewType, setInterviewType] = useState<InterviewType>("综合面");
+  const [growthPlanStatus, setGrowthPlanStatus] = useState<"idle" | "saving" | "ready" | "error">("idle");
   const chatRef = useRef<HTMLDivElement | null>(null);
   const sttRef = useRef<BrowserSpeechRecognitionAdapter | null>(null);
   const ttsRef = useRef(new BrowserSpeechSynthesisAdapter());
@@ -148,6 +151,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
     setTurns([]);
     setElapsedSeconds(0);
     setAnswer("");
+    setGrowthPlanStatus("idle");
     ttsRef.current.stop();
     const opening = firstOpeningOf(interviewType);
     const openingMessage = createMessage("interviewer", opening);
@@ -233,10 +237,32 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
       currentRound,
     });
     setFeedback(report);
+    setGrowthPlanStatus("saving");
+    try {
+      await onComplete(report, turns, interviewType);
+      setGrowthPlanStatus("ready");
+    } catch {
+      setGrowthPlanStatus("error");
+    }
     const summary = `本次模拟面试已结束。总体评分 ${report.overallScore} 分，重点建议是：${report.improvements[0] || "继续强化结构化表达。"}`;
     const finalMessage = createMessage("interviewer", summary);
     setMessages((current) => [...current, finalMessage]);
     await speakAsAvatar(summary, "finished");
+  };
+
+  const handleGrowthPlanAction = async () => {
+    if (!feedback) return;
+    if (growthPlanStatus === "error") {
+      setGrowthPlanStatus("saving");
+      try {
+        await onComplete(feedback, turns, interviewType);
+        setGrowthPlanStatus("ready");
+      } catch {
+        setGrowthPlanStatus("error");
+        return;
+      }
+    }
+    onOpenGrowthPlan();
   };
 
   useEffect(() => () => {
@@ -340,6 +366,9 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
                   <ul>{feedback.improvements.map((item) => <li key={item}>{item}</li>)}</ul>
                   <strong>推荐优化回答</strong>
                   <p>{feedback.optimizedAnswer}</p>
+                  <button type="button" className="interview-growth-action" onClick={() => void handleGrowthPlanAction()} disabled={growthPlanStatus === "saving"}>
+                    <TrendingUp size={16} /> {growthPlanStatus === "saving" ? "正在生成成长计划" : growthPlanStatus === "error" ? "前往成长规划重试" : "查看职业成长计划"}
+                  </button>
                 </div>
               </div>
             ) : null}

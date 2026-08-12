@@ -77,11 +77,41 @@ async function main() {
     });
     assert.equal(invalidFeedback.status, 404);
 
+    const growthPlan = {
+      id: "growth-verify-001",
+      version: 1,
+      targetJobTitle: "User Research Intern",
+      gaps: [{ id: "gap-research", name: "Research" }],
+      stages: [{ days: 30, unlocked: true }],
+      tasks: [{ id: "week-1", completed: false, evidenceText: "" }],
+    };
+    const savedGrowth = await runAgentMemoryRequest({
+      action: "save-growth",
+      userId,
+      plan: growthPlan,
+    });
+    assert.equal(savedGrowth.status, 200);
+    assert.equal(savedGrowth.payload.plan.targetJobTitle, "User Research Intern");
+
+    closeAgentMemoryStore();
+    const restoredGrowth = await runAgentMemoryRequest({ action: "load-growth", userId });
+    assert.equal(restoredGrowth.status, 200);
+    assert.deepEqual(restoredGrowth.payload.plan.tasks, growthPlan.tasks);
+
+    const invalidGrowth = await runAgentMemoryRequest({
+      action: "save-growth",
+      userId,
+      plan: { version: 1 },
+    });
+    assert.equal(invalidGrowth.status, 400);
+
     const cleared = await runAgentMemoryRequest({ action: "clear", userId });
     assert.equal(cleared.status, 200);
     assert.deepEqual(cleared.payload.memory.messages, []);
     assert.deepEqual(cleared.payload.memory.feedback, []);
     assert.equal(cleared.payload.memory.summary, "");
+    const clearedGrowth = await runAgentMemoryRequest({ action: "load-growth", userId });
+    assert.equal(clearedGrowth.payload.plan, null);
     console.log("[智能体记忆] 写入、反馈、重启恢复、结构化上下文与清除验证通过");
     console.log(`[智能体记忆] 测试数据库位于 D 盘临时目录：${testDirectory}`);
   } finally {

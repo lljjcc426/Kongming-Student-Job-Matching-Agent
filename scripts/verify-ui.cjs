@@ -9,6 +9,7 @@ const screenshotPaths = {
   intro: path.join(UI_ARTIFACT_DIR, "check-intro.png"),
   resume: path.join(UI_ARTIFACT_DIR, "check-resume-after-upload.png"),
   interview: path.join(UI_ARTIFACT_DIR, "check-interview.png"),
+  growth: path.join(UI_ARTIFACT_DIR, "check-growth-plan.png"),
   assistant: path.join(UI_ARTIFACT_DIR, "check-assistant.png"),
   assistantMobile: path.join(UI_ARTIFACT_DIR, "check-assistant-mobile.png"),
   assistantFeedback: path.join(UI_ARTIFACT_DIR, "check-assistant-feedback.png"),
@@ -93,6 +94,28 @@ async function main() {
   fs.mkdirSync(UI_ARTIFACT_DIR, { recursive: true });
   const browser = await launchBrowser();
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
+  await page.addInitScript(() => {
+    class ImmediateSpeechSynthesisUtterance {
+      constructor(text) {
+        this.text = text;
+        this.onend = null;
+        this.onerror = null;
+      }
+    }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", {
+      configurable: true,
+      value: ImmediateSpeechSynthesisUtterance,
+    });
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: {
+        cancel() {},
+        speak(utterance) {
+          window.setTimeout(() => utterance.onend?.(), 0);
+        },
+      },
+    });
+  });
   let jobKnowledgeRequestBody = null;
   const careerChatRequestBodies = [];
   page.on("request", (request) => {
@@ -299,9 +322,32 @@ async function main() {
   await page.locator(".app-nav > div button").nth(4).click();
   await page.getByLabel("模拟面试回答").waitFor({ state: "visible", timeout: 8000 });
   const interviewInput = await page.getByLabel("模拟面试回答").count();
+  await page.getByRole("button", { name: "开始面试" }).click();
+  await page.getByLabel("模拟面试回答").fill("我负责设计并执行问卷研究，分析286份样本，最终形成三项校园服务改进建议。");
+  await page.getByRole("button", { name: "发送" }).click();
+  await page.getByRole("button", { name: "结束面试" }).waitFor({ state: "visible", timeout: 8000 });
+  await page.getByRole("button", { name: "结束面试" }).click();
+  await page.getByRole("button", { name: "查看职业成长计划" }).waitFor({ state: "visible", timeout: 8000 });
   await page.screenshot({ path: screenshotPaths.interview, fullPage: false });
 
-  await page.locator(".app-nav > div button").nth(5).click();
+  await page.getByRole("button", { name: "查看职业成长计划" }).click();
+  await page.locator(".growth-plan-page").waitFor({ state: "visible", timeout: 8000 });
+  const growthTaskCount = await page.locator(".growth-task-card").count();
+  const growthStageCount = await page.locator(".growth-stage-tabs button").count();
+  const baseGrowthScore = Number((await page.locator(".growth-summary-grid article").nth(1).locator("strong").innerText()).replace(/\D/g, ""));
+  for (let week = 1; week <= 3; week += 1) {
+    await page.getByLabel(`第${week}周证据说明`).fill(`第${week}周成果已完成，包含学习笔记、练习结果与岗位应用复盘。`);
+    await page.locator(".growth-task-card").nth(week - 1).getByRole("button", { name: "提交证据并完成" }).click();
+    await page.locator(".growth-task-card").nth(week - 1).locator(".growth-completed-evidence").waitFor({ state: "visible", timeout: 8000 });
+  }
+  const projectedGrowthScore = Number((await page.locator(".growth-summary-grid article.projected strong").innerText()).replace(/\D/g, ""));
+  const growthProgress = await page.locator(".growth-summary-grid article").nth(3).locator("strong").innerText();
+  await page.locator(".growth-stage-tabs button").nth(1).click();
+  const nextStageUnlocked = await page.getByLabel("第5周证据说明").isEnabled();
+  const adaptationText = await page.locator(".growth-adaptation-panel").innerText();
+  await page.screenshot({ path: screenshotPaths.growth, fullPage: false });
+
+  await page.locator(".app-nav > div button").nth(6).click();
   await page.waitForSelector(".particle-galaxy-core canvas", { timeout: 8000 });
   const assistantPage = await page.locator(".ai-assistant-page").count();
   const chatPanel = await page.locator(".assistant-chat-panel").count();
@@ -359,6 +405,9 @@ async function main() {
     await page.waitForFunction(() => !document.querySelector(".loading-screen"), null, { timeout: 5000 });
   });
   await page.locator(".app-nav > div button").nth(5).click();
+  await page.locator(".growth-plan-page").waitFor({ state: "visible", timeout: 8000 });
+  const restoredGrowthProgress = await page.locator(".growth-summary-grid article").nth(3).locator("strong").innerText();
+  await page.locator(".app-nav > div button").nth(6).click();
   await page.locator(".assistant-memory-state.ready").waitFor({ state: "visible", timeout: 8000 });
   const restoredQuestionCount = await page.getByText(persistentQuestion, { exact: true }).count();
   const memoryLabelAfterReload = await page.locator(".assistant-memory-state").innerText();
@@ -455,6 +504,15 @@ async function main() {
   if (interviewInput !== 1) {
     throw new Error(`Expected interview practice input after analysis, found ${interviewInput}`);
   }
+  if (growthTaskCount !== 4 || growthStageCount !== 3) {
+    throw new Error(`Expected 4 visible weekly tasks and 3 growth stages, found tasks=${growthTaskCount}, stages=${growthStageCount}`);
+  }
+  if (projectedGrowthScore <= baseGrowthScore || !growthProgress.includes("25") || !nextStageUnlocked) {
+    throw new Error(`Expected evidence to improve the score and unlock stage 60, found base=${baseGrowthScore}, projected=${projectedGrowthScore}, progress=${growthProgress}, unlocked=${nextStageUnlocked}`);
+  }
+  if (!adaptationText.includes("已解锁60天阶段") || !restoredGrowthProgress.includes("25")) {
+    throw new Error(`Expected adaptive plan and persistence, found adaptation=${adaptationText}, restored=${restoredGrowthProgress}`);
+  }
   if (assistantPage !== 1 || chatPanel !== 1 || chatComposer !== 1) {
     throw new Error(`Expected assistant page and chat panel, found page=${assistantPage}, panel=${chatPanel}, composer=${chatComposer}`);
   }
@@ -521,6 +579,13 @@ async function main() {
     reportFilename,
     skillsCard,
     interviewInput,
+    growthTaskCount,
+    growthStageCount,
+    baseGrowthScore,
+    projectedGrowthScore,
+    growthProgress,
+    nextStageUnlocked,
+    restoredGrowthProgress,
     assistantPage,
     chatPanel,
     chatComposer,

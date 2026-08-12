@@ -7,12 +7,14 @@ import { useCareerChat } from "./features/assistant/useCareerChat";
 import { useJobWorkspace } from "./features/jobs/useJobWorkspace";
 import { useMatchInsights } from "./features/matching/useMatchInsights";
 import { useResumeProcessing } from "./features/resume/useResumeProcessing";
+import { useGrowthPlan } from "./features/growth/useGrowthPlan";
 import LoadingScreen from "./LoadingScreen";
 
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const HomePage = lazy(() => import("./pages/HomePage"));
 const InterviewPage = lazy(() => import("./pages/InterviewPage"));
 const MatchingWorkspacePage = lazy(() => import("./pages/MatchingWorkspacePage"));
+const GrowthPlanPage = lazy(() => import("./pages/GrowthPlanPage"));
 
 function App() {
   const [introVisible, setIntroVisible] = useState(true);
@@ -91,6 +93,12 @@ function App() {
     resumeText,
     resumeProfile: structuredResume,
     selectedJob,
+    matchResult: result,
+    hasAnalysis,
+  });
+  const growth = useGrowthPlan({
+    profile: activeProfile,
+    job: selectedJob,
     matchResult: result,
     hasAnalysis,
   });
@@ -192,7 +200,28 @@ function App() {
         ) : null}
 
         {activePage === "interview" ? (
-          <InterviewPage job={selectedJob} profile={activeProfile} resumeText={resumeText} hasAnalysis={hasAnalysis} />
+          <InterviewPage
+            job={selectedJob}
+            profile={activeProfile}
+            resumeText={resumeText}
+            hasAnalysis={hasAnalysis}
+            onComplete={growth.completeInterview}
+            onOpenGrowthPlan={() => setActivePage("growth")}
+          />
+        ) : null}
+
+        {activePage === "growth" ? (
+          <GrowthPlanPage
+            plan={growth.plan}
+            status={growth.status}
+            message={growth.message}
+            progress={growth.progress}
+            isTargetCurrent={growth.isTargetCurrent}
+            onOpenInterview={() => setActivePage("interview")}
+            onUpdateTask={growth.updateTask}
+            onUpdateTargetDate={growth.updateTargetDate}
+            onRegenerate={growth.regenerate}
+          />
         ) : null}
       </Suspense>
     </main>
