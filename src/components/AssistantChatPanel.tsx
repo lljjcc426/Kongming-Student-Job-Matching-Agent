@@ -1,9 +1,10 @@
-import { ArrowUp, Bot, Mic } from "lucide-react";
+import { ArrowUp, Bot, Database, Mic, Trash2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { RefObject } from "react";
 import logoUrl from "../assets/kongming-logo.png";
+import type { AgentMemoryStatus } from "../features/assistant/agentMemoryClient";
 
 export type AssistantChatMessage = {
   id: string;
@@ -19,10 +20,14 @@ type AssistantChatPanelProps = {
   status: AssistantChatStatus;
   statusMessage: string;
   bodyRef: RefObject<HTMLDivElement | null>;
+  memoryStatus: AgentMemoryStatus;
+  memoryCount: number;
+  memoryUpdatedAt: string | null;
   onInputChange: (value: string) => void;
   onSend: () => void;
   onVoiceInput: () => void;
   onQuickQuestion: (value: string) => void;
+  onClearMemory: () => void;
 };
 
 const quickQuestions = ["帮我分析简历", "推荐适合我的岗位", "生成面试问题", "优化求职目标"];
@@ -49,10 +54,14 @@ export default function AssistantChatPanel({
   status,
   statusMessage,
   bodyRef,
+  memoryStatus,
+  memoryCount,
+  memoryUpdatedAt,
   onInputChange,
   onSend,
   onVoiceInput,
   onQuickQuestion,
+  onClearMemory,
 }: AssistantChatPanelProps) {
   const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
 
@@ -91,6 +100,33 @@ export default function AssistantChatPanel({
         <div>
           <strong>孔明 AI 助手</strong>
           <span className={status === "error" ? "error" : ""}>{statusText[status]}</span>
+        </div>
+        <div className="assistant-memory-tools">
+          <div
+            className={`assistant-memory-state ${memoryStatus}`}
+            title={memoryUpdatedAt ? `最近更新：${new Date(memoryUpdatedAt).toLocaleString("zh-CN")}` : "记忆尚未写入"}
+          >
+            <Database size={14} />
+            <span>
+              {memoryStatus === "loading"
+                  ? "正在读取记忆"
+                  : memoryStatus === "error"
+                    ? "记忆暂不可用"
+                    : memoryCount > 0
+                      ? `长期记忆 ${memoryCount} 条`
+                      : "长期记忆已启用"}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="assistant-memory-clear"
+            aria-label="清除长期记忆"
+            title="清除本机长期记忆"
+            onClick={onClearMemory}
+            disabled={memoryStatus === "loading"}
+          >
+            <Trash2 size={15} />
+          </button>
         </div>
       </header>
 

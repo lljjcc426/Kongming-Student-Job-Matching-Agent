@@ -1,0 +1,300 @@
+import fs from "node:fs";
+import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { readBoundedIntegerEnv } from "./runtimeConfig.js";
+
+const DEFAULT_WINDOWS_ROOT = "D:\\Kongming-Memory";
+const DEFAULT_OTHER_ROOT = path.resolve("data", "agent-memory");
+const USER_ID_PATTERN = /^[a-zA-Z0-9_-]{8,80}$/;
+const MAX_MESSAGE_CHARS = 6000;
+const MAX_CONTEXT_CHARS = 120_000;
+const DEFAULT_MAX_MESSAGES = 120;
+const DEFAULT_RETENTION_DAYS = 180;
+
+let database;
+let databasePath = "";
+
+const nowIso = () => new Date().toISOString();
+
+const memoryRoot = () => {
+  if (process.env.AGENT_MEMORY_DATA_ROOT) {
+    return path.resolve(process.env.AGENT_MEMORY_DATA_ROOT);
+  }
+  return process.platform === "win32" ? DEFAULT_WINDOWS_ROOT : DEFAULT_OTHER_ROOT;
+};
+
+export const resolveAgentMemoryPath = () =>
+  path.resolve(
+    process.env.AGENT_MEMORY_DB_PATH
+      || path.join(memoryRoot(), "agent-memory.sqlite3"),
+  );
+
+const maxMessages = () => readBoundedIntegerEnv(
+  "AGENT_MEMORY_MAX_MESSAGES",
+  DEFAULT_MAX_MESSAGES,
+  { minimum: 20, maximum: 500 },
+);
+
+const retentionDays = () => readBoundedIntegerEnv(
+  "AGENT_MEMORY_RETENTION_DAYS",
+  DEFAULT_RETENTION_DAYS,
+  { minimum: 1, maximum: 3650 },
+);
+
+const openDatabase = () => {
+  const nextPath = resolveAgentMemoryPath();
+  if (database && databasePath === nextPath) return database;
+  if (database) database.close();
+
+  fs.mkdirSync(path.dirname(nextPath), { recursive: true });
+  database = new DatabaseSync(nextPath);
+  databasePath = nextPath;
+  database.exec("PRAGMA journal_mode = WAL;");
+  database.exec("PRAGMA foreign_keys = ON;");
+  database.exec("PRAGMA secure_delete = ON;");
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS agent_memory_profiles (
+      user_id TEXT PRIMARY KEY,
+      resume_profile_json TEXT NOT NULL DEFAULT '{}',
+      target_job_json TEXT NOT NULL DEFAULT '{}',
+      match_result_json TEXT NOT NULL DEFAULT '{}',
+      summary TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS agent_memory_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      message_id TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(user_id, message_id),
+      FOREIGN KEY(user_id) REFERENCES agent_memory_profiles(user_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_agent_memory_messages_user_id
+      ON agent_memory_messages(user_id, id DESC);
+  `);
+  return database;
+};
+
+const parseJson = (value, fallback = {}) => {
+  try {
+    const parsed = JSON.parse(value || "{}");
+    return parsed && typeof parsed === "object" ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const boundedJson = (value) => {
+  if (!value || typeof value !== "object") return "{}";
+  const serialized = JSON.stringify(value);
+  return serialized.length <= MAX_CONTEXT_CHARS ? serialized : "{}";
+};
+
+const validateUserId = (value) =>
+  typeof value === "string" && USER_ID_PATTERN.test(value) ? value : "";
+
+const sanitizeMessage = (message) => {
+  if (!message || typeof message !== "object") return null;
+  const role = message.role === "assistant" ? "assistant" : message.role === "user" ? "user" : "";
+  const content = typeof message.content === "string"
+    ? message.content.trim().slice(0, MAX_MESSAGE_CHARS)
+    : "";
+  const id = typeof message.id === "string"
+    ? message.id.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 100)
+    : "";
+  if (!role || !content || !id) return null;
+  return { id, role, content };
+};
+
+const listMessages = (db, userId, limit = maxMessages()) =>
+  db.prepare(`
+    SELECT message_id AS id, role, content, created_at AS createdAt
+    FROM agent_memory_messages
+    WHERE user_id = ?
+    ORDER BY agent_memory_messages.id DESC
+    LIMIT ?
+  `).all(userId, limit).reverse();
+
+const buildSummary = (profile, target, match, messages) => {
+  const segments = [];
+  const targetRoles = Array.isArray(profile?.targetRoles) ? profile.targetRoles.slice(0, 3) : [];
+  const skills = Array.isArray(profile?.skills) ? profile.skills.slice(0, 6) : [];
+  const targetTitle = typeof target?.title === "string" ? target.title : "";
+  const targetCity = typeof target?.city === "string" ? target.city : "";
+  const verdict = typeof match?.verdict === "string" ? match.verdict : "";
+  const total = Number.isFinite(match?.total) ? Math.round(match.total) : null;
+  const missingKeywords = Array.isArray(match?.missingKeywords)
+    ? match.missingKeywords.slice(0, 5)
+    : [];
+
+  if (targetRoles.length) segments.push(`求职方向：${targetRoles.join("、")}`);
+  if (skills.length) segments.push(`主要技能：${skills.join("、")}`);
+  if (targetTitle) segments.push(`当前目标岗位：${targetTitle}${targetCity ? `（${targetCity}）` : ""}`);
+  if (verdict || total !== null) segments.push(`最近匹配结论：${verdict || "待判断"}${total !== null ? `，${total}分` : ""}`);
+  if (missingKeywords.length) segments.push(`待补能力：${missingKeywords.join("、")}`);
+
+  const recentGoals = messages
+    .filter((message) => message.role === "user")
+    .slice(-3)
+    .map((message) => message.content.replace(/\s+/g, " ").slice(0, 160));
+  if (recentGoals.length) segments.push(`近期关注：${recentGoals.join("；")}`);
+  return segments.join("\n").slice(0, 1800);
+};
+
+const ensureProfile = (db, userId) => {
+  const timestamp = nowIso();
+  db.prepare(`
+    INSERT INTO agent_memory_profiles (user_id, created_at, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id) DO NOTHING
+  `).run(userId, timestamp, timestamp);
+};
+
+const pruneMessages = (db, userId) => {
+  const keep = maxMessages();
+  db.prepare(`
+    DELETE FROM agent_memory_messages
+    WHERE user_id = ?
+      AND id NOT IN (
+        SELECT id FROM agent_memory_messages
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT ?
+      )
+  `).run(userId, userId, keep);
+
+  const cutoff = new Date(Date.now() - retentionDays() * 86_400_000).toISOString();
+  db.prepare(`
+    DELETE FROM agent_memory_messages
+    WHERE user_id = ? AND created_at < ?
+  `).run(userId, cutoff);
+};
+
+const memoryPayload = (db, userId) => {
+  const profileRow = db.prepare(`
+    SELECT resume_profile_json, target_job_json, match_result_json,
+           summary, created_at, updated_at
+    FROM agent_memory_profiles
+    WHERE user_id = ?
+  `).get(userId);
+
+  if (!profileRow) {
+    return {
+      ok: true,
+      userId,
+      memory: {
+        messages: [],
+        resumeProfile: {},
+        targetJob: {},
+        matchResult: {},
+        summary: "",
+        updatedAt: null,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    userId,
+    memory: {
+      messages: listMessages(db, userId),
+      resumeProfile: parseJson(profileRow.resume_profile_json),
+      targetJob: parseJson(profileRow.target_job_json),
+      matchResult: parseJson(profileRow.match_result_json),
+      summary: profileRow.summary,
+      createdAt: profileRow.created_at,
+      updatedAt: profileRow.updated_at,
+    },
+  };
+};
+
+const saveMemory = (db, userId, body) => {
+  ensureProfile(db, userId);
+  const existing = db.prepare(`
+    SELECT resume_profile_json, target_job_json, match_result_json
+    FROM agent_memory_profiles
+    WHERE user_id = ?
+  `).get(userId);
+  const context = body.context && typeof body.context === "object" ? body.context : {};
+  const profileJson = Object.hasOwn(context, "resumeProfile")
+    ? boundedJson(context.resumeProfile)
+    : existing.resume_profile_json;
+  const targetJson = Object.hasOwn(context, "targetJob")
+    ? boundedJson(context.targetJob)
+    : existing.target_job_json;
+  const matchJson = Object.hasOwn(context, "matchResult")
+    ? boundedJson(context.matchResult)
+    : existing.match_result_json;
+
+  const incomingMessages = Array.isArray(body.messages)
+    ? body.messages.map(sanitizeMessage).filter(Boolean).slice(0, 20)
+    : [];
+  const insertMessage = db.prepare(`
+    INSERT INTO agent_memory_messages (user_id, message_id, role, content, created_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, message_id) DO UPDATE SET
+      role = excluded.role,
+      content = excluded.content
+  `);
+  for (const message of incomingMessages) {
+    insertMessage.run(userId, message.id, message.role, message.content, nowIso());
+  }
+
+  pruneMessages(db, userId);
+  const messages = listMessages(db, userId);
+  const summary = buildSummary(
+    parseJson(profileJson),
+    parseJson(targetJson),
+    parseJson(matchJson),
+    messages,
+  );
+  db.prepare(`
+    UPDATE agent_memory_profiles
+    SET resume_profile_json = ?, target_job_json = ?, match_result_json = ?,
+        summary = ?, updated_at = ?
+    WHERE user_id = ?
+  `).run(profileJson, targetJson, matchJson, summary, nowIso(), userId);
+
+  return memoryPayload(db, userId);
+};
+
+export const runAgentMemoryRequest = async (body = {}) => {
+  const userId = validateUserId(body.userId);
+  if (!userId) {
+    return { status: 400, payload: { ok: false, error: "记忆用户标识不合法。" } };
+  }
+
+  try {
+    const db = openDatabase();
+    if (body.action === "load") {
+      return { status: 200, payload: memoryPayload(db, userId) };
+    }
+    if (body.action === "save") {
+      return { status: 200, payload: saveMemory(db, userId, body) };
+    }
+    if (body.action === "clear") {
+      db.prepare("DELETE FROM agent_memory_profiles WHERE user_id = ?").run(userId);
+      db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+      return { status: 200, payload: memoryPayload(db, userId) };
+    }
+    return { status: 400, payload: { ok: false, error: "不支持的记忆操作。" } };
+  } catch (error) {
+    console.error("[agent-memory]", error);
+    return {
+      status: 500,
+      payload: { ok: false, error: "智能体记忆服务暂不可用。" },
+    };
+  }
+};
+
+export const closeAgentMemoryStore = () => {
+  if (!database) return;
+  database.close();
+  database = undefined;
+  databasePath = "";
+};

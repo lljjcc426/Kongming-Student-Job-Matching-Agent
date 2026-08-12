@@ -303,6 +303,10 @@ async function main() {
   const assistantPage = await page.locator(".ai-assistant-page").count();
   const chatPanel = await page.locator(".assistant-chat-panel").count();
   const chatComposer = await page.locator(".assistant-chat-panel textarea[aria-label='AI 助手输入']").count();
+  await page.locator(".assistant-memory-state.ready").waitFor({ state: "visible", timeout: 8000 });
+  const memoryIndicator = await page.locator(".assistant-memory-state.ready").count();
+  const memoryClearButton = await page.getByRole("button", { name: "清除长期记忆" }).count();
+  const memoryLabel = await page.locator(".assistant-memory-state").innerText();
   const quickQuestionButtons = await page.locator(".assistant-quick-row button").count();
   const readActionVisible = await page.locator(".assistant-chat-panel .chat-actions button").count() > 0;
   const composerIconButtons = await page.locator(".assistant-round-button").count();
@@ -327,6 +331,36 @@ async function main() {
     };
   });
   await page.screenshot({ path: screenshotPaths.assistantMobile, fullPage: false });
+
+  const persistentQuestion = "请记住我优先考虑北京的大模型实习岗位";
+  await page.locator(".assistant-chat-panel textarea[aria-label='AI 助手输入']").fill(persistentQuestion);
+  await page.getByRole("button", { name: "发送" }).click();
+  await page.waitForFunction(
+    () => (document.querySelector(".assistant-memory-state")?.textContent || "").includes("2 条"),
+    null,
+    { timeout: 8000 },
+  );
+  const memoryLabelAfterChat = await page.locator(".assistant-memory-state").innerText();
+
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForTimeout(1400);
+  await page.locator(".loading-start-button").click();
+  await page.locator(".loading-screen").waitFor({ state: "detached", timeout: 5000 }).catch(async () => {
+    await page.waitForFunction(() => !document.querySelector(".loading-screen"), null, { timeout: 5000 });
+  });
+  await page.locator(".app-nav > div button").nth(5).click();
+  await page.locator(".assistant-memory-state.ready").waitFor({ state: "visible", timeout: 8000 });
+  const restoredQuestionCount = await page.getByText(persistentQuestion, { exact: true }).count();
+  const memoryLabelAfterReload = await page.locator(".assistant-memory-state").innerText();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "清除长期记忆" }).click();
+  await page.waitForFunction(
+    () => (document.querySelector(".assistant-memory-state")?.textContent || "").includes("已启用"),
+    null,
+    { timeout: 8000 },
+  );
+  const restoredQuestionCountAfterClear = await page.getByText(persistentQuestion, { exact: true }).count();
   await browser.close();
 
   if (introStage !== 1 || introProgress !== 1 || introProgressCard !== 1 || introVideoBackdrop !== 1) {
@@ -402,6 +436,15 @@ async function main() {
   if (assistantPage !== 1 || chatPanel !== 1 || chatComposer !== 1) {
     throw new Error(`Expected assistant page and chat panel, found page=${assistantPage}, panel=${chatPanel}, composer=${chatComposer}`);
   }
+  if (memoryIndicator !== 1 || memoryClearButton !== 1 || !memoryLabel.includes("长期记忆")) {
+    throw new Error(`Expected persistent memory controls, found indicator=${memoryIndicator}, clear=${memoryClearButton}, label=${memoryLabel}`);
+  }
+  if (!memoryLabelAfterChat.includes("2 条") || restoredQuestionCount !== 1 || !memoryLabelAfterReload.includes("2 条")) {
+    throw new Error(`Expected memory to survive reload, found afterChat=${memoryLabelAfterChat}, restored=${restoredQuestionCount}, afterReload=${memoryLabelAfterReload}`);
+  }
+  if (restoredQuestionCountAfterClear !== 0) {
+    throw new Error(`Expected memory clear to remove restored messages, found ${restoredQuestionCountAfterClear}`);
+  }
   if (quickQuestionButtons !== 4 || quickQuestionFilled !== "推荐适合我的岗位") {
     throw new Error(`Expected assistant quick questions to work, found buttons=${quickQuestionButtons}, input=${quickQuestionFilled}`);
   }
@@ -456,6 +499,13 @@ async function main() {
     assistantPage,
     chatPanel,
     chatComposer,
+    memoryIndicator,
+    memoryClearButton,
+    memoryLabel,
+    memoryLabelAfterChat,
+    restoredQuestionCount,
+    memoryLabelAfterReload,
+    restoredQuestionCountAfterClear,
     quickQuestionButtons,
     quickQuestionFilled,
     readActionVisible,

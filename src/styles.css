@@ -7500,6 +7500,66 @@ textarea {
   color: #be123c;
 }
 
+.assistant-memory-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.assistant-memory-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid rgba(125, 211, 252, 0.62);
+  border-radius: 999px;
+  background: rgba(239, 246, 255, 0.82);
+  color: #0369a1;
+}
+
+.assistant-chat-header .assistant-memory-state span {
+  color: inherit;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.assistant-memory-state.loading {
+  color: #64748b;
+}
+
+.assistant-memory-state.error {
+  border-color: rgba(251, 113, 133, 0.42);
+  background: rgba(255, 241, 242, 0.88);
+  color: #be123c;
+}
+
+.assistant-memory-clear {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(147, 197, 253, 0.58);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #64748b;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.assistant-memory-clear:hover:not(:disabled) {
+  border-color: rgba(251, 113, 133, 0.58);
+  background: rgba(255, 241, 242, 0.9);
+  color: #be123c;
+}
+
+.assistant-memory-clear:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
 .assistant-quick-row {
   display: flex;
   flex-wrap: wrap;
@@ -12417,6 +12477,18 @@ body:has(.resume-editor-page) {
 
   .interview-console {
     min-height: 540px;
+  }
+}
+
+@media (max-width: 560px) {
+  .assistant-chat-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .assistant-memory-tools {
+    width: 100%;
+    margin-left: 54px;
   }
 }
 

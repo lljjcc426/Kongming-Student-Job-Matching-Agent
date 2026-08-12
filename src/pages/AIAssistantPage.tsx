@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 import AssistantChatPanel, { type AssistantChatMessage, type AssistantChatStatus } from "../components/AssistantChatPanel";
 import ParticleGalaxyCore from "../components/ParticleGalaxyCore";
+import type { AgentMemoryStatus } from "../features/assistant/agentMemoryClient";
 
 type AIAssistantPageProps = {
   messages: AssistantChatMessage[];
@@ -8,9 +9,13 @@ type AIAssistantPageProps = {
   status: AssistantChatStatus;
   statusMessage: string;
   bodyRef: RefObject<HTMLDivElement | null>;
+  memoryStatus: AgentMemoryStatus;
+  memoryCount: number;
+  memoryUpdatedAt: string | null;
   onInputChange: (value: string) => void;
   onSend: () => void;
   onVoiceInput: () => void;
+  onClearMemory: () => void;
 };
 
 export default function AIAssistantPage({
@@ -19,9 +24,13 @@ export default function AIAssistantPage({
   status,
   statusMessage,
   bodyRef,
+  memoryStatus,
+  memoryCount,
+  memoryUpdatedAt,
   onInputChange,
   onSend,
   onVoiceInput,
+  onClearMemory,
 }: AIAssistantPageProps) {
   return (
     <div className="ai-assistant-page">
@@ -37,8 +46,8 @@ export default function AIAssistantPage({
           </div>
           <div className="assistant-signal-strip" aria-label="分析状态">
             <i />
-            <strong>多智能体上下文已接入</strong>
-            <em>Resume / Match / Interview</em>
+            <strong>多智能体长期记忆已接入</strong>
+            <em>Resume / Match / Interview / Memory</em>
           </div>
         </div>
         <ParticleGalaxyCore />
@@ -50,9 +59,13 @@ export default function AIAssistantPage({
         status={status}
         statusMessage={statusMessage}
         bodyRef={bodyRef}
+        memoryStatus={memoryStatus}
+        memoryCount={memoryCount}
+        memoryUpdatedAt={memoryUpdatedAt}
         onInputChange={onInputChange}
         onSend={onSend}
         onVoiceInput={onVoiceInput}
+        onClearMemory={onClearMemory}
         onQuickQuestion={onInputChange}
       />
     </div>

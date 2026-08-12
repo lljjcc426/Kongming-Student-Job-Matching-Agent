@@ -11,6 +11,10 @@ import {
   warmLocalJobKnowledge,
 } from "./server/localJobKnowledgeWorker.js";
 import { closeLocalOcrWorker } from "./server/localOcrWorker.js";
+import {
+  closeAgentMemoryStore,
+  runAgentMemoryRequest,
+} from "./server/agentMemoryCore.js";
 
 const MAX_DEV_BODY_BYTES = 8_000_000;
 
@@ -142,7 +146,40 @@ const jobKnowledgeDevProxy = (): Plugin => ({
   },
 });
 
-const serverEnvPrefixes = ["ARK_", "JOB_RAG_", "OCR_", "VOLC_OCR_", "HF_", "MODELSCOPE_"];
+const agentMemoryDevProxy = (): Plugin => ({
+  name: "agent-memory-dev-proxy",
+  configureServer(server) {
+    server.httpServer?.once("close", closeAgentMemoryStore);
+    server.middlewares.use("/api/memory", async (request, response) => {
+      response.setHeader("Content-Type", "application/json; charset=utf-8");
+      response.setHeader("Cache-Control", "no-store, private");
+      response.setHeader("X-Content-Type-Options", "nosniff");
+      response.setHeader("Referrer-Policy", "no-referrer");
+      response.setHeader("X-Robots-Tag", "noindex, nofollow");
+
+      if (request.method !== "POST") {
+        response.statusCode = 405;
+        response.end(JSON.stringify({ ok: false, error: "只支持 POST 请求。" }));
+        return;
+      }
+
+      try {
+        const result = await runAgentMemoryRequest(await readJsonBody(request));
+        response.statusCode = result.status;
+        response.end(JSON.stringify(result.payload));
+      } catch (error) {
+        response.statusCode = error instanceof Error && error.message === "REQUEST_TOO_LARGE" ? 413 : 500;
+        console.error("[agent-memory-dev-proxy]", error);
+        response.end(JSON.stringify({
+          ok: false,
+          error: response.statusCode === 413 ? "记忆内容过大。" : "智能体记忆服务异常。",
+        }));
+      }
+    });
+  },
+});
+
+const serverEnvPrefixes = ["ARK_", "JOB_RAG_", "OCR_", "VOLC_OCR_", "HF_", "MODELSCOPE_", "AGENT_MEMORY_"];
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -153,7 +190,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react(), arkDevProxy(), ocrDevProxy(), jobKnowledgeDevProxy()],
+    plugins: [react(), arkDevProxy(), ocrDevProxy(), jobKnowledgeDevProxy(), agentMemoryDevProxy()],
     build: {
       sourcemap: false,
       minify: "esbuild",

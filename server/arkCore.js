@@ -6,6 +6,8 @@ const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-struct
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_CHAT_CHARS = 6000;
+const MAX_MEMORY_SUMMARY_CHARS = 1800;
+const MAX_MEMORY_MESSAGE_CHARS = 700;
 const MAX_IMAGE_DATA_URL_CHARS = 10_000_000;
 const MAX_IMAGE_COUNT = 4;
 const DEFAULT_REQUEST_TIMEOUT_MS = 65_000;
@@ -125,6 +127,57 @@ const compactJob = (job = {}) => ({
   keywords: Array.isArray(job.keywords) ? job.keywords.slice(0, 20).map((item) => asText(item, 40)) : [],
 });
 
+const compactResumeProfile = (profile = {}) => {
+  const list = (key, limit = 8, itemLimit = 240) => Array.isArray(profile[key])
+    ? profile[key].slice(0, limit).map((item) => asText(item, itemLimit))
+    : [];
+  return {
+    name: asText(profile.name, 80),
+    basicInfo: list("basicInfo", 10, 160),
+    education: list("education"),
+    internships: list("internships"),
+    projects: list("projects"),
+    competitions: list("competitions"),
+    certificates: list("certificates"),
+    languages: list("languages", 8, 100),
+    skills: list("skills", 20, 80),
+    targetRoles: list("targetRoles", 8, 100),
+    summary: asText(profile.summary, 800),
+  };
+};
+
+const compactPersistentMemory = (memory = {}) => {
+  if (!memory || typeof memory !== "object") return {};
+  const relevantMessages = Array.isArray(memory.relevantMessages)
+    ? memory.relevantMessages.slice(-12).map((message) => ({
+        role: message?.role === "assistant" ? "assistant" : "user",
+        content: asText(message?.content, MAX_MEMORY_MESSAGE_CHARS),
+      })).filter((message) => message.content.trim())
+    : [];
+  return {
+    summary: asText(memory.summary, MAX_MEMORY_SUMMARY_CHARS),
+    relevantMessages,
+    resumeProfile: compactResumeProfile(memory.resumeProfile),
+    targetJob: compactJob(memory.targetJob),
+    matchResult: memory.matchResult && typeof memory.matchResult === "object"
+      ? {
+          total: memory.matchResult.total,
+          verdict: asText(memory.matchResult.verdict, 80),
+          strengths: Array.isArray(memory.matchResult.strengths)
+            ? memory.matchResult.strengths.slice(0, 5).map((item) => asText(item, 160))
+            : [],
+          risks: Array.isArray(memory.matchResult.risks)
+            ? memory.matchResult.risks.slice(0, 5).map((item) => asText(item, 160))
+            : [],
+          missingKeywords: Array.isArray(memory.matchResult.missingKeywords)
+            ? memory.matchResult.missingKeywords.slice(0, 10).map((item) => asText(item, 40))
+            : [],
+        }
+      : {},
+    updatedAt: asText(memory.updatedAt, 40),
+  };
+};
+
 const buildTextPrompt = (body) => {
   const job = compactJob(body.selectedJob);
   const match = body.matchResult
@@ -149,6 +202,7 @@ const buildTextPrompt = (body) => {
 
   if (body.task === "career-chat") {
     const messages = Array.isArray(body.chatMessages) ? body.chatMessages.slice(-10) : [];
+    const persistentMemory = compactPersistentMemory(body.persistentMemory);
     const safeMessages = messages
       .map((message) => ({
         role: message?.role === "assistant" ? "assistant" : "user",
@@ -160,6 +214,8 @@ const buildTextPrompt = (body) => {
       "不要使用预设问答，不要把学生限制在固定场景；根据学生本轮输入自由判断需要回应的内容。",
       "如果问题信息不足，可以先给出可执行的下一步，并用一两个问题帮助学生补充关键信息。",
       "回答应专业、克制、具体，不承诺录用结果，不编造学校、企业、岗位或政策事实。",
+      "长期记忆只用于保持跨会话一致性；如长期记忆与学生本轮明确表达冲突，以本轮输入为准，并在必要时请学生确认。",
+      `长期记忆：${JSON.stringify(persistentMemory, null, 2)}`,
       `当前简历文本：${asText(body.resumeText, MAX_RESUME_CHARS)}`,
       `当前结构化画像：${JSON.stringify(body.resumeProfile || {}, null, 2)}`,
       `当前选中岗位：${JSON.stringify(job, null, 2)}`,

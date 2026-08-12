@@ -4,6 +4,16 @@ import { callArkAgent } from "../../arkClient";
 import type { Job } from "../../data";
 import type { MatchResult } from "../../matchEngine";
 import type { StructuredResume } from "../../modelParsers";
+import {
+  buildAgentMemoryPrompt,
+  clearAgentMemory,
+  createEmptyAgentMemory,
+  loadAgentMemory,
+  saveAgentMemory,
+  type AgentMemory,
+  type AgentMemoryContext,
+  type AgentMemoryStatus,
+} from "./agentMemoryClient";
 
 type SpeechRecognitionResultLike = {
   0?: {
@@ -60,7 +70,50 @@ export function useCareerChat({
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<ChatStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
+  const [memory, setMemory] = useState<AgentMemory>(createEmptyAgentMemory);
+  const [memoryStatus, setMemoryStatus] = useState<AgentMemoryStatus>("loading");
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const memoryRef = useRef(memory);
+
+  useEffect(() => {
+    memoryRef.current = memory;
+  }, [memory]);
+
+  useEffect(() => {
+    let active = true;
+    void loadAgentMemory()
+      .then((storedMemory) => {
+        if (!active) return;
+        memoryRef.current = storedMemory;
+        setMemory(storedMemory);
+        setMessages(storedMemory.messages);
+        setMemoryStatus("ready");
+      })
+      .catch(() => {
+        if (active) setMemoryStatus("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!resumeProfile && !hasAnalysis) return;
+    const context: AgentMemoryContext = {
+      ...(resumeProfile ? { resumeProfile } : {}),
+      ...(hasAnalysis ? { targetJob: selectedJob, matchResult } : {}),
+    };
+    const timer = window.setTimeout(() => {
+      void saveAgentMemory([], context)
+        .then((storedMemory) => {
+          memoryRef.current = storedMemory;
+          setMemory(storedMemory);
+          setMemoryStatus("ready");
+        })
+        .catch(() => setMemoryStatus("error"));
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [hasAnalysis, matchResult, resumeProfile, selectedJob]);
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
@@ -120,10 +173,26 @@ export function useCareerChat({
       content: message,
     };
     const history = [...messages, nextUserMessage];
+    const memoryContext: AgentMemoryContext = {
+      ...(resumeProfile ? { resumeProfile } : {}),
+      ...(hasAnalysis ? { targetJob: selectedJob, matchResult } : {}),
+    };
+    const persistentMemory = buildAgentMemoryPrompt(
+      memoryRef.current,
+      message,
+      memoryContext,
+    );
     setMessages(history);
     setInput("");
     setStatus("loading");
     setStatusMessage("正在生成回复");
+    void saveAgentMemory([nextUserMessage], memoryContext)
+      .then((storedMemory) => {
+        memoryRef.current = storedMemory;
+        setMemory(storedMemory);
+        setMemoryStatus("ready");
+      })
+      .catch(() => setMemoryStatus("error"));
 
     const response = await callArkAgent(
       {
@@ -134,19 +203,28 @@ export function useCareerChat({
         resumeProfile,
         selectedJob: hasAnalysis ? selectedJob : undefined,
         matchResult: hasAnalysis ? matchResult : undefined,
+        persistentMemory,
       },
       { timeoutMs: 45000 },
     );
 
     if (response.ok && response.content) {
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: response.content,
+      };
       setMessages((current) => [
         ...current,
-        {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: response.content ?? "",
-        },
+        assistantMessage,
       ]);
+      void saveAgentMemory([nextUserMessage, assistantMessage], memoryContext)
+        .then((storedMemory) => {
+          memoryRef.current = storedMemory;
+          setMemory(storedMemory);
+          setMemoryStatus("ready");
+        })
+        .catch(() => setMemoryStatus("error"));
       setStatus("ready");
       setStatusMessage("已回复");
       return;
@@ -156,6 +234,20 @@ export function useCareerChat({
     setStatusMessage(response.error || "AI 助手暂时无法回复，请稍后重试。");
   };
 
+  const clearMemory = async () => {
+    if (!window.confirm("确定清除本机保存的对话、简历画像和目标岗位记忆吗？此操作不可撤销。")) return;
+    try {
+      const clearedMemory = await clearAgentMemory();
+      memoryRef.current = clearedMemory;
+      setMemory(clearedMemory);
+      setMessages([]);
+      setMemoryStatus("ready");
+      setStatusMessage("长期记忆已清除");
+    } catch {
+      setMemoryStatus("error");
+    }
+  };
+
   return {
     messages,
     input,
@@ -163,7 +255,11 @@ export function useCareerChat({
     status,
     statusMessage,
     bodyRef,
+    memoryStatus,
+    memoryCount: memory.messages.length,
+    memoryUpdatedAt: memory.updatedAt,
     startVoiceInput,
     send,
+    clearMemory,
   };
 }

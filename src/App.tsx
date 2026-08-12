@@ -79,8 +79,12 @@ function App() {
     status: chatStatus,
     statusMessage: chatMessage,
     bodyRef: chatBodyRef,
+    memoryStatus,
+    memoryCount,
+    memoryUpdatedAt,
     startVoiceInput: handleChatSpeechInput,
     send: handleSendChat,
+    clearMemory: handleClearChatMemory,
   } = useCareerChat({
     resumeText,
     resumeProfile: structuredResume,
@@ -172,9 +176,13 @@ function App() {
               status={chatStatus}
               statusMessage={chatStatus === "loading" ? "正在生成回复" : chatStatus === "listening" ? "正在收听" : chatMessage}
               bodyRef={chatBodyRef}
+              memoryStatus={memoryStatus}
+              memoryCount={memoryCount}
+              memoryUpdatedAt={memoryUpdatedAt}
               onInputChange={setChatInput}
               onSend={() => void handleSendChat()}
               onVoiceInput={handleChatSpeechInput}
+              onClearMemory={() => void handleClearChatMemory()}
             />
           </section>
         ) : null}
