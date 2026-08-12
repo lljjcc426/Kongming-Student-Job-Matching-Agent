@@ -64,10 +64,11 @@ export default function GrowthPlanPage({
 
   useEffect(() => {
     if (!plan) return;
-    setDrafts(Object.fromEntries(plan.tasks.map((task) => [task.id, {
-      text: task.evidenceText,
-      url: task.evidenceUrl,
-    }])));
+    setDrafts((current) => Object.fromEntries(plan.tasks.map((task) => [task.id,
+      task.completed
+        ? { text: task.evidenceText, url: task.evidenceUrl }
+        : current[task.id] ?? { text: task.evidenceText, url: task.evidenceUrl },
+    ])));
   }, [plan]);
 
   const stageTasks = useMemo(

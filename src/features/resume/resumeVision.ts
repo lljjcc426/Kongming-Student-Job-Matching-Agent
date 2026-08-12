@@ -7,14 +7,19 @@ export async function recognizeResumeVisionPages(
   imageDataUrls: string[],
   extractedText = "",
   onBatch?: (firstPage: number, lastPage: number) => void,
+  pageNumbers: number[] = [],
 ) {
   const pageResults: string[] = [];
   const errors: string[] = [];
-  const pages = imageDataUrls.map((imageDataUrl, index) => ({ imageDataUrl, index }));
+  const pages = imageDataUrls.map((imageDataUrl, index) => ({
+    imageDataUrl,
+    index,
+    pageNumber: pageNumbers[index] || index + 1,
+  }));
 
   for (let start = 0; start < pages.length; start += RESUME_VISION_PARALLEL_LIMIT) {
     const batch = pages.slice(start, start + RESUME_VISION_PARALLEL_LIMIT);
-    onBatch?.(batch[0].index + 1, batch[batch.length - 1].index + 1);
+    onBatch?.(batch[0].pageNumber, batch[batch.length - 1].pageNumber);
     const responses = await Promise.allSettled(
       batch.map((page) =>
         callArkAgent(
@@ -29,7 +34,7 @@ export async function recognizeResumeVisionPages(
     );
 
     responses.forEach((response, offset) => {
-      const pageNumber = batch[offset].index + 1;
+      const pageNumber = batch[offset].pageNumber;
       if (response.status === "fulfilled" && response.value.ok && response.value.content?.trim()) {
         pageResults.push(`【视觉识别第 ${pageNumber} 页】\n${response.value.content.trim()}`);
       } else {

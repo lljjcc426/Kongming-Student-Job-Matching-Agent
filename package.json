@@ -24,6 +24,7 @@
     "verify:job-rerank": "node scripts/verify-job-reranker.cjs",
     "verify:job-remote": "node scripts/verify-job-remote.cjs",
     "verify:provider": "node scripts/verify-provider-config.cjs",
+    "verify:interview-scoring": "node scripts/verify-interview-scoring.cjs",
     "verify:agent-memory": "node scripts/verify-agent-memory.cjs",
     "verify:resume-processing": "node scripts/verify-resume-processing.cjs",
     "verify:ui": "node scripts/verify-ui.cjs",

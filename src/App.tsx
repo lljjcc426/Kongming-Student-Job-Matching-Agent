@@ -30,6 +30,7 @@ function App() {
     modelJobs,
     modelInsight,
     modelStatus,
+    documentStatus,
     modelMessage,
     pipelineStep,
     uploadMessage,
@@ -130,7 +131,7 @@ function App() {
             onChange={setStructuredResume}
             onUpload={(file) => uploadResume(file, { jdText: customJdText })}
             uploadMessage={uploadMessage}
-            isUploading={modelStatus === "loading"}
+            isUploading={documentStatus === "loading"}
           />
         ) : null}
 

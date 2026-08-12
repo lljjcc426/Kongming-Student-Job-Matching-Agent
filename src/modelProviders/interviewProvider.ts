@@ -101,28 +101,108 @@ const clampScore = (value: unknown, fallback: number) => {
   return Math.max(0, Math.min(100, Math.round(score)));
 };
 
-const parseFeedback = (content: string): InterviewFeedbackReport => {
+type InterviewEvidenceQuality = {
+  answerCount: number;
+  totalChars: number;
+  substantiveAnswers: number;
+  quantifiedAnswers: number;
+  starSignalAnswers: number;
+  genericAnswers: number;
+  scoreCap: number;
+};
+
+const compactAnswer = (answer: string) => answer.replace(/\s+/g, "").trim();
+const GENERIC_ANSWER_PATTERN = /^(用|会用|使用|了解|知道|熟悉|接触过|做过|可以|是|否)?(ai|人工智能|python|java|软件|工具|模型|大模型|没有|不会|不清楚|不知道)?[。.!！]?$/i;
+const ACTION_PATTERN = /负责|设计|实现|搭建|分析|调研|优化|解决|协调|推进|开发|测试|部署|验证|使用|通过|采用/;
+const RESULT_PATTERN = /结果|最终|提升|降低|完成|交付|获得|达到|因此|使得|产出|上线|落地|准确率|效率|用户/;
+const CONTEXT_PATTERN = /背景|当时|项目|实习|任务|目标|需求|问题|场景|团队/;
+const NUMBER_PATTERN = /\d+(?:\.\d+)?\s*(?:%|个|人|份|次|天|周|月|小时|万|条|项|分)?/;
+
+export const analyzeInterviewEvidence = (turns: InterviewTurn[]): InterviewEvidenceQuality => {
+  const answers = turns.map((turn) => compactAnswer(turn.answer)).filter(Boolean);
+  const totalChars = answers.reduce((sum, answer) => sum + answer.length, 0);
+  const substantiveAnswers = answers.filter((answer) => answer.length >= 35 && ACTION_PATTERN.test(answer)).length;
+  const quantifiedAnswers = answers.filter((answer) => NUMBER_PATTERN.test(answer)).length;
+  const starSignalAnswers = answers.filter((answer) =>
+    CONTEXT_PATTERN.test(answer) && ACTION_PATTERN.test(answer) && RESULT_PATTERN.test(answer),
+  ).length;
+  const genericAnswers = answers.filter((answer) => answer.length <= 12 || GENERIC_ANSWER_PATTERN.test(answer)).length;
+  let scoreCap = 92;
+  if (!answers.length) scoreCap = 0;
+  else if (totalChars < 10 || genericAnswers === answers.length) scoreCap = 22;
+  else if (totalChars < 30) scoreCap = 38;
+  else if (answers.length === 1 && substantiveAnswers === 0) scoreCap = 45;
+  else if (answers.length === 1) scoreCap = starSignalAnswers > 0 && quantifiedAnswers > 0 ? 58 : 52;
+  else if (answers.length < 3) scoreCap = substantiveAnswers >= 2 ? 68 : 58;
+  else if (substantiveAnswers < 2) scoreCap = 64;
+  else if (starSignalAnswers === 0) scoreCap = 72;
+  else if (quantifiedAnswers === 0) scoreCap = 80;
+  return {
+    answerCount: answers.length,
+    totalChars,
+    substantiveAnswers,
+    quantifiedAnswers,
+    starSignalAnswers,
+    genericAnswers,
+    scoreCap,
+  };
+};
+
+const scoreFallback = (quality: InterviewEvidenceQuality): InterviewFeedbackReport => {
+  const base = quality.answerCount === 0
+    ? 0
+    : Math.min(quality.scoreCap, 22 + quality.substantiveAnswers * 8 + quality.starSignalAnswers * 5 + quality.quantifiedAnswers * 4);
+  return {
+    overallScore: base,
+    expression: Math.min(quality.scoreCap, base + (quality.totalChars >= 50 ? 4 : 0)),
+    professionalFit: Math.max(0, Math.min(quality.scoreCap, base - 2)),
+    logic: Math.max(0, Math.min(quality.scoreCap, base - (quality.starSignalAnswers ? 0 : 4))),
+    improvements: ["回答需要说明具体场景、个人任务、采取的行动和最终结果。", "避免只给出工具名或结论，请补充本人贡献和可验证事实。"],
+    optimizedAnswer: "建议用 STAR 结构重新回答：先说明背景和任务，再说明你具体采取了什么行动，最后给出量化结果与复盘。",
+    summary: "当前回答证据不足，系统已按有效回答长度、事实信息和 STAR 完整度进行保守评分。",
+  };
+};
+
+const calibrateFeedback = (report: InterviewFeedbackReport, quality: InterviewEvidenceQuality): InterviewFeedbackReport => {
+  const cap = quality.scoreCap;
+  const capped = {
+    ...report,
+    overallScore: Math.min(cap, report.overallScore),
+    expression: Math.min(cap, report.expression),
+    professionalFit: Math.min(cap, report.professionalFit),
+    logic: Math.min(cap, report.logic),
+  };
+  if (cap === 92) return capped;
+  const reason = cap <= 28
+    ? "回答过短或只有泛化关键词，无法形成有效面试证据。"
+    : quality.answerCount < 3
+      ? `本次只有${quality.answerCount}轮有效回答，尚不足以稳定判断岗位能力。`
+      : quality.starSignalAnswers === 0
+        ? "回答未形成背景、行动和结果链路，STAR证据不足。"
+        : "回答缺少量化结果，当前评分按证据充分度校准。";
+  return {
+    ...capped,
+    improvements: [reason, ...capped.improvements].filter(Boolean).slice(0, 5),
+    summary: `${reason}${capped.summary ? ` ${capped.summary}` : ""}`.trim(),
+  };
+};
+
+export const parseInterviewFeedback = (content: string, turns: InterviewTurn[]): InterviewFeedbackReport => {
+  const quality = analyzeInterviewEvidence(turns);
   try {
     const data = JSON.parse(extractJson(content)) as Partial<InterviewFeedbackReport>;
-    return {
-      overallScore: clampScore(data.overallScore, 78),
-      expression: clampScore(data.expression, 76),
-      professionalFit: clampScore(data.professionalFit, 78),
-      logic: clampScore(data.logic, 75),
+    const fallback = scoreFallback(quality);
+    return calibrateFeedback({
+      overallScore: clampScore(data.overallScore, fallback.overallScore),
+      expression: clampScore(data.expression, fallback.expression),
+      professionalFit: clampScore(data.professionalFit, fallback.professionalFit),
+      logic: clampScore(data.logic, fallback.logic),
       improvements: Array.isArray(data.improvements) ? data.improvements.map(String).filter(Boolean).slice(0, 5) : ["补充更具体的背景、行动和结果。"],
       optimizedAnswer: typeof data.optimizedAnswer === "string" ? data.optimizedAnswer : "建议用 STAR 结构重写回答：背景、任务、行动、结果分别说明。",
       summary: typeof data.summary === "string" ? data.summary : "回答具备基础信息，但仍需强化结构化表达和岗位相关证据。",
-    };
+    }, quality);
   } catch {
-    return {
-      overallScore: 76,
-      expression: 74,
-      professionalFit: 76,
-      logic: 75,
-      improvements: ["保留真实经历，同时补充任务目标、个人动作和量化结果。", "面向目标岗位补充关键词和岗位职责对应关系。"],
-      optimizedAnswer: "建议用“我负责什么、怎么推进、结果如何、复盘学到什么”的结构重新组织回答。",
-      summary: content || "已生成反馈，但结构化解析不完整。",
-    };
+    return scoreFallback(quality);
   }
 };
 
@@ -165,6 +245,7 @@ export class DoubaoInterviewProvider implements InterviewModelProvider {
   }
 
   async generateFeedback(input: InterviewModelInput) {
+    const evidenceQuality = analyzeInterviewEvidence(input.turns);
     const response = await callArkAgent(
       {
         task: "career-chat",
@@ -172,8 +253,12 @@ export class DoubaoInterviewProvider implements InterviewModelProvider {
           "你是模拟面试反馈智能体。请基于面试对话生成严格 JSON，不要输出 Markdown。",
           "反馈必须体现当前面试类型：综合面评价岗位适配、经历证据和能力迁移；技术面评价技术理解、方案表达和工程落地；HR 面评价动机稳定性、协作沟通、压力应对和职业规划。",
           "JSON 结构：",
-          '{"overallScore":80,"expression":80,"professionalFit":80,"logic":80,"improvements":[],"optimizedAnswer":"","summary":""}',
-          "评分为 0-100；improvements 给 3-5 条具体改进点；optimizedAnswer 给一段可直接参考的优化回答。",
+          '{"overallScore":0,"expression":0,"professionalFit":0,"logic":0,"improvements":[],"optimizedAnswer":"","summary":""}',
+          "评分为 0-100，必须严格按证据评分，禁止因为语气礼貌或提到技术名词而给分。",
+          "评分区间：0-29=无效或严重缺乏证据；30-49=仅有观点/关键词；50-64=基本回答但缺结果；65-79=案例完整且岗位相关；80-89=有量化成果与深入复盘；90以上=多轮追问中持续表现优秀。",
+          "单轮或极短回答不得给高分；没有个人行动、事实案例和结果时，专业匹配与逻辑不得超过55分。",
+          `系统检测到：${evidenceQuality.answerCount}轮回答、共${evidenceQuality.totalChars}字、${evidenceQuality.starSignalAnswers}个STAR证据、${evidenceQuality.quantifiedAnswers}个量化证据；总分硬上限${evidenceQuality.scoreCap}分。`,
+          "improvements 给3-5条具体改进点；summary必须引用回答中的事实说明得分原因；optimizedAnswer给一段可直接参考的优化回答。",
           `目标岗位：${input.jobTarget?.title || "目标岗位待确认"}`,
           `面试类型：${input.interviewType}`,
           `面试模式规则：\n${interviewRulesOf(input.interviewType)}`,
@@ -184,7 +269,7 @@ export class DoubaoInterviewProvider implements InterviewModelProvider {
       { timeoutMs: 45000 },
     );
 
-    return parseFeedback(response.content || response.error || "");
+    return parseInterviewFeedback(response.content || response.error || "", input.turns);
   }
 }
 

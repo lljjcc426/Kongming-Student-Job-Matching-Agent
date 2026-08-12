@@ -113,6 +113,7 @@ async function main() {
   }
 
   const progressMessages = [];
+  let visionPageNumbers = [];
   const pdfVisionResult = await processPdfResume(
     { name: "scanned-resume.pdf", type: "application/pdf" },
     (message) => progressMessages.push(message),
@@ -122,8 +123,9 @@ async function main() {
         onProgress?.(2, 2);
         return ocrDocument(0.55);
       },
-      recognizeVisionPages: async (_images, _text, onBatch) => {
-        onBatch?.(1, 2);
+      recognizeVisionPages: async (_images, _text, onBatch, pageNumbers) => {
+        visionPageNumbers = pageNumbers;
+        onBatch?.(pageNumbers[0], pageNumbers[pageNumbers.length - 1]);
         return { ok: true, content: "视觉模型补充：竞赛一等奖。" };
       },
       readPdf: async () => ({
@@ -133,7 +135,7 @@ async function main() {
         quality: 0.42,
         coverage: 0.2,
         imageDataUrls: ["page-1", "page-2"],
-        pageImages: [pageInput, { ...pageInput, pageNumber: 2 }],
+        pageImages: [{ ...pageInput, pageNumber: 2 }, { ...pageInput, pageNumber: 4 }],
         pageTexts: ["", ""],
       }),
     },
@@ -142,7 +144,8 @@ async function main() {
     !pdfVisionResult.ok ||
     !pdfVisionResult.text.includes("视觉模型补充：竞赛一等奖。") ||
     !progressMessages.some((message) => message.includes("2/2")) ||
-    !progressMessages.some((message) => message.includes("1-2"))
+    !progressMessages.some((message) => message.includes("2-4")) ||
+    visionPageNumbers.join(",") !== "2,4"
   ) {
     throw new Error("PDF OCR and cross-vision path failed.");
   }

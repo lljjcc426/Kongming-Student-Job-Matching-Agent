@@ -32,10 +32,10 @@ export function ResumePipelineStatus({
   return (
     <section className={`inline-progress ${modelStatus}`}>
       <div>
-        <strong>简历识别进度</strong>
+        <strong>简历分析进度</strong>
         <span>{modelStatus === "loading" ? "正在处理" : modelStatus === "ready" ? resumeSource : modelStatus === "error" ? "处理未完成" : "等待上传"}</span>
       </div>
-      <div className="pipeline-bar" aria-label="简历识别进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} role="progressbar">
+      <div className="pipeline-bar" aria-label="简历分析进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} role="progressbar">
         <i style={{ width: `${progress}%` }} />
       </div>
       <div className="pipeline-steps">

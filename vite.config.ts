@@ -10,7 +10,7 @@ import {
   closeLocalJobKnowledgeWorker,
   warmLocalJobKnowledge,
 } from "./server/localJobKnowledgeWorker.js";
-import { closeLocalOcrWorker } from "./server/localOcrWorker.js";
+import { closeLocalOcrWorker, warmLocalOcrWorker } from "./server/localOcrWorker.js";
 import {
   closeAgentMemoryStore,
   runAgentMemoryRequest,
@@ -75,6 +75,12 @@ const ocrDevProxy = (): Plugin => ({
   name: "ocr-dev-proxy",
   configureServer(server) {
     server.httpServer?.once("close", closeLocalOcrWorker);
+    server.httpServer?.once("listening", () => {
+      if (String(process.env.OCR_PROVIDER || "local").toLowerCase() !== "local") return;
+      void warmLocalOcrWorker()
+        .then(() => console.log("[local-ocr] OCR 模型预热完成"))
+        .catch((error) => console.warn("[local-ocr] OCR 模型预热失败", error));
+    });
     server.middlewares.use("/api/ocr", async (request, response) => {
       response.setHeader("Content-Type", "application/json; charset=utf-8");
       response.setHeader("Cache-Control", "no-store, private");

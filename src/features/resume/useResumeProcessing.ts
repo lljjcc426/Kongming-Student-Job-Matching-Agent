@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PipelineStep } from "../../app/types";
 import { callArkAgent } from "../../arkClient";
 import type { Job } from "../../data";
@@ -50,10 +50,12 @@ export function useResumeProcessing() {
   const [modelJobs, setModelJobs] = useState<Job[]>([]);
   const [modelInsight, setModelInsight] = useState("");
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [documentStatus, setDocumentStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [modelMessage, setModelMessage] = useState("");
   const [pipelineStep, setPipelineStep] = useState<PipelineStep>("idle");
   const [uploadMessage, setUploadMessage] = useState(INITIAL_UPLOAD_MESSAGE);
   const [resumeSource, setResumeSource] = useState("等待上传");
+  const pipelineRunRef = useRef(0);
   const activeProfile = useMemo(
     () => profileFromStructuredResume(structuredResume, resumeText),
     [resumeText, structuredResume],
@@ -86,7 +88,9 @@ export function useResumeProcessing() {
     nextResumeText: string,
     nextResume: StructuredResume,
     recommendationJdText: string,
+    runId: number,
   ) => {
+    if (runId !== pipelineRunRef.current) return;
     setPipelineStep("jobs");
     setModelMessage("正在从职业知识库检索真实岗位");
     const knowledgeQueries = buildJobKnowledgeQueries(
@@ -103,6 +107,7 @@ export function useResumeProcessing() {
         timeoutMs: 180_000,
       },
     );
+    if (runId !== pipelineRunRef.current) return;
     const recommendationProfile = profileFromStructuredResume(
       nextResume,
       nextResumeText,
@@ -122,6 +127,7 @@ export function useResumeProcessing() {
       setModelMessage(
         `已从职业知识库检索并筛选 ${knowledgeJobs.length} 个真实岗位，岗位详情来自官方招聘页面`,
       );
+      setUploadMessage(`简历文档已就绪，画像和 ${knowledgeJobs.length} 个岗位推荐已更新。`);
       return;
     }
 
@@ -142,6 +148,7 @@ export function useResumeProcessing() {
         ),
       ),
     );
+    if (runId !== pipelineRunRef.current) return;
     const parsedJobs = superviseRecommendedJobs(
       responses.flatMap((response) => {
         if (response.status !== "fulfilled" || !response.value.ok || !response.value.content) return [];
@@ -169,10 +176,12 @@ export function useResumeProcessing() {
     setModelStatus("ready");
     setPipelineStep("done");
     setModelMessage(`已生成 ${parsedJobs.length} 个岗位方向建议；当前结果未连接职业知识库`);
+    setUploadMessage(`简历文档已就绪，画像和 ${parsedJobs.length} 个岗位方向已更新。`);
   };
 
-  const runModelPipeline = async (nextResumeText: string, recommendationJdText: string) => {
+  const runModelPipeline = async (nextResumeText: string, recommendationJdText: string, runId: number) => {
     if (!nextResumeText.trim()) return;
+    if (runId !== pipelineRunRef.current) return;
     setModelStatus("loading");
     setPipelineStep("structure");
     setModelMessage("正在调用模型解析简历并生成岗位推荐");
@@ -180,34 +189,40 @@ export function useResumeProcessing() {
     setModelJobs([]);
 
     const structureResponse = await callArkAgent({ task: "resume-structure", resumeText: nextResumeText });
+    if (runId !== pipelineRunRef.current) return;
     if (!structureResponse.ok || !structureResponse.content) {
       setModelStatus("error");
       setPipelineStep("error");
       setModelMessage(structureResponse.error || "模型简历解析失败。");
+      setUploadMessage("简历文档已可查看，但画像解析未完成，可稍后重新上传或重试。");
       return;
     }
 
     try {
       const parsedResume = parseStructuredResume(structureResponse.content, nextResumeText);
       setStructuredResume(parsedResume);
-      await runJobRecommendations(nextResumeText, parsedResume, recommendationJdText);
+      await runJobRecommendations(nextResumeText, parsedResume, recommendationJdText, runId);
     } catch (error) {
       setModelStatus("error");
       setPipelineStep("error");
       setModelMessage(error instanceof Error ? `模型返回格式无法解析：${error.message}` : "模型返回格式无法解析。");
+      setUploadMessage("简历文档已可查看，但结构化画像格式异常，可稍后重试。");
     }
   };
 
   const applyDocumentResult = async (
     result: ResumeDocumentProcessingResult,
     recommendationJdText: string,
+    runId: number,
   ) => {
+    if (runId !== pipelineRunRef.current) return;
     if (result.ocrDocument) setResumeOcrDocument(result.ocrDocument);
     setModelMessage(result.modelMessage);
     setUploadMessage(result.uploadMessage);
     if (result.source) setResumeSource(result.source);
 
     if (!result.ok) {
+      setDocumentStatus("error");
       setModelStatus("error");
       setPipelineStep("error");
       return;
@@ -215,29 +230,35 @@ export function useResumeProcessing() {
 
     setResumeText(result.text);
     if (result.insight) setModelInsight(result.insight);
-    setModelStatus("ready");
-    await runModelPipeline(result.text, recommendationJdText);
+    setDocumentStatus("ready");
+    setUploadMessage(`${result.uploadMessage} 文档已可查看，正在后台生成画像和岗位推荐。`);
+    void runModelPipeline(result.text, recommendationJdText, runId);
   };
 
-  const handleImageUpload = async (file: File, recommendationJdText: string) => {
+  const handleImageUpload = async (file: File, recommendationJdText: string, runId: number) => {
     setModelStatus("loading");
+    setDocumentStatus("loading");
     setPipelineStep("intake");
     setModelMessage("正在使用本地 OCR 识别图片简历");
     const result = await processImageResume(file, setModelMessage);
-    await applyDocumentResult(result, recommendationJdText);
+    await applyDocumentResult(result, recommendationJdText, runId);
   };
 
-  const handlePdfUpload = async (file: File, recommendationJdText: string) => {
+  const handlePdfUpload = async (file: File, recommendationJdText: string, runId: number) => {
     setModelStatus("loading");
+    setDocumentStatus("loading");
     setPipelineStep("intake");
     setModelMessage("正在解析 PDF 简历");
     const result = await processPdfResume(file, setModelMessage);
-    await applyDocumentResult(result, recommendationJdText);
+    await applyDocumentResult(result, recommendationJdText, runId);
   };
 
   const uploadResume = async (file?: File, context: ResumeUploadContext = {}) => {
     if (!file) return;
+    const runId = pipelineRunRef.current + 1;
+    pipelineRunRef.current = runId;
     if (file.size > MAX_RESUME_UPLOAD_BYTES) {
+      setDocumentStatus("error");
       setModelStatus("error");
       setPipelineStep("error");
       setModelMessage("文件超过 8MB，请压缩或精简后再上传。");
@@ -245,23 +266,34 @@ export function useResumeProcessing() {
       return;
     }
     setUploadMessage(`正在读取 ${file.name}…`);
+    setDocumentStatus("loading");
     rememberOriginalResume(file);
     const recommendationJdText = context.jdText ?? "";
 
     if (file.type.startsWith("image/")) {
-      await handleImageUpload(file, recommendationJdText);
+      await handleImageUpload(file, recommendationJdText, runId);
       return;
     }
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-      await handlePdfUpload(file, recommendationJdText);
+      await handlePdfUpload(file, recommendationJdText, runId);
       return;
     }
 
-    const text = await file.text();
-    setResumeText(text);
-    setUploadMessage(`已读取 ${file.name}，共 ${text.trim().length} 字，画像、岗位排序和匹配结果已更新。`);
-    setResumeSource("文本文件读取");
-    await runModelPipeline(text, recommendationJdText);
+    try {
+      const text = await file.text();
+      if (runId !== pipelineRunRef.current) return;
+      setResumeText(text);
+      setDocumentStatus("ready");
+      setUploadMessage(`已读取 ${file.name}，共 ${text.trim().length} 字。文档已可查看，正在后台生成画像和岗位推荐。`);
+      setResumeSource("文本文件读取");
+      void runModelPipeline(text, recommendationJdText, runId);
+    } catch {
+      if (runId !== pipelineRunRef.current) return;
+      setDocumentStatus("error");
+      setModelStatus("error");
+      setPipelineStep("error");
+      setUploadMessage(`未能读取 ${file.name}，请检查文件格式后重试。`);
+    }
   };
 
   const runMatchAnalysis = async ({
@@ -307,6 +339,7 @@ export function useResumeProcessing() {
     modelJobs,
     modelInsight,
     modelStatus,
+    documentStatus,
     modelMessage,
     pipelineStep,
     uploadMessage,

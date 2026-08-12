@@ -323,11 +323,12 @@ async function main() {
   await page.getByLabel("模拟面试回答").waitFor({ state: "visible", timeout: 8000 });
   const interviewInput = await page.getByLabel("模拟面试回答").count();
   await page.getByRole("button", { name: "开始面试" }).click();
-  await page.getByLabel("模拟面试回答").fill("我负责设计并执行问卷研究，分析286份样本，最终形成三项校园服务改进建议。");
+  await page.getByLabel("模拟面试回答").fill("用AI");
   await page.getByRole("button", { name: "发送" }).click();
   await page.getByRole("button", { name: "结束面试" }).waitFor({ state: "visible", timeout: 8000 });
   await page.getByRole("button", { name: "结束面试" }).click();
   await page.getByRole("button", { name: "查看职业成长计划" }).waitFor({ state: "visible", timeout: 8000 });
+  const shortInterviewScore = Number(await page.locator(".feedback-score strong").innerText());
   await page.screenshot({ path: screenshotPaths.interview, fullPage: false });
 
   await page.getByRole("button", { name: "查看职业成长计划" }).click();
@@ -453,7 +454,7 @@ async function main() {
   if (uploadControl !== 1) {
     throw new Error(`Expected resume upload control, found ${uploadControl}`);
   }
-  if (!uploadMessage.includes("frontend-resume.txt")) {
+  if (!uploadMessage.includes("frontend-resume.txt") && !uploadMessage.includes("简历文档已就绪")) {
     throw new Error(`Upload did not update message: ${uploadMessage}`);
   }
   if (!studentPortrait.includes("陈雨")) {
@@ -504,6 +505,9 @@ async function main() {
   }
   if (interviewInput !== 1) {
     throw new Error(`Expected interview practice input after analysis, found ${interviewInput}`);
+  }
+  if (shortInterviewScore > 22) {
+    throw new Error(`Expected the generic answer \"用AI\" to score at most 22, found ${shortInterviewScore}`);
   }
   if (growthTaskCount !== 4 || growthStageCount !== 3) {
     throw new Error(`Expected 4 visible weekly tasks and 3 growth stages, found tasks=${growthTaskCount}, stages=${growthStageCount}`);
@@ -583,6 +587,7 @@ async function main() {
     reportFilename,
     skillsCard,
     interviewInput,
+    shortInterviewScore,
     growthTaskCount,
     growthStageCount,
     baseGrowthScore,
