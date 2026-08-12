@@ -342,6 +342,7 @@ async function main() {
   }
   const projectedGrowthScore = Number((await page.locator(".growth-summary-grid article.projected strong").innerText()).replace(/\D/g, ""));
   const growthProgress = await page.locator(".growth-summary-grid article").nth(3).locator("strong").innerText();
+  const growthResourceText = await page.locator(".growth-resource-panel").innerText();
   await page.locator(".growth-stage-tabs button").nth(1).click();
   const nextStageUnlocked = await page.getByLabel("第5周证据说明").isEnabled();
   const adaptationText = await page.locator(".growth-adaptation-panel").innerText();
@@ -513,6 +514,9 @@ async function main() {
   if (!adaptationText.includes("已解锁60天阶段") || !restoredGrowthProgress.includes("25")) {
     throw new Error(`Expected adaptive plan and persistence, found adaptation=${adaptationText}, restored=${restoredGrowthProgress}`);
   }
+  if (!growthResourceText.includes("哔哩哔哩") || !growthResourceText.includes("Datawhale")) {
+    throw new Error(`Expected domestic learning resources, found ${growthResourceText}`);
+  }
   if (assistantPage !== 1 || chatPanel !== 1 || chatComposer !== 1) {
     throw new Error(`Expected assistant page and chat panel, found page=${assistantPage}, panel=${chatPanel}, composer=${chatComposer}`);
   }
@@ -584,6 +588,7 @@ async function main() {
     baseGrowthScore,
     projectedGrowthScore,
     growthProgress,
+    domesticGrowthResources: ["哔哩哔哩", "Datawhale"],
     nextStageUnlocked,
     restoredGrowthProgress,
     assistantPage,

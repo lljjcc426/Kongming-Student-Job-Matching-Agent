@@ -29,96 +29,252 @@ const dateAfterDays = (days: number) => {
   return date.toISOString().slice(0, 10);
 };
 
-const resourceCatalog: Array<{ pattern: RegExp; resource: GrowthResource }> = [
+const resourceCatalog: Array<{ pattern: RegExp; resources: GrowthResource[] }> = [
   {
     pattern: /用户研究|问卷|访谈|可用性|ux|调研/i,
-    resource: {
-      title: "Google UX Design Professional Certificate",
-      provider: "Google Career Certificates · Coursera",
-      type: "course",
-      url: "https://www.coursera.org/professional-certificates/google-ux-design/",
-      note: "重点学习研究计划、用户访谈、可用性测试和研究结论综合，并沉淀作品集证据。",
-    },
+    resources: [
+      {
+        title: "Google UX Design Professional Certificate",
+        provider: "Google Career Certificates · Coursera",
+        type: "course",
+        url: "https://www.coursera.org/professional-certificates/google-ux-design/",
+        note: "重点学习研究计划、用户访谈、可用性测试和研究结论综合，并沉淀作品集证据。",
+      },
+      {
+        title: "用户研究中文课程检索",
+        provider: "哔哩哔哩",
+        type: "course",
+        url: "https://search.bilibili.com/all?keyword=%E7%94%A8%E6%88%B7%E7%A0%94%E7%A9%B6%20%E8%AF%BE%E7%A8%8B",
+        note: "结合播放列表、发布时间和评论筛选课程，完成访谈提纲与研究报告练习。",
+      },
+    ],
   },
   {
     pattern: /python|爬虫|脚本|自动化/i,
-    resource: {
-      title: "Python 官方教程",
-      provider: "Python Software Foundation",
-      type: "documentation",
-      url: "https://docs.python.org/zh-cn/3/tutorial/",
-      note: "按章节完成练习，并保留可运行代码作为证据。",
-    },
+    resources: [
+      {
+        title: "Python 官方教程",
+        provider: "Python Software Foundation",
+        type: "documentation",
+        url: "https://docs.python.org/zh-cn/3/tutorial/",
+        note: "按章节完成练习，并保留可运行代码作为证据。",
+      },
+      {
+        title: "聪明办法学 Python 第二版",
+        provider: "Datawhale",
+        type: "course",
+        url: "https://datawhalechina.github.io/learn-python-the-smart-way-v2/",
+        note: "使用中文课程、课后练习和直播录像建立面向AI开发的Python基础。",
+      },
+      {
+        title: "Python 3 教程",
+        provider: "菜鸟教程",
+        type: "course",
+        url: "https://www.runoob.com/python3/python3-tutorial.html",
+        note: "用于快速查漏补缺和在线练习，成果以代码仓库为准。",
+      },
+      {
+        title: "聪明办法学 Python 配套视频",
+        provider: "哔哩哔哩 · Datawhale",
+        type: "course",
+        url: "https://www.bilibili.com/video/BV1bh4y1w7Co/",
+        note: "配合Datawhale图文课程学习，并提交章节练习。",
+      },
+    ],
   },
   {
-    pattern: /大模型|llm|nlp|transformer|rag|embedding|向量/i,
-    resource: {
-      title: "Hugging Face LLM Course",
-      provider: "Hugging Face",
-      type: "course",
-      url: "https://huggingface.co/learn/llm-course/zh-CN/chapter1/1",
-      note: "优先学习与岗位缺口相关章节，并完成一个可演示实验。",
-    },
+    pattern: /rag|检索增强|向量数据库|embedding|向量检索/i,
+    resources: [
+      {
+        title: "All-in-RAG 技术全栈指南",
+        provider: "Datawhale",
+        type: "course",
+        url: "https://datawhalechina.github.io/all-in-rag/",
+        note: "覆盖数据处理、索引、混合检索、生成和评估，适合形成完整项目证据。",
+      },
+      {
+        title: "Hugging Face LLM Course",
+        provider: "Hugging Face",
+        type: "course",
+        url: "https://huggingface.co/learn/llm-course/zh-CN/chapter1/1",
+        note: "补充Transformer、NLP工具链与模型应用基础。",
+      },
+      {
+        title: "RAG 中文实战视频检索",
+        provider: "哔哩哔哩",
+        type: "course",
+        url: "https://search.bilibili.com/all?keyword=Datawhale%20RAG%20%E6%95%99%E7%A8%8B",
+        note: "优先选择包含代码仓库、数据集和评估过程的完整系列。",
+      },
+    ],
+  },
+  {
+    pattern: /大模型|llm|nlp|transformer|自然语言处理|智能体|agent/i,
+    resources: [
+      {
+        title: "Hugging Face LLM Course",
+        provider: "Hugging Face",
+        type: "course",
+        url: "https://huggingface.co/learn/llm-course/zh-CN/chapter1/1",
+        note: "优先学习与岗位缺口相关章节，并完成一个可演示实验。",
+      },
+      {
+        title: "Happy-LLM：从零开始构建大模型",
+        provider: "Datawhale",
+        type: "course",
+        url: "https://datawhalechina.github.io/happy-llm/",
+        note: "使用中文材料理解模型原理、训练流程和RAG、Agent应用。",
+      },
+      {
+        title: "大模型中文课程检索",
+        provider: "哔哩哔哩",
+        type: "course",
+        url: "https://search.bilibili.com/all?keyword=Datawhale%20%E5%A4%A7%E6%A8%A1%E5%9E%8B%20%E8%AF%BE%E7%A8%8B",
+        note: "优先选择Datawhale等开源社区发布且带配套代码的课程。",
+      },
+    ],
   },
   {
     pattern: /机器学习|深度学习|模型训练|算法|ai/i,
-    resource: {
-      title: "机器学习速成课程",
-      provider: "Google for Developers",
-      type: "course",
-      url: "https://developers.google.com/machine-learning/crash-course?hl=zh-cn",
-      note: "学习核心概念并提交测验或实验结果。",
-    },
+    resources: [
+      {
+        title: "机器学习速成课程",
+        provider: "Google for Developers",
+        type: "course",
+        url: "https://developers.google.com/machine-learning/crash-course?hl=zh-cn",
+        note: "学习核心概念并提交测验或实验结果。",
+      },
+      {
+        title: "Datawhale AI学习路线",
+        provider: "Datawhale",
+        type: "course",
+        url: "https://www.datawhale.cn/",
+        note: "按机器学习、数据分析或NLP方向选择中文开源课程与组队学习。",
+      },
+      {
+        title: "机器学习中文课程检索",
+        provider: "哔哩哔哩",
+        type: "course",
+        url: "https://search.bilibili.com/all?keyword=Datawhale%20%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%20%E8%AF%BE%E7%A8%8B",
+        note: "选择有代码、作业和完整章节目录的课程并保留实验结果。",
+      },
+    ],
   },
   {
     pattern: /react|vue|前端|javascript|typescript|html|css|web/i,
-    resource: {
-      title: "MDN Web 开发学习路径",
-      provider: "MDN",
-      type: "course",
-      url: "https://developer.mozilla.org/zh-CN/docs/Learn_web_development",
-      note: "完成对应模块与技能测试，并发布一个可访问页面。",
-    },
+    resources: [
+      {
+        title: "MDN Web 开发学习路径",
+        provider: "MDN",
+        type: "course",
+        url: "https://developer.mozilla.org/zh-CN/docs/Learn_web_development",
+        note: "完成对应模块与技能测试，并发布一个可访问页面。",
+      },
+      {
+        title: "Web前端基础教程",
+        provider: "菜鸟教程",
+        type: "course",
+        url: "https://www.runoob.com/html/html-tutorial.html",
+        note: "快速补齐HTML、CSS和JavaScript基础，并以页面作品验收。",
+      },
+      {
+        title: "前端系统课程检索",
+        provider: "哔哩哔哩",
+        type: "course",
+        url: "https://search.bilibili.com/all?keyword=%E5%89%8D%E7%AB%AF%20%E7%B3%BB%E7%BB%9F%E8%AF%BE%E7%A8%8B%20%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98",
+        note: "选择含完整项目、源码和部署章节的系列课程。",
+      },
+    ],
   },
   {
     pattern: /sql|数据库|数据分析|数据开发/i,
-    resource: {
-      title: "PostgreSQL 官方教程",
-      provider: "PostgreSQL",
-      type: "documentation",
-      url: "https://www.postgresql.org/docs/current/tutorial.html",
-      note: "完成查询、聚合与数据建模练习，保留 SQL 文件。",
-    },
+    resources: [
+      {
+        title: "PostgreSQL 官方教程",
+        provider: "PostgreSQL",
+        type: "documentation",
+        url: "https://www.postgresql.org/docs/current/tutorial.html",
+        note: "完成查询、聚合与数据建模练习，保留 SQL 文件。",
+      },
+      {
+        title: "SQL 教程",
+        provider: "菜鸟教程",
+        type: "course",
+        url: "https://www.runoob.com/sql/sql-tutorial.html",
+        note: "用于快速掌握SQL语法和在线练习，随后完成岗位相关数据分析案例。",
+      },
+      {
+        title: "Wonderful SQL",
+        provider: "Datawhale",
+        type: "course",
+        url: "https://github.com/datawhalechina/wonderful-sql",
+        note: "通过中文组队学习材料完成SQL练习与数据分析任务。",
+      },
+    ],
   },
   {
     pattern: /docker|容器|部署|devops|云原生/i,
-    resource: {
-      title: "Docker Get Started",
-      provider: "Docker",
-      type: "course",
-      url: "https://docs.docker.com/get-started/",
-      note: "将一个项目容器化并保存 Dockerfile 与运行截图。",
-    },
+    resources: [
+      {
+        title: "Docker Get Started",
+        provider: "Docker",
+        type: "course",
+        url: "https://docs.docker.com/get-started/",
+        note: "将一个项目容器化并保存 Dockerfile 与运行截图。",
+      },
+      {
+        title: "Docker 教程",
+        provider: "菜鸟教程",
+        type: "course",
+        url: "https://www.runoob.com/docker/docker-tutorial.html",
+        note: "使用中文示例补齐镜像、容器、Dockerfile和Compose基础。",
+      },
+      {
+        title: "Docker项目实战视频检索",
+        provider: "哔哩哔哩",
+        type: "course",
+        url: "https://search.bilibili.com/all?keyword=Docker%20%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98%20%E9%83%A8%E7%BD%B2",
+        note: "选择包含Dockerfile、Compose和真实部署过程的课程。",
+      },
+    ],
   },
   {
     pattern: /git|协作|版本控制/i,
-    resource: {
-      title: "Pro Git 中文版",
-      provider: "Git",
-      type: "documentation",
-      url: "https://git-scm.com/book/zh/v2",
-      note: "使用分支、提交和合并完成一次规范协作记录。",
-    },
+    resources: [
+      {
+        title: "Pro Git 中文版",
+        provider: "Git",
+        type: "documentation",
+        url: "https://git-scm.com/book/zh/v2",
+        note: "使用分支、提交和合并完成一次规范协作记录。",
+      },
+      {
+        title: "Git 教程",
+        provider: "菜鸟教程",
+        type: "course",
+        url: "https://www.runoob.com/git/git-tutorial.html",
+        note: "快速查阅常用命令，并用真实仓库提交记录作为学习证据。",
+      },
+    ],
   },
 ];
 
-const courseFor = (gapName: string): GrowthResource => resourceCatalog.find((item) => item.pattern.test(gapName))?.resource ?? {
-  title: `${gapName}定向学习资源`,
-  provider: "公开课程检索",
-  type: "course",
-  url: `https://www.bing.com/search?q=${encodeURIComponent(`${gapName} 系统课程 官方`)}`,
-  note: "优先选择高校、标准组织或技术厂商发布的课程，并记录来源。",
-};
+const coursesFor = (gapName: string): GrowthResource[] => resourceCatalog.find((item) => item.pattern.test(gapName))?.resources ?? [
+  {
+    title: `${gapName}中文课程检索`,
+    provider: "哔哩哔哩",
+    type: "course",
+    url: `https://search.bilibili.com/all?keyword=${encodeURIComponent(`${gapName} 系统课程`)}`,
+    note: "优先选择有完整目录、配套资料和实践作业的课程，并记录来源。",
+  },
+  {
+    title: `${gapName}开源学习资源`,
+    provider: "Datawhale / 公开课程",
+    type: "course",
+    url: `https://www.bing.com/search?q=${encodeURIComponent(`site:datawhale.cn OR site:datawhalechina.github.io ${gapName} 课程`)}`,
+    note: "优先选择开源社区、高校或技术厂商发布的材料。",
+  },
+];
 
 const certificateFor = (job: Job, gapName: string): GrowthRecommendation => {
   const text = `${job.title} ${job.track} ${job.keywords.join(" ")} ${gapName}`;
@@ -236,9 +392,9 @@ const buildTasks = (gaps: GrowthGap[], job: Job, interview: InterviewGrowthSnaps
   const projectName = `${job.title}岗位能力验证项目`;
   const interviewWeakness = interview.feedback.improvements[0] || "补充岗位相关证据并使用 STAR 结构表达";
   return [
-    task(1, `建立${primary.name}能力基线`, `完成${primary.name}核心知识梳理，并用一页笔记说明它在${job.title}中的使用场景。`, "course", [primary.id], "课程完成记录＋一页知识笔记", [courseFor(primary.name)], 1.2),
-    task(2, `补齐${secondary.name}基础`, `针对岗位要求学习${secondary.name}，完成至少两个练习或案例。`, "course", [secondary.id], "练习结果、代码仓库或案例文档", [courseFor(secondary.name)], 1.2),
-    task(3, `训练${tertiary.name}`, `把${tertiary.name}应用到简历中的一段真实经历，形成可验证的小实验。`, "course", [tertiary.id], "实验过程与结果截图或文档", [courseFor(tertiary.name)], 1.3),
+    task(1, `建立${primary.name}能力基线`, `完成${primary.name}核心知识梳理，并用一页笔记说明它在${job.title}中的使用场景。`, "course", [primary.id], "课程完成记录＋一页知识笔记", coursesFor(primary.name), 1.2),
+    task(2, `补齐${secondary.name}基础`, `针对岗位要求学习${secondary.name}，完成至少两个练习或案例。`, "course", [secondary.id], "练习结果、代码仓库或案例文档", coursesFor(secondary.name), 1.2),
+    task(3, `训练${tertiary.name}`, `把${tertiary.name}应用到简历中的一段真实经历，形成可验证的小实验。`, "course", [tertiary.id], "实验过程与结果截图或文档", coursesFor(tertiary.name), 1.3),
     task(4, `设计${projectName}`, `结合岗位职责“${job.responsibilities[0] || job.summary || "完成核心业务任务"}”，输出项目目标、范围、指标和两周实施计划。`, "project", [primary.id, secondary.id], "项目方案文档，包含目标、技术路线和验收指标", [], 1.5),
     task(5, `实现${projectName}核心版本`, "完成最小可运行版本，优先证明关键能力，不追求功能堆叠。", "project", [primary.id, secondary.id], "可运行仓库或演示链接＋README", [], 1.8),
     task(6, "完成一次阶段作品评审", `按${job.title}岗位要求检查项目的正确性、可解释性和交付质量。`, "project", [secondary.id, tertiary.id], "评审清单＋至少三项问题修复记录", [], 1.4),
@@ -276,17 +432,16 @@ const buildStages = (job: Job, gaps: GrowthGap[]): GrowthStage[] => [
 ];
 
 const recommendationsOf = (gaps: GrowthGap[], job: Job): GrowthRecommendation[] => {
-  const courseRecommendations = gaps.slice(0, 3).map((gap, index) => {
-    const resource = courseFor(gap.name);
-    return {
-      id: `course-${index + 1}`,
+  const courseRecommendations = gaps.slice(0, 3).flatMap((gap, gapIndex) =>
+    coursesFor(gap.name).slice(0, 3).map((resource, resourceIndex) => ({
+      id: `course-${gapIndex + 1}-${resourceIndex + 1}`,
       kind: "course" as const,
       title: resource.title,
       reason: `用于补齐“${gap.name}”能力，并产生可验证练习。`,
       url: resource.url,
       provider: resource.provider,
-    };
-  });
+    })),
+  );
   return [
     ...courseRecommendations,
     {
