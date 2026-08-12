@@ -9,6 +9,7 @@ const screenshotPaths = {
   intro: path.join(UI_ARTIFACT_DIR, "check-intro.png"),
   identity: path.join(UI_ARTIFACT_DIR, "check-identity.png"),
   resume: path.join(UI_ARTIFACT_DIR, "check-resume-after-upload.png"),
+  matchingEvidence: path.join(UI_ARTIFACT_DIR, "check-matching-evidence.png"),
   interview: path.join(UI_ARTIFACT_DIR, "check-interview.png"),
   growth: path.join(UI_ARTIFACT_DIR, "check-growth-plan.png"),
   assistant: path.join(UI_ARTIFACT_DIR, "check-assistant.png"),
@@ -326,6 +327,15 @@ async function main() {
   const knowledgeJobCards = await page.locator(".job-card small").filter({ hasText: "职业知识库" }).count();
   const knowledgeJobLevels = await page.locator(".job-card p").allInnerTexts();
   const officialJobLink = await page.locator(".selected-job .apply-links a").first().getAttribute("href");
+  const abilityGraph = await page.locator("[data-testid='career-ability-graph']").count();
+  const abilityNodes = await page.locator(".ability-node").count();
+  const scoreEvidencePanel = await page.locator("[data-testid='score-evidence-panel']").count();
+  const dimensionEvidenceCards = await page.locator(".dimension-evidence-card").count();
+  const scoreFormula = await page.locator(".score-method-card code").innerText();
+  const supportedAbilityNode = page.locator(".ability-node.matched, .ability-node.partial").first();
+  await supportedAbilityNode.click();
+  const abilityEvidenceDetail = await page.locator(".ability-node-detail").innerText();
+  await page.screenshot({ path: screenshotPaths.matchingEvidence, fullPage: false });
   await page.locator(".jd-lab input").fill("用户研究实习生");
   await page.locator(".jd-textarea").fill("负责用户访谈、问卷研究、数据分析和用户洞察报告输出。");
   await page.getByRole("button", { name: "分析该岗位" }).click();
@@ -533,6 +543,12 @@ async function main() {
   ].includes(new URL(officialJobLink).hostname)) {
     throw new Error(`Expected an official recruiting link, found ${officialJobLink}`);
   }
+  if (abilityGraph !== 1 || abilityNodes < 1 || scoreEvidencePanel !== 1 || dimensionEvidenceCards !== 5) {
+    throw new Error(`Expected ability graph and five score evidence cards, found graph=${abilityGraph}, nodes=${abilityNodes}, panel=${scoreEvidencePanel}, cards=${dimensionEvidenceCards}`);
+  }
+  if (!scoreFormula.includes("能力匹配") || !scoreFormula.includes("= ") || !abilityEvidenceDetail.includes("简历证据") || !abilityEvidenceDetail.includes("最强证据")) {
+    throw new Error(`Expected traceable score formula and ability evidence, found formula=${scoreFormula}, detail=${abilityEvidenceDetail}`);
+  }
   if (customJobTitle !== "用户研究实习生" || selectedJobTitle !== customJobTitle || jdMessage !== "意向岗位分析已完成") {
     throw new Error(`Expected analyzed custom job to become selected, found custom=${customJobTitle}, selected=${selectedJobTitle}, message=${jdMessage}`);
   }
@@ -625,6 +641,12 @@ async function main() {
     knowledgeJobLevels,
     knowledgeQueryCount: 1 + jobKnowledgeRequestBody.queries.length,
     officialJobLink,
+    abilityGraph,
+    abilityNodes,
+    scoreEvidencePanel,
+    dimensionEvidenceCards,
+    scoreFormula,
+    abilityEvidenceDetail,
     customJobTitle,
     selectedJobTitle,
     jdMessage,

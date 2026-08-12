@@ -11,6 +11,43 @@ export function buildMatchReport(
   optimizedDraft: OptimizedResumeDraft,
   careerOpsEvaluation?: CareerOpsEvaluation,
 ) {
+  const evidenceById = new Map(result.evidence.map((item) => [item.id, item]));
+  const dimensionDetails = result.dimensions.map((dimension) => {
+    const factors = dimension.factors
+      .map((factor) => `  - ${factor.label}：${factor.score} × ${factor.weight}% = ${factor.contribution}；${factor.explanation}`)
+      .join("\n");
+    const citations = dimension.evidenceIds
+      .map((id) => evidenceById.get(id))
+      .filter(Boolean)
+      .slice(0, 4)
+      .map((item) => `  - [${item!.label}] ${item!.text}`)
+      .join("\n") || "  - 暂无可引用的简历原文证据";
+    return `### ${dimension.name}：${dimension.score} 分
+
+- 总分权重：${dimension.weight}%
+- 总分贡献：${dimension.contribution} 分
+- 证据置信度：${dimension.confidence}
+- 计算式：${dimension.formula} = ${dimension.score}
+
+评分因子：
+
+${factors}
+
+引用证据：
+
+${citations}`;
+  }).join("\n\n");
+  const abilityDetails = result.abilityGraph.nodes.map((node) => {
+    const citations = node.evidenceIds
+      .map((id) => evidenceById.get(id))
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((item) => `${item!.label}“${item!.text}”`)
+      .join("；") || "无简历证据";
+    const status = node.status === "matched" ? "已证实" : node.status === "partial" ? "部分支撑" : "待补证";
+    return `- ${node.name}｜${node.importance}｜${status}｜${node.score}/${node.targetScore}：${node.explanation} 证据：${citations}`;
+  }).join("\n");
+
   return `# 孔明职配分析报告
 
 ## 目标岗位
@@ -20,6 +57,12 @@ export function buildMatchReport(
 - 城市：${job.city}
 - 匹配评分：${result.total}
 - 投递建议：${result.verdict}
+- 评分方法：${result.scoreExplanation.methodVersion}
+- 加权计算：${result.scoreExplanation.formula}
+- 能力证据覆盖：${result.scoreExplanation.evidenceCoverage}%
+- 引用证据数量：${result.scoreExplanation.usedEvidenceCount}
+
+> ${result.scoreExplanation.note}
 
 ## 学生画像摘要
 
@@ -27,6 +70,16 @@ export function buildMatchReport(
 - 年级与专业：${profile.grade}，${profile.major}
 - 求职方向：${profile.target}
 - 能力标签：${profile.skills.join("、")}
+
+## 职业能力图谱
+
+${result.abilityGraph.summary}
+
+${abilityDetails || "岗位暂未提供可计算的能力关键词。"}
+
+## 五维评分与解释证据
+
+${dimensionDetails}
 
 ## 匹配优势
 

@@ -43,9 +43,9 @@ export function useJobWorkspace({
     () =>
       [...availableJobs].sort(
         (left, right) =>
-          analyzeMatch(profile, right, resumeText).total - analyzeMatch(profile, left, resumeText).total,
+          analyzeMatch(profile, right, resumeText, resumeProfile).total - analyzeMatch(profile, left, resumeText, resumeProfile).total,
       ),
-    [availableJobs, profile, resumeText],
+    [availableJobs, profile, resumeProfile, resumeText],
   );
 
   const selectedJob =
@@ -54,8 +54,8 @@ export function useJobWorkspace({
     EMPTY_JOB;
   const hasAnalysis = rankedJobs.length > 0;
   const matchResult = useMemo(
-    () => analyzeMatch(profile, selectedJob, resumeText),
-    [profile, resumeText, selectedJob],
+    () => analyzeMatch(profile, selectedJob, resumeText, resumeProfile),
+    [profile, resumeProfile, resumeText, selectedJob],
   );
 
   const analyzeCustomJob = async () => {
