@@ -81,7 +81,7 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
       completedAt: new Date().toISOString(),
     };
     const nextPlan = createGrowthPlan({ profile, job, matchResult, interview });
-    await persist(nextPlan, "已根据最新面试生成12周成长计划");
+    await persist(nextPlan, `已根据最新面试生成 ${nextPlan.planningDays} 天动态成长计划`);
   };
 
   const updateTask = async (
@@ -97,7 +97,15 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
 
   const updateTargetDate = async (targetDate: string) => {
     if (!planRef.current) return;
-    await persist(updateGrowthTargetDate(planRef.current, targetDate), "目标日期已更新");
+    if (!hasAnalysis || planRef.current.targetJobId !== job.id) {
+      throw new Error("当前目标岗位已经变化，请先按当前画像重排计划。");
+    }
+    const nextPlan = updateGrowthTargetDate(
+      planRef.current,
+      { profile, job, matchResult, interview: planRef.current.interview },
+      targetDate,
+    );
+    await persist(nextPlan, `已按目标日期重排为 ${nextPlan.planningDays} 天（${nextPlan.planningWeeks} 周）计划`);
   };
 
   const regenerate = async () => {
@@ -108,6 +116,7 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
       matchResult,
       interview: planRef.current.interview,
       targetDate: planRef.current.targetDate,
+      previousPlan: planRef.current,
     });
     await persist(nextPlan, "已根据当前岗位和画像重新生成计划");
   };

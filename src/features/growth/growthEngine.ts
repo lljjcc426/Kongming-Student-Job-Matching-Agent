@@ -19,14 +19,67 @@ type GrowthPlanInput = {
   matchResult: MatchResult;
   interview: InterviewGrowthSnapshot;
   targetDate?: string;
+  previousPlan?: GrowthPlan;
 };
 
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 const slug = (value: string) => value.toLowerCase().replace(/[^\u4e00-\u9fa5a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 36) || "growth";
-const dateAfterDays = (days: number) => {
-  const date = new Date();
+const DAY_MS = 86_400_000;
+const MIN_PLANNING_DAYS = 7;
+const MAX_PLANNING_DAYS = 365;
+
+type GrowthSchedule = {
+  startDate: string;
+  targetDate: string;
+  totalDays: number;
+  totalWeeks: number;
+  stageEnds: number[];
+};
+
+const dateString = (date: Date) => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, "0"),
+  String(date.getDate()).padStart(2, "0"),
+].join("-");
+
+const parseLocalDate = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return dateString(date) === value ? date : null;
+};
+
+export const growthDateAfterDays = (days: number, from = new Date()) => {
+  const date = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return dateString(date);
+};
+
+const scheduleFor = (targetDate = growthDateAfterDays(90)): GrowthSchedule => {
+  const startDate = dateString(new Date());
+  const start = parseLocalDate(startDate)!;
+  const target = parseLocalDate(targetDate);
+  if (!target) throw new Error("目标日期格式不正确。");
+  const totalDays = Math.round((target.getTime() - start.getTime()) / DAY_MS);
+  if (totalDays < MIN_PLANNING_DAYS) throw new Error("目标日期至少需要设置在 7 天后。");
+  if (totalDays > MAX_PLANNING_DAYS) throw new Error("成长计划最长支持 365 天，请缩短目标周期。");
+  const stageCount = totalDays < 21 ? 2 : 3;
+  const stageEnds = Array.from({ length: stageCount }, (_, index) => (
+    index === stageCount - 1 ? totalDays : Math.max(1, Math.round((totalDays * (index + 1)) / stageCount))
+  ));
+  return {
+    startDate,
+    targetDate,
+    totalDays,
+    totalWeeks: Math.max(1, Math.ceil(totalDays / 7)),
+    stageEnds,
+  };
+};
+
+const dateAtScheduleDay = (schedule: GrowthSchedule, day: number) => {
+  const start = parseLocalDate(schedule.startDate)!;
+  start.setDate(start.getDate() + Math.max(1, day));
+  return dateString(start);
 };
 
 const resourceCatalog: Array<{ pattern: RegExp; resources: GrowthResource[] }> = [
@@ -368,7 +421,7 @@ const task = (
 ): GrowthTask => ({
   id: `week-${week}-${slug(title)}`,
   week,
-  stageDays: week <= 4 ? 30 : week <= 8 ? 60 : 90,
+  stageDays: 0,
   title,
   description,
   kind,
@@ -382,9 +435,10 @@ const task = (
   evidenceText: "",
   evidenceUrl: "",
   completedAt: null,
+  dueDate: "",
 });
 
-const buildTasks = (gaps: GrowthGap[], job: Job, interview: InterviewGrowthSnapshot) => {
+const buildTaskTemplates = (gaps: GrowthGap[], job: Job, interview: InterviewGrowthSnapshot) => {
   const gapAt = (index: number) => gaps[index % gaps.length];
   const primary = gapAt(0);
   const secondary = gapAt(1);
@@ -403,33 +457,115 @@ const buildTasks = (gaps: GrowthGap[], job: Job, interview: InterviewGrowthSnaps
     task(9, "强化项目结果与边界", "补充数据规模、性能、用户价值、个人职责和失败复盘，形成可追问的项目说明。", "project", [primary.id], "项目复盘文档＋三个量化指标", [], 1.4),
     task(10, "完成证书必要性核验", "对照目标岗位JD判断证书是否必要；如不必要，使用同等时长完成一次技能测验。", "certificate", [secondary.id], "证书/测验结果，或不考证的岗位依据说明", [], 0.8),
     task(11, `完成${job.title}全真模拟面试`, "覆盖项目深挖、能力缺口和岗位动机，并对照上次面试报告复盘。", "interview", gaps.filter((item) => item.source === "interview").map((item) => item.id), "新面试评分＋两次面试差异总结", [], 1.4),
-    task(12, "完成90天成果验收", "汇总课程、项目、证书/测验、简历和面试证据，重新执行人岗匹配评估。", "resume", gaps.map((item) => item.id), "成果索引页＋新版简历＋最终匹配报告", [], 1.8),
+    task(12, "完成目标周期成果验收", "汇总课程、项目、证书/测验、简历和面试证据，重新执行人岗匹配评估。", "resume", gaps.map((item) => item.id), "成果索引页＋新版简历＋最终匹配报告", [], 1.8),
   ];
 };
 
-const buildStages = (job: Job, gaps: GrowthGap[]): GrowthStage[] => [
+const selectTaskTemplates = (
+  templates: GrowthTask[],
+  desiredCount: number,
+  gaps: GrowthGap[],
+  job: Job,
+) => {
+  if (desiredCount <= templates.length) {
+    if (desiredCount === 1) return [templates[templates.length - 1]];
+    const indices = Array.from({ length: desiredCount }, (_, index) => (
+      Math.round((index * (templates.length - 1)) / (desiredCount - 1))
+    ));
+    return indices.map((index) => templates[index]);
+  }
+
+  const reinforcementCount = desiredCount - templates.length;
+  const reinforcement = Array.from({ length: reinforcementCount }, (_, index) => {
+    const gap = gaps[index % gaps.length];
+    const round = Math.floor(index / gaps.length) + 1;
+    return task(
+      0,
+      `${gap.name}进阶实践${round > 1 ? `（第${round}轮）` : ""}`,
+      `围绕${job.title}的真实职责继续练习${gap.name}，记录本周输入、实践结果和下一轮改进。`,
+      index % 3 === 2 ? "project" : "course",
+      [gap.id],
+      "本周学习记录＋岗位场景实践成果＋复盘结论",
+      coursesFor(gap.name).slice(0, 2),
+      1,
+    );
+  });
+  return [...templates.slice(0, -2), ...reinforcement, ...templates.slice(-2)];
+};
+
+const buildTasks = (
+  gaps: GrowthGap[],
+  job: Job,
+  interview: InterviewGrowthSnapshot,
+  schedule: GrowthSchedule,
+) => {
+  const templates = buildTaskTemplates(gaps, job, interview);
+  const desiredCount = schedule.totalWeeks <= 6
+    ? Math.min(templates.length, schedule.totalWeeks * 2)
+    : Math.max(templates.length, schedule.totalWeeks);
+  return selectTaskTemplates(templates, desiredCount, gaps, job).map((template, index, selected) => {
+    const week = Math.min(
+      schedule.totalWeeks,
+      Math.max(1, Math.ceil(((index + 1) * schedule.totalWeeks) / selected.length)),
+    );
+    const dueDay = Math.min(
+      schedule.totalDays,
+      Math.max(1, Math.ceil((week * schedule.totalDays) / schedule.totalWeeks)),
+    );
+    const stageDays = schedule.stageEnds.find((endDay) => dueDay <= endDay)
+      ?? schedule.stageEnds[schedule.stageEnds.length - 1];
+    const priority: GrowthTask["priority"] = index === 0
+      ? "high"
+      : index < Math.ceil(selected.length / 3) ? "medium" : "normal";
+    return {
+      ...template,
+      id: `task-${index + 1}-${slug(template.title)}`,
+      week,
+      stageDays,
+      dueDate: dateAtScheduleDay(schedule, dueDay),
+      priority,
+    };
+  });
+};
+
+const stageBlueprints = [
   {
-    days: 30,
     title: "基础补齐与项目立项",
-    outcome: `明确${job.title}能力缺口，完成核心知识学习并形成项目方案。`,
-    goals: gaps.slice(0, 3).map((gap) => `建立${gap.name}的可验证基础`),
-    unlocked: true,
+    outcome: (job: Job) => `明确${job.title}能力缺口，完成核心知识学习并形成项目方案。`,
   },
   {
-    days: 60,
     title: "项目交付与表达强化",
-    outcome: "交付可运行作品，将学习结果转化为简历和面试证据。",
-    goals: ["完成最小可运行项目", "修复面试主要短板", "更新岗位定制简历"],
-    unlocked: false,
+    outcome: () => "交付可运行作品，将学习结果转化为简历和面试证据。",
   },
   {
-    days: 90,
     title: "岗位验证与投递准备",
-    outcome: "完成成果验收、二次模拟面试和人岗匹配复评。",
-    goals: ["强化量化结果", "完成证书必要性判断", "重新计算岗位匹配度"],
-    unlocked: false,
+    outcome: () => "完成成果验收、二次模拟面试和人岗匹配复评。",
   },
 ];
+
+const buildStages = (job: Job, gaps: GrowthGap[], schedule: GrowthSchedule): GrowthStage[] => {
+  const blueprints = schedule.stageEnds.length === 2
+    ? [stageBlueprints[0], stageBlueprints[2]]
+    : stageBlueprints;
+  return schedule.stageEnds.map((days, index) => {
+    const startDay = index === 0 ? 1 : schedule.stageEnds[index - 1] + 1;
+    const goals = index === 0
+      ? gaps.slice(0, 3).map((gap) => `建立${gap.name}的可验证基础`)
+      : index === schedule.stageEnds.length - 1
+        ? ["强化量化结果", "完成模拟面试复盘", "重新计算岗位匹配度"]
+        : ["完成最小可运行项目", "修复面试主要短板", "更新岗位定制简历"];
+    return {
+      days,
+      startDay,
+      startDate: index === 0 ? schedule.startDate : dateAtScheduleDay(schedule, startDay - 1),
+      endDate: dateAtScheduleDay(schedule, days),
+      title: blueprints[index].title,
+      outcome: blueprints[index].outcome(job),
+      goals,
+      unlocked: index === 0,
+    };
+  });
+};
 
 const recommendationsOf = (gaps: GrowthGap[], job: Job): GrowthRecommendation[] => {
   const courseRecommendations = gaps.slice(0, 3).flatMap((gap, gapIndex) =>
@@ -457,29 +593,53 @@ const recommendationsOf = (gaps: GrowthGap[], job: Job): GrowthRecommendation[] 
 export const createGrowthPlan = (input: GrowthPlanInput): GrowthPlan => {
   const now = new Date().toISOString();
   const gaps = buildGaps(input);
-  return {
-    id: `growth-${Date.now()}-${slug(input.job.id)}`,
+  const schedule = scheduleFor(input.targetDate);
+  const previousTasks = new Map(
+    (input.previousPlan?.tasks ?? []).map((item) => [`${item.kind}:${item.title}`, item]),
+  );
+  const tasks = buildTasks(gaps, input.job, input.interview, schedule).map((item) => {
+    const previous = previousTasks.get(`${item.kind}:${item.title}`);
+    return previous ? {
+      ...item,
+      completed: previous.completed,
+      evidenceText: previous.evidenceText,
+      evidenceUrl: previous.evidenceUrl,
+      completedAt: previous.completedAt,
+    } : item;
+  });
+  const isRebuild = Boolean(input.previousPlan);
+  const plan: GrowthPlan = {
+    id: input.previousPlan?.id ?? `growth-${Date.now()}-${slug(input.job.id)}`,
     version: 1,
     targetJobId: input.job.id,
     targetJobTitle: input.job.title,
     targetJobTrack: input.job.track,
-    targetDate: input.targetDate || dateAfterDays(90),
-    createdAt: now,
+    targetDate: schedule.targetDate,
+    scheduleStartDate: schedule.startDate,
+    planningDays: schedule.totalDays,
+    planningWeeks: schedule.totalWeeks,
+    createdAt: input.previousPlan?.createdAt ?? now,
     updatedAt: now,
-    revision: 1,
+    revision: input.previousPlan ? input.previousPlan.revision + 1 : 1,
     baseMatchScore: input.matchResult.total,
     projectedMatchScore: input.matchResult.total,
     gaps,
-    stages: buildStages(input.job, gaps),
-    tasks: buildTasks(gaps, input.job, input.interview),
+    stages: buildStages(input.job, gaps, schedule),
+    tasks,
     recommendations: recommendationsOf(gaps, input.job),
-    adaptations: [{
-      id: "plan-created",
-      createdAt: now,
-      message: `已结合${input.job.title}岗位要求、简历匹配结果和${input.interview.interviewType}报告生成12周计划。`,
-    }],
+    adaptations: [
+      ...(input.previousPlan?.adaptations ?? []),
+      {
+        id: isRebuild ? `schedule-${Date.now()}` : "plan-created",
+        createdAt: now,
+        message: isRebuild
+          ? `已按目标日期 ${schedule.targetDate} 重新安排为 ${schedule.totalDays} 天（${schedule.totalWeeks} 周）计划，已完成任务及证据保持不变。`
+          : `已结合${input.job.title}岗位要求、简历匹配结果和${input.interview.interviewType}报告生成 ${schedule.totalDays} 天（${schedule.totalWeeks} 周）动态计划。`,
+      },
+    ],
     interview: input.interview,
   };
+  return tasks.some((item) => item.completed) ? recalculate(plan) : plan;
 };
 
 const stageProgress = (tasks: GrowthTask[], days: GrowthStageDays) => {
@@ -497,19 +657,21 @@ const adaptPlan = (plan: GrowthPlan): GrowthPlan => {
     if (stageProgress(tasks, fromDays) < 0.75) return;
     const nextStage = stages.find((stage) => stage.days === nextDays);
     const eventId = `unlock-${nextDays}`;
-    if (!nextStage || adaptations.some((item) => item.id === eventId)) return;
+    if (!nextStage) return;
     nextStage.unlocked = true;
+    if (adaptations.some((item) => item.id === eventId)) return;
     const remainingGap = [...plan.gaps].sort((left, right) => (left.currentScore - left.targetScore) - (right.currentScore - right.targetScore))[0];
     const nextTask = tasks.find((item) => item.stageDays === nextDays && !item.completed && item.gapIds.includes(remainingGap?.id));
     if (nextTask) nextTask.priority = "high";
     adaptations.push({
       id: eventId,
       createdAt: now,
-      message: `${fromDays}天阶段已完成至少75%，已解锁${nextDays}天阶段${nextTask ? `，并将“${nextTask.title}”设为优先任务` : ""}。`,
+      message: `第${stages.find((item) => item.days === fromDays)?.startDay ?? 1}-${fromDays}天阶段已完成至少75%，已解锁第${nextStage.startDay}-${nextDays}天阶段${nextTask ? `，并将“${nextTask.title}”设为优先任务` : ""}。`,
     });
   };
-  unlock(30, 60);
-  unlock(60, 90);
+  for (let index = 0; index < stages.length - 1; index += 1) {
+    unlock(stages[index].days, stages[index + 1].days);
+  }
   return {
     ...plan,
     stages,
@@ -568,11 +730,11 @@ export const updateGrowthTaskEvidence = (
   });
 };
 
-export const updateGrowthTargetDate = (plan: GrowthPlan, targetDate: string): GrowthPlan => ({
-  ...plan,
-  targetDate,
-  updatedAt: new Date().toISOString(),
-});
+export const updateGrowthTargetDate = (
+  plan: GrowthPlan,
+  input: Omit<GrowthPlanInput, "targetDate" | "previousPlan">,
+  targetDate: string,
+): GrowthPlan => createGrowthPlan({ ...input, targetDate, previousPlan: plan });
 
 export const growthPlanProgress = (plan: GrowthPlan) => {
   const completed = plan.tasks.filter((item) => item.completed).length;

@@ -16,6 +16,16 @@ const screenshotPaths = {
   assistantFeedback: path.join(UI_ARTIFACT_DIR, "check-assistant-feedback.png"),
 };
 
+const dateAfterDays = (days) => {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + days);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const mockJobs = [
   ["ux-research-intern", "用户研究实习生", "用户研究", "实习"],
   ["psychometric-product-intern", "心理测评产品实习生", "产品", "实习"],
@@ -339,19 +349,30 @@ async function main() {
 
   await page.getByRole("button", { name: "查看职业成长计划" }).click();
   await page.locator(".growth-plan-page").waitFor({ state: "visible", timeout: 8000 });
+  const targetDateInput = page.locator('.growth-target-controls input[type="date"]');
+  await targetDateInput.fill(dateAfterDays(14));
+  await page.getByText("DYNAMIC 14 DAY PLAN · 2 WEEKS", { exact: false }).waitFor({ state: "visible", timeout: 8000 });
+  const shortScheduleStages = await page.locator(".growth-stage-tabs button").allInnerTexts();
+  await targetDateInput.fill(dateAfterDays(140));
+  await page.getByText("DYNAMIC 140 DAY PLAN · 20 WEEKS", { exact: false }).waitFor({ state: "visible", timeout: 8000 });
+  const longScheduleTotalTasks = await page.locator(".growth-summary-grid article").nth(3).locator("small").innerText();
+  await targetDateInput.fill(dateAfterDays(42));
+  await page.getByText("DYNAMIC 42 DAY PLAN · 6 WEEKS", { exact: false }).waitFor({ state: "visible", timeout: 8000 });
+  const dynamicScheduleStages = await page.locator(".growth-stage-tabs button").allInnerTexts();
   const growthTaskCount = await page.locator(".growth-task-card").count();
   const growthStageCount = await page.locator(".growth-stage-tabs button").count();
   const baseGrowthScore = Number((await page.locator(".growth-summary-grid article").nth(1).locator("strong").innerText()).replace(/\D/g, ""));
   for (let week = 1; week <= 3; week += 1) {
-    await page.getByLabel(`第${week}周证据说明`).fill(`第${week}周成果已完成，包含学习笔记、练习结果与岗位应用复盘。`);
-    await page.locator(".growth-task-card").nth(week - 1).getByRole("button", { name: "提交证据并完成" }).click();
-    await page.locator(".growth-task-card").nth(week - 1).locator(".growth-completed-evidence").waitFor({ state: "visible", timeout: 8000 });
+    const taskCard = page.locator(".growth-task-card").nth(week - 1);
+    await taskCard.locator("textarea").fill(`第${week}项成果已完成，包含学习笔记、练习结果与岗位应用复盘。`);
+    await taskCard.getByRole("button", { name: "提交证据并完成" }).click();
+    await taskCard.locator(".growth-completed-evidence").waitFor({ state: "visible", timeout: 8000 });
   }
   const projectedGrowthScore = Number((await page.locator(".growth-summary-grid article.projected strong").innerText()).replace(/\D/g, ""));
   const growthProgress = await page.locator(".growth-summary-grid article").nth(3).locator("strong").innerText();
   const growthResourceText = await page.locator(".growth-resource-panel").innerText();
   await page.locator(".growth-stage-tabs button").nth(1).click();
-  const nextStageUnlocked = await page.getByLabel("第5周证据说明").isEnabled();
+  const nextStageUnlocked = await page.locator(".growth-task-card textarea").first().isEnabled();
   const adaptationText = await page.locator(".growth-adaptation-panel").innerText();
   await page.screenshot({ path: screenshotPaths.growth, fullPage: false });
 
@@ -521,10 +542,16 @@ async function main() {
   if (growthTaskCount !== 4 || growthStageCount !== 3) {
     throw new Error(`Expected 4 visible weekly tasks and 3 growth stages, found tasks=${growthTaskCount}, stages=${growthStageCount}`);
   }
+  if (shortScheduleStages.length !== 2 || !shortScheduleStages.some((label) => label.includes("第8-14天"))) {
+    throw new Error(`Expected 14-day schedule to use two dynamic stages, found ${shortScheduleStages.join(" | ")}`);
+  }
+  if (!longScheduleTotalTasks.includes("20") || !dynamicScheduleStages.some((label) => label.includes("第29-42天"))) {
+    throw new Error(`Expected dynamic long/mid schedules, found long=${longScheduleTotalTasks}, mid=${dynamicScheduleStages.join(" | ")}`);
+  }
   if (projectedGrowthScore <= baseGrowthScore || !growthProgress.includes("25") || !nextStageUnlocked) {
     throw new Error(`Expected evidence to improve the score and unlock stage 60, found base=${baseGrowthScore}, projected=${projectedGrowthScore}, progress=${growthProgress}, unlocked=${nextStageUnlocked}`);
   }
-  if (!adaptationText.includes("已解锁60天阶段") || !restoredGrowthProgress.includes("25")) {
+  if (!adaptationText.includes("已解锁第15-28天阶段") || !restoredGrowthProgress.includes("25")) {
     throw new Error(`Expected adaptive plan and persistence, found adaptation=${adaptationText}, restored=${restoredGrowthProgress}`);
   }
   if (!growthResourceText.includes("哔哩哔哩") || !growthResourceText.includes("Datawhale")) {
@@ -599,6 +626,9 @@ async function main() {
     shortInterviewScore,
     growthTaskCount,
     growthStageCount,
+    shortScheduleStages,
+    longScheduleTotalTasks,
+    dynamicScheduleStages,
     baseGrowthScore,
     projectedGrowthScore,
     growthProgress,

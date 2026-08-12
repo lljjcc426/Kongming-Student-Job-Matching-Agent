@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { GrowthPlan, GrowthPlanStatus, GrowthStageDays, GrowthTask } from "../features/growth/types";
+import { growthDateAfterDays } from "../features/growth/growthEngine";
 
 type GrowthPlanPageProps = {
   plan: GrowthPlan | null;
@@ -32,10 +33,10 @@ type GrowthPlanPageProps = {
 
 type EvidenceDraft = { text: string; url: string };
 
-const stageLabels: Record<GrowthStageDays, string> = {
-  30: "0-30天",
-  60: "31-60天",
-  90: "61-90天",
+const stageLabel = (plan: GrowthPlan, stageIndex: number) => {
+  const stage = plan.stages[stageIndex];
+  const startDay = stage.startDay ?? (stageIndex === 0 ? 1 : plan.stages[stageIndex - 1].days + 1);
+  return `第${startDay}-${stage.days}天`;
 };
 
 const taskIcon = (task: GrowthTask) => {
@@ -57,10 +58,12 @@ export default function GrowthPlanPage({
   onUpdateTargetDate,
   onRegenerate,
 }: GrowthPlanPageProps) {
-  const [activeStage, setActiveStage] = useState<GrowthStageDays>(30);
+  const [activeStage, setActiveStage] = useState<GrowthStageDays>(0);
   const [drafts, setDrafts] = useState<Record<string, EvidenceDraft>>({});
   const [taskError, setTaskError] = useState<Record<string, string>>({});
   const [workingTask, setWorkingTask] = useState<string | null>(null);
+  const [dateError, setDateError] = useState("");
+  const [workingDate, setWorkingDate] = useState(false);
 
   useEffect(() => {
     if (!plan) return;
@@ -71,9 +74,20 @@ export default function GrowthPlanPage({
     ])));
   }, [plan]);
 
+  useEffect(() => {
+    if (!plan?.stages.length) return;
+    setActiveStage((current) => plan.stages.some((stage) => stage.days === current)
+      ? current
+      : plan.stages[0].days);
+  }, [plan]);
+
+  const resolvedActiveStage = plan?.stages.some((stage) => stage.days === activeStage)
+    ? activeStage
+    : plan?.stages[0]?.days ?? activeStage;
+
   const stageTasks = useMemo(
-    () => plan?.tasks.filter((task) => task.stageDays === activeStage) ?? [],
-    [activeStage, plan],
+    () => plan?.tasks.filter((task) => task.stageDays === resolvedActiveStage) ?? [],
+    [plan, resolvedActiveStage],
   );
 
   if (!plan) {
@@ -82,7 +96,7 @@ export default function GrowthPlanPage({
         <div className="growth-empty-card">
           <span><Sparkles size={22} /> Career Growth Agent</span>
           <h1>完成面试后生成职业成长计划</h1>
-          <p>智能体将结合目标岗位、简历能力缺口和面试报告，生成可执行的30/60/90天学习规划。</p>
+          <p>智能体将结合目标岗位、简历能力缺口、面试报告和你的期望时间，生成动态阶段与每周任务。</p>
           <div className="growth-empty-flow">
             <b>简历与岗位分析</b><i>→</i><b>模拟面试</b><i>→</i><b>成长计划</b><i>→</i><b>匹配度复评</b>
           </div>
@@ -95,8 +109,23 @@ export default function GrowthPlanPage({
     );
   }
 
-  const activeStageInfo = plan.stages.find((stage) => stage.days === activeStage) ?? plan.stages[0];
+  const activeStageInfo = plan.stages.find((stage) => stage.days === resolvedActiveStage) ?? plan.stages[0];
+  const activeStageIndex = Math.max(0, plan.stages.findIndex((stage) => stage.days === activeStageInfo.days));
   const stageCompleted = stageTasks.filter((task) => task.completed).length;
+  const planningDays = plan.planningDays ?? plan.stages[plan.stages.length - 1]?.days ?? 90;
+  const planningWeeks = plan.planningWeeks ?? Math.ceil(planningDays / 7);
+
+  const updateTargetDate = async (targetDate: string) => {
+    setWorkingDate(true);
+    setDateError("");
+    try {
+      await onUpdateTargetDate(targetDate);
+    } catch (error) {
+      setDateError(error instanceof Error ? error.message : "目标日期更新失败，请重试。");
+    } finally {
+      setWorkingDate(false);
+    }
+  };
 
   const submitTask = async (task: GrowthTask, completed: boolean) => {
     const draft = drafts[task.id] ?? { text: "", url: "" };
@@ -128,8 +157,10 @@ export default function GrowthPlanPage({
             <input
               type="date"
               value={plan.targetDate}
-              min={new Date().toISOString().slice(0, 10)}
-              onChange={(event) => void onUpdateTargetDate(event.target.value)}
+              min={growthDateAfterDays(7)}
+              max={growthDateAfterDays(365)}
+              disabled={workingDate || !isTargetCurrent}
+              onChange={(event) => void updateTargetDate(event.target.value)}
             />
           </label>
           <button type="button" onClick={() => void onRegenerate()} disabled={status === "saving"}>
@@ -137,6 +168,8 @@ export default function GrowthPlanPage({
           </button>
         </div>
       </header>
+
+      {dateError ? <div className="growth-warning">{dateError}</div> : null}
 
       {!isTargetCurrent ? (
         <div className="growth-warning">
@@ -175,25 +208,25 @@ export default function GrowthPlanPage({
         <section className="growth-main-column">
           <div className="growth-section-heading">
             <div>
-              <span>30 / 60 / 90 DAY PLAN</span>
+              <span>DYNAMIC {planningDays} DAY PLAN · {planningWeeks} WEEKS</span>
               <h2>阶段目标与每周任务</h2>
             </div>
             <small className={status === "error" ? "error" : ""}>{message}</small>
           </div>
 
           <div className="growth-stage-tabs" role="tablist" aria-label="成长计划阶段">
-            {plan.stages.map((stage) => {
+            {plan.stages.map((stage, stageIndex) => {
               const completed = plan.tasks.filter((task) => task.stageDays === stage.days && task.completed).length;
               const total = plan.tasks.filter((task) => task.stageDays === stage.days).length;
               return (
                 <button
                   key={stage.days}
                   type="button"
-                  className={activeStage === stage.days ? "active" : ""}
+                  className={resolvedActiveStage === stage.days ? "active" : ""}
                   onClick={() => setActiveStage(stage.days)}
                 >
                   {stage.unlocked ? <CircleDashed size={16} /> : <LockKeyhole size={16} />}
-                  <span>{stageLabels[stage.days]}</span>
+                  <span>{stageLabel(plan, stageIndex)}</span>
                   <small>{completed}/{total}</small>
                 </button>
               );
@@ -202,7 +235,7 @@ export default function GrowthPlanPage({
 
           <article className={`growth-stage-overview ${activeStageInfo.unlocked ? "" : "locked"}`}>
             <div>
-              <span>{stageLabels[activeStageInfo.days]}</span>
+              <span>{stageLabel(plan, activeStageIndex)} · 截止 {activeStageInfo.endDate || plan.targetDate}</span>
               <h3>{activeStageInfo.title}</h3>
               <p>{activeStageInfo.outcome}</p>
             </div>
@@ -218,7 +251,7 @@ export default function GrowthPlanPage({
                   <header>
                     <div className="growth-task-icon">{taskIcon(task)}</div>
                     <div>
-                      <span>第 {task.week} 周 · {task.estimatedHours} 小时</span>
+                      <span>第 {task.week} 周 · {task.estimatedHours} 小时{task.dueDate ? ` · ${task.dueDate} 前` : ""}</span>
                       <h3>{task.title}</h3>
                     </div>
                     <em className={`priority-${task.priority}`}>{task.priority === "high" ? "优先" : task.priority === "medium" ? "重要" : "常规"}</em>
@@ -248,7 +281,7 @@ export default function GrowthPlanPage({
                   ) : (
                     <div className="growth-evidence-form">
                       <textarea
-                        aria-label={`第${task.week}周证据说明`}
+                        aria-label={`${task.title}证据说明（第${task.week}周）`}
                         value={draft.text}
                         placeholder="说明你完成了什么、结果如何；也可以只填写下方证据链接。"
                         onChange={(event) => setDrafts((current) => ({
@@ -258,7 +291,7 @@ export default function GrowthPlanPage({
                         disabled={!activeStageInfo.unlocked}
                       />
                       <input
-                        aria-label={`第${task.week}周证据链接`}
+                        aria-label={`${task.title}证据链接（第${task.week}周）`}
                         value={draft.url}
                         placeholder="证据链接（可选）：GitHub、作品页、文档等"
                         onChange={(event) => setDrafts((current) => ({

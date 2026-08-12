@@ -1,6 +1,6 @@
 import type { InterviewFeedbackReport, InterviewTurn, InterviewType } from "../../types/interview";
 
-export type GrowthStageDays = 30 | 60 | 90;
+export type GrowthStageDays = number;
 export type GrowthTaskKind = "course" | "project" | "certificate" | "interview" | "resume";
 export type GrowthTaskPriority = "high" | "medium" | "normal";
 
@@ -39,10 +39,14 @@ export type GrowthTask = {
   evidenceText: string;
   evidenceUrl: string;
   completedAt: string | null;
+  dueDate: string;
 };
 
 export type GrowthStage = {
   days: GrowthStageDays;
+  startDay: number;
+  startDate: string;
+  endDate: string;
   title: string;
   outcome: string;
   goals: string[];
@@ -78,6 +82,9 @@ export type GrowthPlan = {
   targetJobTitle: string;
   targetJobTrack: string;
   targetDate: string;
+  scheduleStartDate: string;
+  planningDays: number;
+  planningWeeks: number;
   createdAt: string;
   updatedAt: string;
   revision: number;
