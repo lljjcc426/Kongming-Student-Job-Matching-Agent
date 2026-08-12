@@ -365,6 +365,30 @@ const certificateFor = (job: Job, gapName: string): GrowthRecommendation => {
 };
 
 const interviewGaps = (interview: InterviewGrowthSnapshot): GrowthGap[] => {
+  if (Array.isArray(interview.feedback.dimensionReports) && interview.feedback.dimensionReports.length) {
+    const assessedGaps = interview.feedback.dimensionReports
+      .filter((item) => item.status !== "supported")
+      .sort((left, right) => {
+        const leftPriority = left.status === "boundary" ? 200 : left.status === "insufficient" ? 100 : 0;
+        const rightPriority = right.status === "boundary" ? 200 : right.status === "insufficient" ? 100 : 0;
+        return (rightPriority + right.weight - right.score) - (leftPriority + left.weight - left.score);
+      })
+      .slice(0, 3)
+      .map((item) => ({
+        id: `interview-${slug(item.id)}`,
+        name: item.name,
+        source: "interview" as const,
+        baselineScore: clamp(item.score),
+        currentScore: clamp(item.score),
+        projectedScore: clamp(item.score),
+        targetScore: Math.max(75, clamp(item.score + 15)),
+        reason: item.status === "untested"
+          ? `本次面试未覆盖“${item.name}”，需要通过真实案例和追问补充认证证据。`
+          : item.recommendation,
+      }));
+    if (assessedGaps.length) return assessedGaps;
+  }
+
   const items = [
     ["表达与结构", interview.feedback.expression, "面试表达需要形成清晰的背景、行动和结果链路。"],
     ["岗位专业匹配", interview.feedback.professionalFit, "面试反馈显示岗位相关知识或证据仍需补强。"],
@@ -919,6 +943,7 @@ export const reassessGrowthPlan = (
     ["表达与结构", input.interview.feedback.expression],
     ["岗位专业匹配", input.interview.feedback.professionalFit],
     ["逻辑与复盘", input.interview.feedback.logic],
+    ...(input.interview.feedback.dimensionReports ?? []).map((item) => [item.name, item.score] as [string, number]),
   ]);
   const gaps = rebuilt.gaps.map((gap) => {
     const reassessedScore = gap.source === "interview"

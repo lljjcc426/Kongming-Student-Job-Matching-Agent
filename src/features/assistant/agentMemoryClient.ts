@@ -2,6 +2,7 @@ import type { ChatMessage } from "../../app/types";
 import type { Job } from "../../data";
 import type { MatchResult } from "../../matchEngine";
 import type { StructuredResume } from "../../modelParsers";
+import type { InterviewFeedbackReport, InterviewMemoryReference, InterviewType } from "../../types/interview";
 
 const memoryEndpoint = () => import.meta.env.VITE_AGENT_MEMORY_API_URL || "/api/memory";
 
@@ -29,6 +30,7 @@ export type AgentMemory = {
   targetJob: Partial<Job>;
   matchResult: Partial<MatchResult>;
   summary: string;
+  interviews: InterviewMemoryReference[];
   createdAt?: string;
   updatedAt: string | null;
 };
@@ -62,6 +64,7 @@ const emptyMemory = (): AgentMemory => ({
   targetJob: {},
   matchResult: {},
   summary: "",
+  interviews: [],
   updatedAt: null,
 });
 
@@ -76,7 +79,24 @@ const requestMemory = async (payload: Record<string, unknown>): Promise<AgentMem
   if (!response.ok || !data.ok || !data.memory) {
     throw new Error(data.error || "智能体记忆服务暂不可用。");
   }
-  return data.memory;
+  return {
+    ...emptyMemory(),
+    ...data.memory,
+    messages: Array.isArray(data.memory.messages) ? data.memory.messages : [],
+    feedback: Array.isArray(data.memory.feedback) ? data.memory.feedback : [],
+    interviews: Array.isArray(data.memory.interviews)
+      ? data.memory.interviews.map((interview) => ({
+        ...interview,
+        reportKind: interview.reportKind === "formal" ? "formal" : "stage",
+        integrityScore: Number.isFinite(interview.integrityScore) ? interview.integrityScore : 0,
+        evidenceStats: interview.evidenceStats && typeof interview.evidenceStats === "object"
+          ? interview.evidenceStats
+          : { answerCount: 0, substantiveAnswers: 0, starEvidence: 0, quantifiedEvidence: 0 },
+        dimensions: Array.isArray(interview.dimensions) ? interview.dimensions : [],
+        weakDimensions: Array.isArray(interview.weakDimensions) ? interview.weakDimensions : [],
+      }))
+      : [],
+  };
 };
 
 export const loadAgentMemory = () => requestMemory({ action: "load" });
@@ -98,6 +118,14 @@ export const saveAgentFeedback = (
   rating,
   correction,
 });
+
+export const saveInterviewMemory = (input: {
+  interviewId: string;
+  jobId: string;
+  jobTitle: string;
+  interviewType: InterviewType;
+  report: InterviewFeedbackReport;
+}) => requestMemory({ action: "save-interview", interview: input });
 
 const memoryTerms = (text: string) => {
   const normalized = text.toLowerCase().replace(/\s+/g, "");

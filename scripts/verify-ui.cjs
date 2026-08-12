@@ -354,16 +354,102 @@ async function main() {
   await page.locator(".app-nav > div button").nth(4).click();
   await page.getByLabel("模拟面试回答").waitFor({ state: "visible", timeout: 8000 });
   const interviewInput = await page.getByLabel("模拟面试回答").count();
+  const seededInterviewMemory = await page.evaluate(async () => {
+    await fetch("/api/memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ action: "clear" }),
+    });
+    const response = await fetch("/api/memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({
+        action: "save-interview",
+        interview: {
+          interviewId: "ui-prior-product-interview",
+          jobId: "prior-user-research-role",
+          jobTitle: "用户研究实习生",
+          interviewType: "综合面",
+          report: {
+            modelTrack: "product",
+            reportKind: "stage",
+            overallScore: 54,
+            confidenceScore: 62,
+            coverageScore: 52,
+            integrityEvaluation: { score: 92 },
+            evidenceStats: { answerCount: 5, substantiveAnswers: 4, starEvidence: 2, quantifiedEvidence: 1 },
+            summary: "上次面试的用户洞察已有基础，需求优先级与量化验证仍需复测。",
+            dimensionReports: [
+              { id: "user-insight", name: "用户与问题洞察", weight: 20, score: 61, confidence: 68, status: "insufficient", attempts: 2, evidenceCount: 2 },
+              { id: "requirement-priority", name: "需求分析与优先级", weight: 18, score: 43, confidence: 55, status: "insufficient", attempts: 1, evidenceCount: 1 },
+              { id: "product-solution", name: "产品方案与体验设计", weight: 16, score: 0, confidence: 0, status: "untested", attempts: 0, evidenceCount: 0 },
+              { id: "product-data", name: "数据分析与实验", weight: 16, score: 0, confidence: 0, status: "untested", attempts: 0, evidenceCount: 0 },
+              { id: "product-delivery", name: "项目推进与协作", weight: 15, score: 0, confidence: 0, status: "untested", attempts: 0, evidenceCount: 0 },
+              { id: "business-retrospective", name: "商业理解与复盘", weight: 15, score: 0, confidence: 0, status: "untested", attempts: 0, evidenceCount: 0 },
+            ],
+          },
+        },
+      }),
+    });
+    return response.json();
+  });
   await page.getByRole("button", { name: "开始面试" }).click();
+  await page.locator(".interview-grounding-strip").getByText("岗位 RAG 5 条").waitFor({ state: "visible", timeout: 8000 });
+  await page.locator(".interview-grounding-strip").getByText("历史面试 1 次").waitFor({ state: "visible", timeout: 8000 });
+  const groundingStripText = await page.locator(".interview-grounding-strip").innerText();
+  const interviewPromptBody = careerChatRequestBodies.find((body) => (
+    typeof body.userMessage === "string"
+    && body.userMessage.includes("本轮RAG岗位依据")
+    && body.userMessage.includes("相关历史面试记忆")
+  ));
   await page.getByLabel("模拟面试回答").fill("用AI");
   await page.getByRole("button", { name: "发送" }).click();
+  await page.locator(".interview-competency-panel header em").filter({ hasText: "澄清事实证据" }).waitFor({ state: "visible", timeout: 8000 });
+  const competencyPanel = await page.locator(".interview-competency-panel").count();
+  const competencyCards = await page.locator(".interview-competency-grid article").count();
+  const competencyModelName = await page.locator(".interview-competency-panel header strong").innerText();
+  const competencyStrategy = await page.locator(".interview-competency-panel header em").innerText();
+  const competencyDecisionTrace = page.locator(".interview-decision-trace");
+  await competencyDecisionTrace.locator("summary").click();
+  const competencyDecisionText = await competencyDecisionTrace.innerText();
+  const interviewSessionProgress = await page.locator("[data-testid='interview-session-progress']").innerText();
+  const interviewIntegrityText = await page.locator("[data-testid='interview-integrity-notice']").innerText();
   await page.getByRole("button", { name: "结束面试" }).waitFor({ state: "visible", timeout: 8000 });
   await page.getByRole("button", { name: "结束面试" }).click();
-  await page.getByRole("button", { name: "查看职业成长计划" }).waitFor({ state: "visible", timeout: 8000 });
-  const shortInterviewScore = Number(await page.locator(".feedback-score strong").innerText());
+  await page.locator("[data-testid='interview-exit-dialog']").waitFor({ state: "visible", timeout: 8000 });
+  const earlyExitDialogText = await page.locator("[data-testid='interview-exit-dialog']").innerText();
+  await page.getByRole("button", { name: "生成阶段性报告" }).click();
+  await page.getByRole("button", { name: "基于短板生成成长计划" }).waitFor({ state: "visible", timeout: 8000 });
+  const shortInterviewScore = Number(await page.locator(".assessment-score-ring strong").innerText());
+  const assessmentReport = await page.locator(".interview-assessment-report").count();
+  const assessmentRadar = await page.locator(".assessment-radar").count();
+  const assessmentDimensionCards = await page.locator(".assessment-dimension-card").count();
+  const assessmentSummary = await page.locator(".assessment-report-head p").innerText();
+  const assessmentMetricText = await page.locator(".assessment-metric-grid").innerText();
+  const assessmentSessionText = await page.locator("[data-testid='assessment-session-summary']").innerText();
+  const assessmentIntegrityText = await page.locator("[data-testid='assessment-integrity-panel']").innerText();
+  const assessmentGrowthText = await page.locator("[data-testid='assessment-growth-comparison']").innerText();
+  const interviewScoreFormula = await page.locator(".assessment-score-formula").innerText();
+  const interviewReportDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载报告" }).click();
+  const interviewReportFilename = (await interviewReportDownload).suggestedFilename();
+  await page.locator(".assessment-grounding-panel em.saved").waitFor({ state: "visible", timeout: 8000 });
+  const assessmentGroundingText = await page.locator(".assessment-grounding-panel").innerText();
+  const persistedInterviewMemoryCount = await page.evaluate(async () => {
+    const response = await fetch("/api/memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ action: "load" }),
+    });
+    const data = await response.json();
+    return data.memory?.interviews?.length ?? 0;
+  });
   await page.screenshot({ path: screenshotPaths.interview, fullPage: false });
 
-  await page.getByRole("button", { name: "查看职业成长计划" }).click();
+  await page.getByRole("button", { name: "基于短板生成成长计划" }).click();
   await page.locator(".growth-plan-page").waitFor({ state: "visible", timeout: 8000 });
   const targetDateInput = page.locator('.growth-target-controls input[type="date"]');
   await targetDateInput.fill(dateAfterDays(14));
@@ -580,8 +666,62 @@ async function main() {
   if (interviewInput !== 1) {
     throw new Error(`Expected interview practice input after analysis, found ${interviewInput}`);
   }
+  if (
+    seededInterviewMemory.ok !== true
+    || !groundingStripText.includes("岗位 RAG 5 条")
+    || !groundingStripText.includes("历史面试 1 次")
+    || !interviewPromptBody?.userMessage.includes("需求分析与优先级")
+  ) {
+    throw new Error(`Expected RAG and memory in interview prompt, found seeded=${JSON.stringify(seededInterviewMemory)}, strip=${groundingStripText}, prompt=${interviewPromptBody?.userMessage}`);
+  }
+  if (
+    competencyPanel !== 1
+    || competencyCards !== 6
+    || !competencyModelName.includes("产品经理")
+    || !competencyStrategy.includes("澄清事实证据")
+    || !competencyDecisionText.includes("证据不足")
+  ) {
+    throw new Error(
+      `Expected visible six-dimension follow-up decision, found panel=${competencyPanel}, cards=${competencyCards}, model=${competencyModelName}, strategy=${competencyStrategy}, trace=${competencyDecisionText}`,
+    );
+  }
   if (shortInterviewScore > 22) {
     throw new Error(`Expected the generic answer \"用AI\" to score at most 22, found ${shortInterviewScore}`);
+  }
+  if (
+    assessmentReport !== 1
+    || assessmentRadar !== 1
+    || assessmentDimensionCards !== 6
+    || !assessmentSummary.includes("覆盖 1/6 个能力维度")
+    || !assessmentMetricText.includes("考察覆盖")
+    || !assessmentMetricText.includes("评估置信度")
+    || !assessmentMetricText.includes("1 次")
+    || !assessmentMetricText.includes("回答一致性")
+    || !assessmentIntegrityText.includes("回答一致性核验")
+    || !assessmentIntegrityText.includes("待积累")
+    || !assessmentGrowthText.includes("跨次面试成长对比")
+    || !assessmentGrowthText.includes("用户与问题洞察")
+    || !assessmentGrowthText.includes("证据下降")
+    || !assessmentGrowthText.includes("口径不同")
+    || !interviewIntegrityText.includes("回答一致性 待积累")
+    || !interviewIntegrityText.includes("至少需要两轮回答")
+    || !assessmentSessionText.includes("本报告不作为完整能力认证")
+    || !assessmentSessionText.includes("有效回答 0/5")
+    || !earlyExitDialogText.includes("当前证据还不足以生成正式报告")
+    || !earlyExitDialogText.includes("有效维度")
+    || !earlyExitDialogText.includes("0/4")
+    || !interviewSessionProgress.includes("证据积累中")
+    || !interviewScoreFormula.includes("× 65%")
+    || !interviewScoreFormula.includes("证据上限 22")
+    || !interviewReportFilename.endsWith("阶段性诊断报告.md")
+    || !assessmentGroundingText.includes("岗位知识库 · 5 条")
+    || !assessmentGroundingText.includes("历史复测记忆 · 1 次")
+    || !assessmentGroundingText.includes("本次报告已写入长期记忆")
+    || persistedInterviewMemoryCount < 2
+  ) {
+    throw new Error(
+      `Expected downloadable evidence-based report, found report=${assessmentReport}, radar=${assessmentRadar}, dimensions=${assessmentDimensionCards}, summary=${assessmentSummary}, metrics=${assessmentMetricText}, growth=${assessmentGrowthText}, file=${interviewReportFilename}`,
+    );
   }
   if (growthTaskCount !== 4 || growthStageCount !== 3) {
     throw new Error(`Expected 4 visible weekly tasks and 3 growth stages, found tasks=${growthTaskCount}, stages=${growthStageCount}`);
@@ -680,6 +820,21 @@ async function main() {
     skillsCard,
     interviewInput,
     shortInterviewScore,
+    assessmentReport,
+    assessmentRadar,
+    assessmentDimensionCards,
+    assessmentSummary,
+    assessmentMetricText,
+    assessmentSessionText,
+    assessmentIntegrityText,
+    interviewScoreFormula,
+    interviewReportFilename,
+    groundingStripText,
+    interviewSessionProgress,
+    interviewIntegrityText,
+    earlyExitDialogText,
+    assessmentGroundingText,
+    persistedInterviewMemoryCount,
     growthTaskCount,
     growthStageCount,
     shortScheduleStages,

@@ -78,6 +78,51 @@ async function main() {
     });
     assert.equal(invalidFeedback.status, 404);
 
+    const savedInterview = await runAgentMemoryRequest({
+      action: "save-interview",
+      userId,
+      interview: {
+        interviewId: "interview-memory-001",
+        jobId: "llm-algorithm-intern",
+        jobTitle: "大模型算法实习生",
+        interviewType: "技术面",
+        report: {
+          modelTrack: "ai_algorithm",
+          reportKind: "formal",
+          overallScore: 61,
+          confidenceScore: 68,
+          coverageScore: 54,
+          integrityEvaluation: { score: 94 },
+          evidenceStats: {
+            answerCount: 6,
+            substantiveAnswers: 5,
+            starEvidence: 3,
+            quantifiedEvidence: 2,
+          },
+          summary: "算法基础已有部分证据，模型评测与工程部署需要继续复测。",
+          dimensionReports: [
+            { id: "algorithm-foundation", name: "算法与数学基础", weight: 20, score: 66, confidence: 72, status: "supported", attempts: 2, evidenceCount: 2 },
+            { id: "ml-engineering", name: "机器学习工程与部署", weight: 18, score: 42, confidence: 58, status: "insufficient", attempts: 1, evidenceCount: 1 },
+            { id: "data-experiment", name: "数据与实验设计", weight: 16, score: 0, confidence: 0, status: "untested", attempts: 0, evidenceCount: 0 },
+          ],
+        },
+      },
+    });
+    assert.equal(savedInterview.status, 200);
+    assert.equal(savedInterview.payload.memory.interviews.length, 1);
+    assert.equal(savedInterview.payload.memory.interviews[0].reportKind, "formal");
+    assert.equal(savedInterview.payload.memory.interviews[0].weakDimensions.length, 2);
+    assert.equal(savedInterview.payload.memory.interviews[0].integrityScore, 94);
+    assert.equal(savedInterview.payload.memory.interviews[0].evidenceStats.substantiveAnswers, 5);
+    assert.equal(savedInterview.payload.memory.interviews[0].dimensions.length, 3);
+
+    closeAgentMemoryStore();
+    const restoredInterview = await runAgentMemoryRequest({ action: "load", userId });
+    assert.equal(restoredInterview.payload.memory.interviews[0].jobTitle, "大模型算法实习生");
+    assert.equal(restoredInterview.payload.memory.interviews[0].reportKind, "formal");
+    assert.equal(restoredInterview.payload.memory.interviews[0].weakDimensions[0].name, "机器学习工程与部署");
+    assert.equal(restoredInterview.payload.memory.interviews[0].dimensions[0].confidence, 72);
+
     const growthPlan = {
       id: "growth-verify-001",
       version: 1,
@@ -192,6 +237,7 @@ async function main() {
     assert.equal(cleared.status, 200);
     assert.deepEqual(cleared.payload.memory.messages, []);
     assert.deepEqual(cleared.payload.memory.feedback, []);
+    assert.deepEqual(cleared.payload.memory.interviews, []);
     assert.equal(cleared.payload.memory.summary, "");
     const clearedGrowth = await requestMemory({ action: "load-growth" }, recoveredSession);
     assert.equal(clearedGrowth.payload.plan, null);

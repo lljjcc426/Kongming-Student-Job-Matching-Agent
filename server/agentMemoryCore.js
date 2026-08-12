@@ -11,6 +11,7 @@ const MAX_MESSAGE_CHARS = 6000;
 const MAX_FEEDBACK_CORRECTION_CHARS = 1000;
 const MAX_CONTEXT_CHARS = 120_000;
 const MAX_GROWTH_PLAN_CHARS = 500_000;
+const MAX_INTERVIEW_REPORT_CHARS = 180_000;
 const MIN_NICKNAME_CHARS = 2;
 const MAX_NICKNAME_CHARS = 24;
 const MIN_PASSWORD_CHARS = 8;
@@ -126,6 +127,31 @@ const openDatabase = () => {
     CREATE INDEX IF NOT EXISTS idx_agent_memory_feedback_user_id
       ON agent_memory_feedback(user_id, id DESC);
 
+    CREATE TABLE IF NOT EXISTS agent_interview_memories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      interview_id TEXT NOT NULL,
+      job_id TEXT NOT NULL,
+      job_title TEXT NOT NULL,
+      model_track TEXT NOT NULL,
+      interview_type TEXT NOT NULL,
+      report_kind TEXT NOT NULL DEFAULT 'stage' CHECK(report_kind IN ('formal', 'stage')),
+      overall_score INTEGER NOT NULL,
+      confidence_score INTEGER NOT NULL,
+      coverage_score INTEGER NOT NULL,
+      integrity_score INTEGER NOT NULL DEFAULT 0,
+      evidence_stats_json TEXT NOT NULL DEFAULT '{}',
+      dimensions_json TEXT NOT NULL DEFAULT '[]',
+      summary TEXT NOT NULL,
+      weak_dimensions_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      UNIQUE(user_id, interview_id),
+      FOREIGN KEY(user_id) REFERENCES agent_memory_profiles(user_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_agent_interview_memories_user_id
+      ON agent_interview_memories(user_id, id DESC);
+
     CREATE TABLE IF NOT EXISTS career_growth_plans (
       user_id TEXT PRIMARY KEY,
       plan_json TEXT NOT NULL,
@@ -172,6 +198,21 @@ const openDatabase = () => {
   }
   if (!accountColumns.has("account_kind")) {
     database.exec("ALTER TABLE agent_accounts ADD COLUMN account_kind TEXT NOT NULL DEFAULT 'user';");
+  }
+  const interviewColumns = new Set(
+    database.prepare("PRAGMA table_info(agent_interview_memories)").all().map((column) => column.name),
+  );
+  if (!interviewColumns.has("report_kind")) {
+    database.exec("ALTER TABLE agent_interview_memories ADD COLUMN report_kind TEXT NOT NULL DEFAULT 'stage';");
+  }
+  if (!interviewColumns.has("integrity_score")) {
+    database.exec("ALTER TABLE agent_interview_memories ADD COLUMN integrity_score INTEGER NOT NULL DEFAULT 0;");
+  }
+  if (!interviewColumns.has("evidence_stats_json")) {
+    database.exec("ALTER TABLE agent_interview_memories ADD COLUMN evidence_stats_json TEXT NOT NULL DEFAULT '{}';");
+  }
+  if (!interviewColumns.has("dimensions_json")) {
+    database.exec("ALTER TABLE agent_interview_memories ADD COLUMN dimensions_json TEXT NOT NULL DEFAULT '[]';");
   }
   ensureDemoAccount(database);
   return database;
@@ -316,6 +357,43 @@ const listFeedback = (db, userId, limit = 20) =>
     ORDER BY feedback.id DESC
     LIMIT ?
   `).all(userId, limit).reverse();
+
+const listInterviewMemories = (db, userId, limit = 12) =>
+  db.prepare(`
+    SELECT interview_id AS id, job_id AS jobId, job_title AS jobTitle,
+           model_track AS modelTrack, interview_type AS interviewType,
+           report_kind AS reportKind,
+           overall_score AS overallScore, confidence_score AS confidenceScore,
+           coverage_score AS coverageScore, integrity_score AS integrityScore,
+           evidence_stats_json AS evidenceStatsJson,
+           dimensions_json AS dimensionsJson, summary,
+           weak_dimensions_json AS weakDimensionsJson, created_at AS createdAt
+    FROM agent_interview_memories
+    WHERE user_id = ?
+    ORDER BY id DESC
+    LIMIT ?
+  `).all(userId, limit).map((item) => ({
+    id: item.id,
+    jobId: item.jobId,
+    jobTitle: item.jobTitle,
+    modelTrack: item.modelTrack,
+    interviewType: item.interviewType,
+    reportKind: item.reportKind === "formal" ? "formal" : "stage",
+    overallScore: item.overallScore,
+    confidenceScore: item.confidenceScore,
+    coverageScore: item.coverageScore,
+    integrityScore: item.integrityScore,
+    evidenceStats: parseJson(item.evidenceStatsJson, {
+      answerCount: 0,
+      substantiveAnswers: 0,
+      starEvidence: 0,
+      quantifiedEvidence: 0,
+    }),
+    dimensions: parseJson(item.dimensionsJson, []),
+    summary: item.summary,
+    weakDimensions: parseJson(item.weakDimensionsJson, []),
+    createdAt: item.createdAt,
+  })).reverse();
 
 const buildSummary = (profile, target, match, messages, feedback = []) => {
   const segments = [];
@@ -613,6 +691,7 @@ const memoryPayload = (db, userId) => {
       memory: {
         messages: [],
         feedback: [],
+        interviews: [],
         resumeProfile: {},
         targetJob: {},
         matchResult: {},
@@ -628,6 +707,7 @@ const memoryPayload = (db, userId) => {
     memory: {
       messages: listMessages(db, userId),
       feedback: listFeedback(db, userId),
+      interviews: listInterviewMemories(db, userId),
       resumeProfile: parseJson(profileRow.resume_profile_json),
       targetJob: parseJson(profileRow.target_job_json),
       matchResult: parseJson(profileRow.match_result_json),
@@ -744,6 +824,147 @@ const saveFeedback = (db, userId, body) => {
   return { status: 200, payload: memoryPayload(db, userId) };
 };
 
+const clampScore = (value) => {
+  const score = Number(value);
+  return Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : 0;
+};
+
+const sanitizeInterviewMemory = (value) => {
+  if (!value || typeof value !== "object") return null;
+  const report = value.report && typeof value.report === "object" ? value.report : {};
+  const interviewId = typeof value.interviewId === "string"
+    ? value.interviewId.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 100)
+    : "";
+  const jobId = typeof value.jobId === "string" ? value.jobId.trim().slice(0, 180) : "";
+  const jobTitle = typeof value.jobTitle === "string" ? value.jobTitle.trim().slice(0, 180) : "";
+  const modelTrack = ["ai_algorithm", "frontend", "backend", "product", "fullstack"].includes(report.modelTrack)
+    ? report.modelTrack
+    : "";
+  const interviewType = ["综合面", "技术面", "HR面"].includes(value.interviewType)
+    ? value.interviewType
+    : "";
+  const summary = typeof report.summary === "string" ? report.summary.trim().slice(0, 1800) : "";
+  const reportKind = report.reportKind === "formal" ? "formal" : "stage";
+  const dimensions = Array.isArray(report.dimensionReports) ? report.dimensionReports : [];
+  const dimensionSnapshots = dimensions
+    .slice(0, 12)
+    .map((item) => ({
+      id: String(item?.id || "").slice(0, 100),
+      name: String(item?.name || "").slice(0, 100),
+      weight: clampScore(item?.weight),
+      score: clampScore(item?.score),
+      confidence: clampScore(item?.confidence),
+      status: ["untested", "insufficient", "supported", "boundary"].includes(item?.status)
+        ? item.status
+        : "untested",
+      attempts: Math.max(0, Math.min(100, Math.round(Number(item?.attempts) || 0))),
+      evidenceCount: Math.max(0, Math.min(100, Math.round(Number(item?.evidenceCount) || 0))),
+    }))
+    .filter((item) => item.id && item.name);
+  const weakDimensions = dimensions
+    .filter((item) => item && item.status !== "supported")
+    .slice(0, 6)
+    .map((item) => ({
+      id: String(item.id || "").slice(0, 100),
+      name: String(item.name || "").slice(0, 100),
+      score: clampScore(item.score),
+      status: ["untested", "insufficient", "boundary"].includes(item.status) ? item.status : "insufficient",
+    }))
+    .filter((item) => item.id && item.name);
+  const evidence = report.evidenceStats && typeof report.evidenceStats === "object"
+    ? report.evidenceStats
+    : {};
+  const evidenceStats = {
+    answerCount: Math.max(0, Math.min(100, Math.round(Number(evidence.answerCount) || 0))),
+    substantiveAnswers: Math.max(0, Math.min(100, Math.round(Number(evidence.substantiveAnswers) || 0))),
+    starEvidence: Math.max(0, Math.min(100, Math.round(Number(evidence.starEvidence) || 0))),
+    quantifiedEvidence: Math.max(0, Math.min(100, Math.round(Number(evidence.quantifiedEvidence) || 0))),
+  };
+  const weakDimensionsJson = JSON.stringify(weakDimensions);
+  const dimensionsJson = JSON.stringify(dimensionSnapshots);
+  const evidenceStatsJson = JSON.stringify(evidenceStats);
+  if (
+    !interviewId
+    || !jobId
+    || !jobTitle
+    || !modelTrack
+    || !interviewType
+    || !summary
+    || weakDimensionsJson.length + dimensionsJson.length + evidenceStatsJson.length > MAX_INTERVIEW_REPORT_CHARS
+  ) return null;
+  return {
+    interviewId,
+    jobId,
+    jobTitle,
+    modelTrack,
+    interviewType,
+    reportKind,
+    overallScore: clampScore(report.overallScore),
+    confidenceScore: clampScore(report.confidenceScore),
+    coverageScore: clampScore(report.coverageScore),
+    integrityScore: clampScore(report.integrityEvaluation?.score),
+    evidenceStatsJson,
+    dimensionsJson,
+    summary,
+    weakDimensionsJson,
+  };
+};
+
+const saveInterviewMemory = (db, userId, body) => {
+  const interview = sanitizeInterviewMemory(body.interview);
+  if (!interview) {
+    return { status: 400, payload: { ok: false, error: "面试记忆内容不合法。" } };
+  }
+  ensureProfile(db, userId);
+  const createdAt = nowIso();
+  db.prepare(`
+    INSERT INTO agent_interview_memories (
+      user_id, interview_id, job_id, job_title, model_track, interview_type,
+      report_kind, overall_score, confidence_score, coverage_score, integrity_score,
+      evidence_stats_json, dimensions_json, summary, weak_dimensions_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, interview_id) DO UPDATE SET
+      job_id = excluded.job_id,
+      job_title = excluded.job_title,
+      model_track = excluded.model_track,
+      interview_type = excluded.interview_type,
+      report_kind = excluded.report_kind,
+      overall_score = excluded.overall_score,
+      confidence_score = excluded.confidence_score,
+      coverage_score = excluded.coverage_score,
+      integrity_score = excluded.integrity_score,
+      evidence_stats_json = excluded.evidence_stats_json,
+      dimensions_json = excluded.dimensions_json,
+      summary = excluded.summary,
+      weak_dimensions_json = excluded.weak_dimensions_json
+  `).run(
+    userId,
+    interview.interviewId,
+    interview.jobId,
+    interview.jobTitle,
+    interview.modelTrack,
+    interview.interviewType,
+    interview.reportKind,
+    interview.overallScore,
+    interview.confidenceScore,
+    interview.coverageScore,
+    interview.integrityScore,
+    interview.evidenceStatsJson,
+    interview.dimensionsJson,
+    interview.summary,
+    interview.weakDimensionsJson,
+    createdAt,
+  );
+  db.prepare(`
+    DELETE FROM agent_interview_memories
+    WHERE user_id = ? AND id NOT IN (
+      SELECT id FROM agent_interview_memories
+      WHERE user_id = ? ORDER BY id DESC LIMIT 20
+    )
+  `).run(userId, userId);
+  return { status: 200, payload: memoryPayload(db, userId) };
+};
+
 const growthPlanPayload = (db, userId) => {
   const row = db.prepare(`
     SELECT plan_json, created_at AS createdAt, updated_at AS updatedAt
@@ -842,6 +1063,9 @@ export const runAgentMemoryRequest = async (body = {}, requestContext = {}) => {
     if (body.action === "save-feedback") {
       return saveFeedback(db, userId, body);
     }
+    if (body.action === "save-interview") {
+      return saveInterviewMemory(db, userId, body);
+    }
     if (body.action === "load-growth") {
       return { status: 200, payload: growthPlanPayload(db, userId) };
     }
@@ -860,6 +1084,7 @@ export const runAgentMemoryRequest = async (body = {}, requestContext = {}) => {
       `).get(userId);
       if (registered) {
         db.prepare("DELETE FROM agent_memory_messages WHERE user_id = ?").run(userId);
+        db.prepare("DELETE FROM agent_interview_memories WHERE user_id = ?").run(userId);
         db.prepare("DELETE FROM career_growth_plans WHERE user_id = ?").run(userId);
         db.prepare(`
           UPDATE agent_memory_profiles

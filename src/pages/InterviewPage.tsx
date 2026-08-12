@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Brain, BriefcaseBusiness, Code2, Mic, MicOff, RotateCcw, SkipForward, Sparkles, Square, TrendingUp, UsersRound, Video } from "lucide-react";
+import { ArrowUp, Brain, CheckCircle2, Code2, Crosshair, Database, History, Mic, MicOff, RotateCcw, ScanSearch, SkipForward, Sparkles, Square, UsersRound, Video } from "lucide-react";
 import type { Job, StudentProfile } from "../data";
+import { getCompetencyModel } from "../features/interview/competencyModels";
+import { createEmptyInterviewGrounding, prepareInterviewGrounding } from "../features/interview/interviewContext";
+import { evaluateInterviewSession } from "../features/interview/sessionPlanner";
+import { analyzeInterviewIntegrity } from "../features/interview/integrityAnalyzer";
+import { saveInterviewMemory } from "../features/assistant/agentMemoryClient";
 import { getInterviewModelProvider } from "../modelProviders/interviewProvider";
 import { BrowserSpeechRecognitionAdapter } from "../speechToText/browserSpeechRecognitionAdapter";
 import { BrowserSpeechSynthesisAdapter } from "../tts/browserSpeechSynthesisAdapter";
-import type { AvatarSpeechState, InterviewFeedbackReport, InterviewInputMode, InterviewMessage, InterviewStatus, InterviewTurn, InterviewType } from "../types/interview";
+import type { AvatarSpeechState, InterviewCompletionReason, InterviewFeedbackReport, InterviewFollowUpDecision, InterviewGroundingContext, InterviewInputMode, InterviewMessage, InterviewQuestionIntent, InterviewReportKind, InterviewStatus, InterviewTurn, InterviewType } from "../types/interview";
 import InterviewerAvatar from "../components/interview/InterviewerAvatar";
+import InterviewAssessmentReport from "../components/interview/InterviewAssessmentReport";
+import InterviewExitDialog from "../components/interview/InterviewExitDialog";
+import InterviewIntegrityNotice from "../components/interview/InterviewIntegrityNotice";
+import InterviewSessionProgress from "../components/interview/InterviewSessionProgress";
 import StudentCameraPreview from "../components/interview/StudentCameraPreview";
 import { useStudentCamera } from "../components/interview/useStudentCamera";
 
@@ -42,6 +51,21 @@ const statusLabel: Record<InterviewStatus, string> = {
   finished: "已结束",
   error: "已降级",
 };
+
+const strategyLabel: Record<InterviewQuestionIntent, string> = {
+  opening: "建立能力基线",
+  clarify: "澄清事实证据",
+  deepen: "深挖方法过程",
+  challenge: "压力测试边界",
+  switch: "切换考察维度",
+};
+
+const competencyStatusLabel = {
+  untested: "未考察",
+  exploring: "证据不足",
+  supported: "已有支撑",
+  boundary: "边界已识别",
+} as const;
 
 const avatarStateOf = (status: InterviewStatus): AvatarSpeechState => {
   if (status === "opening" || status === "asking" || status === "feedback") return "speaking";
@@ -80,17 +104,38 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
   const [adapterNotice, setAdapterNotice] = useState("");
   const [interviewType, setInterviewType] = useState<InterviewType>("综合面");
   const [growthPlanStatus, setGrowthPlanStatus] = useState<"idle" | "saving" | "ready" | "error">("idle");
+  const [activeDecision, setActiveDecision] = useState<InterviewFollowUpDecision | null>(null);
+  const [grounding, setGrounding] = useState<InterviewGroundingContext>(createEmptyInterviewGrounding);
+  const [groundingStatus, setGroundingStatus] = useState<"idle" | "loading" | "ready">("idle");
+  const [interviewMemoryStatus, setInterviewMemoryStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [finishDialogOpen, setFinishDialogOpen] = useState(false);
   const chatRef = useRef<HTMLDivElement | null>(null);
   const sttRef = useRef<BrowserSpeechRecognitionAdapter | null>(null);
   const ttsRef = useRef(new BrowserSpeechSynthesisAdapter());
+  const isFinalizingRef = useRef(false);
   const camera = useStudentCamera();
   const modelProvider = useMemo(() => getInterviewModelProvider(), []);
+  const competencyModel = useMemo(() => getCompetencyModel(job), [job]);
   const avatarMode = import.meta.env.VITE_AVATAR_MODE || "static";
   const resumeSummary = profile.resumeText || resumeText || profile.experiences.map((item) => item.evidence).join("；");
 
   const currentRound = turns.length + (status === "idle" || status === "finished" ? 0 : 1);
   const avatarState = avatarStateOf(status);
   const activeInterviewType = interviewTypes.find((item) => item.value === interviewType) || interviewTypes[0];
+  const integrityEvaluation = useMemo(() => analyzeInterviewIntegrity({
+    job,
+    turns,
+    resumeSummary,
+  }), [job, resumeSummary, turns]);
+  const sessionEvaluation = useMemo(() => evaluateInterviewSession({
+    job,
+    interviewType,
+    turns,
+    elapsedSeconds,
+    resumeSummary,
+    integrityEvaluation,
+  }), [elapsedSeconds, integrityEvaluation, interviewType, job, resumeSummary, turns]);
+  const closeFinishDialog = useCallback(() => setFinishDialogOpen(false), []);
 
   const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     window.requestAnimationFrame(() => {
@@ -128,7 +173,11 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
   }, [avatarMode]);
 
   const askQuestion = useCallback(
-    async (nextMessages: InterviewMessage[], nextTurns: InterviewTurn[]) => {
+    async (
+      nextMessages: InterviewMessage[],
+      nextTurns: InterviewTurn[],
+      nextGrounding: InterviewGroundingContext = grounding,
+    ) => {
       setStatus("thinking");
       const reply = await modelProvider.generateInterviewReply({
         messages: nextMessages,
@@ -137,13 +186,23 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
         interviewType,
         resumeSummary,
         currentRound: nextTurns.length + 1,
+        grounding: nextGrounding,
       });
-      const interviewerMessage = createMessage("interviewer", reply);
+      const interviewerMessage = createMessage("interviewer", reply.question);
+      if (nextTurns.length && reply.decision.previousAssessment) {
+        setTurns(nextTurns.map((turn, index) => index === nextTurns.length - 1 ? {
+          ...turn,
+          followUp: reply.question,
+          followUpIntent: reply.decision.strategy,
+          assessment: reply.decision.previousAssessment ?? turn.assessment,
+        } : turn));
+      }
+      setActiveDecision(reply.decision);
       setMessages((current) => [...current, interviewerMessage]);
-      setCurrentQuestion(reply);
-      await speakAsAvatar(reply, "listening");
+      setCurrentQuestion(reply.question);
+      await speakAsAvatar(reply.question, "listening");
     },
-    [interviewType, job, modelProvider, resumeSummary, speakAsAvatar],
+    [grounding, interviewType, job, modelProvider, resumeSummary, speakAsAvatar],
   );
 
   const handleStart = async () => {
@@ -152,13 +211,26 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
     setElapsedSeconds(0);
     setAnswer("");
     setGrowthPlanStatus("idle");
+    setActiveDecision(null);
+    setGroundingStatus("loading");
+    setInterviewMemoryStatus("idle");
+    setFinishDialogOpen(false);
+    isFinalizingRef.current = false;
     ttsRef.current.stop();
     const opening = firstOpeningOf(interviewType);
     const openingMessage = createMessage("interviewer", opening);
     setMessages([openingMessage]);
     setCurrentQuestion("开场介绍");
+    const groundingPromise = prepareInterviewGrounding({ job, resumeSummary });
     await speakAsAvatar(opening, "thinking", "opening");
-    await askQuestion([openingMessage], []);
+    const nextGrounding = await groundingPromise.catch(() => ({
+      ...createEmptyInterviewGrounding(),
+      knowledgeStatus: "error" as const,
+      memoryStatus: "error" as const,
+    }));
+    setGrounding(nextGrounding);
+    setGroundingStatus("ready");
+    await askQuestion([openingMessage], [], nextGrounding);
   };
 
   const handleSendAnswer = async (mode: InterviewInputMode = inputMode) => {
@@ -171,6 +243,10 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
       {
         question: currentQuestion,
         answer: text,
+        competencyId: activeDecision?.targetCompetencyId,
+        competencyName: activeDecision?.targetCompetencyName,
+        questionIntent: activeDecision?.strategy,
+        integrityRiskId: activeDecision?.integrityRisk?.id,
         timestamp: Date.now(),
         inputMode: mode,
       },
@@ -179,14 +255,47 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
     setTurns(nextTurns);
     setAnswer("");
     setInputMode("text");
+    const nextEvaluation = evaluateInterviewSession({ job, interviewType, turns: nextTurns, elapsedSeconds, resumeSummary });
+    if (nextEvaluation.shouldAutoFinish) {
+      const completionReason: InterviewCompletionReason = nextEvaluation.readiness === "limit_reached" ? "round_limit" : "target_reached";
+      await finishInterview(
+        nextMessages,
+        nextTurns,
+        completionReason,
+        nextEvaluation.canGenerateFormal ? "formal" : "stage",
+      );
+      return;
+    }
     await askQuestion(nextMessages, nextTurns);
   };
 
   const handleSkip = async () => {
     const systemMessage = createMessage("system", "学生选择跳过当前问题。");
     const nextMessages = [...messages, systemMessage];
+    const skippedTurn: InterviewTurn = {
+      question: currentQuestion,
+      answer: "未作答，选择跳过当前问题。",
+      competencyId: activeDecision?.targetCompetencyId,
+      competencyName: activeDecision?.targetCompetencyName,
+      questionIntent: activeDecision?.strategy,
+      integrityRiskId: activeDecision?.integrityRisk?.id,
+      timestamp: Date.now(),
+      inputMode: "text",
+    };
+    const nextTurns = [...turns, skippedTurn];
     setMessages(nextMessages);
-    await askQuestion(nextMessages, turns);
+    setTurns(nextTurns);
+    const nextEvaluation = evaluateInterviewSession({ job, interviewType, turns: nextTurns, elapsedSeconds, resumeSummary });
+    if (nextEvaluation.shouldAutoFinish) {
+      await finishInterview(
+        nextMessages,
+        nextTurns,
+        "round_limit",
+        nextEvaluation.canGenerateFormal ? "formal" : "stage",
+      );
+      return;
+    }
+    await askQuestion(nextMessages, nextTurns);
   };
 
   const handleRestartAnswer = () => {
@@ -225,29 +334,67 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
     });
   };
 
-  const handleFinish = async () => {
+  async function finishInterview(
+    finalMessages: InterviewMessage[],
+    finalTurns: InterviewTurn[],
+    completionReason: InterviewCompletionReason,
+    reportKind: InterviewReportKind,
+  ) {
+    if (isFinalizingRef.current) return;
+    isFinalizingRef.current = true;
+    setFinishDialogOpen(false);
     setStatus("feedback");
+    setMessages(finalMessages);
+    setTurns(finalTurns);
     ttsRef.current.stop();
-    const report = await modelProvider.generateFeedback({
-      messages,
-      turns,
-      jobTarget: job,
-      interviewType,
-      resumeSummary,
-      currentRound,
-    });
-    setFeedback(report);
-    setGrowthPlanStatus("saving");
     try {
-      await onComplete(report, turns, interviewType);
-      setGrowthPlanStatus("ready");
+      const report = await modelProvider.generateFeedback({
+        messages: finalMessages,
+        turns: finalTurns,
+        jobTarget: job,
+        interviewType,
+        resumeSummary,
+        currentRound: finalTurns.length,
+        grounding,
+        reportKind,
+        completionReason,
+        elapsedSeconds,
+      });
+      setFeedback(report);
+      setInterviewMemoryStatus("saving");
+      void saveInterviewMemory({
+        interviewId: `interview-${Date.now()}`,
+        jobId: job.id,
+        jobTitle: job.title,
+        interviewType,
+        report,
+      }).then(() => setInterviewMemoryStatus("saved")).catch(() => setInterviewMemoryStatus("error"));
+      setGrowthPlanStatus("saving");
+      try {
+        await onComplete(report, finalTurns, interviewType);
+        setGrowthPlanStatus("ready");
+      } catch {
+        setGrowthPlanStatus("error");
+      }
+      const summary = report.reportKind === "formal"
+        ? `本次模拟面试已完成，已达到正式报告证据门槛。总体评分 ${report.overallScore} 分，重点建议是：${report.improvements[0] || "继续强化结构化表达。"}`
+        : `本次已生成阶段性诊断报告，当前证据不足以完成正式能力认证。阶段评分 ${report.overallScore} 分，建议继续补充：${report.sessionEvaluation.missingRequirements[0] || "更多真实案例证据。"}`;
+      const finalMessage = createMessage("interviewer", summary);
+      setMessages((current) => [...current, finalMessage]);
+      await speakAsAvatar(summary, "finished");
     } catch {
-      setGrowthPlanStatus("error");
+      setStatus("error");
+    } finally {
+      isFinalizingRef.current = false;
     }
-    const summary = `本次模拟面试已结束。总体评分 ${report.overallScore} 分，重点建议是：${report.improvements[0] || "继续强化结构化表达。"}`;
-    const finalMessage = createMessage("interviewer", summary);
-    setMessages((current) => [...current, finalMessage]);
-    await speakAsAvatar(summary, "finished");
+  }
+
+  const handleFinish = () => {
+    if (!sessionEvaluation.canGenerateFormal) {
+      setFinishDialogOpen(true);
+      return;
+    }
+    void finishInterview(messages, turns, "user_completed", "formal");
   };
 
   const handleGrowthPlanAction = async () => {
@@ -300,7 +447,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
               const Icon = type.icon;
               const active = type.value === interviewType;
               return (
-                <button key={type.value} type="button" className={active ? "active" : ""} onClick={() => setInterviewType(type.value)} aria-pressed={active}>
+                <button key={type.value} type="button" className={active ? "active" : ""} onClick={() => setInterviewType(type.value)} aria-pressed={active} disabled={status !== "idle" && status !== "finished"}>
                   <Icon size={16} />
                   <span>{type.label}</span>
                   <small>{type.description}</small>
@@ -315,8 +462,8 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
               <strong>{hasAnalysis ? job.title : "目标岗位待确认"}</strong>
             </article>
             <article>
-              <span>面试侧重</span>
-              <strong>{activeInterviewType.description}</strong>
+              <span>胜任力方向</span>
+              <strong>{competencyModel.name.replace("胜任力模型", "")}</strong>
             </article>
             <article>
               <span>当前轮次</span>
@@ -324,9 +471,86 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
             </article>
             <article>
               <span>已用时间</span>
-              <strong>{formatSeconds(elapsedSeconds)}</strong>
+              <strong>{formatSeconds(elapsedSeconds)} / {sessionEvaluation.policy.targetMinutes}:00</strong>
             </article>
           </div>
+
+          <InterviewSessionProgress evaluation={sessionEvaluation} />
+
+          <InterviewIntegrityNotice evaluation={integrityEvaluation} activeRisk={activeDecision?.integrityRisk} />
+
+          <section className="interview-competency-panel" aria-label="岗位胜任力考察进度">
+            <header>
+              <div>
+                <span><ScanSearch size={15} /> COMPETENCY CONTROLLER</span>
+                <strong>{competencyModel.name}</strong>
+              </div>
+              <em>{activeDecision ? `${strategyLabel[activeDecision.strategy]} · ${activeDecision.targetCompetencyName}` : activeInterviewType.description}</em>
+            </header>
+            <div className="interview-grounding-strip" data-testid="interview-grounding-strip">
+              <span className={grounding.knowledgeStatus}>
+                <Database size={12} />
+                {groundingStatus === "loading"
+                  ? "岗位 RAG 检索中"
+                  : `岗位 RAG ${grounding.knowledgeSources.length} 条${activeDecision?.groundingTrace ? ` · 本轮引用 ${activeDecision.groundingTrace.knowledgeSourceIds.length} 条` : ""}`}
+              </span>
+              <span className={grounding.memoryStatus}>
+                <History size={12} />
+                {groundingStatus === "loading" ? "长期记忆召回中" : `历史面试 ${grounding.memoryReferences.length} 次`}
+              </span>
+              {grounding.retrievalElapsedMs ? <small>{grounding.indexVersion || "job-index"} · {grounding.retrievalElapsedMs.toFixed(0)}ms</small> : null}
+              {groundingStatus === "ready" && (grounding.knowledgeSources.length || grounding.memoryReferences.length || grounding.userNotes.length) ? (
+                <details>
+                  <summary>查看面试上下文来源</summary>
+                  <div>
+                    {grounding.knowledgeSources.map((source) => (
+                      <p key={source.id}>
+                        <strong>[RAG] {source.company} · {source.title}</strong>
+                        <span>{source.sourceName} · 置信度 {source.confidence}% · 命中 {source.matchedTerms.slice(0, 4).join("、") || "岗位职责"}</span>
+                      </p>
+                    ))}
+                    {grounding.memoryReferences.map((reference) => (
+                      <p key={reference.id}>
+                        <strong>[记忆·{reference.reportKind === "formal" ? "正式" : "阶段"}] {reference.jobTitle} · {reference.overallScore}分</strong>
+                        <span>{reference.createdAt.slice(0, 10)} · 待复测 {reference.weakDimensions.map((item) => item.name).slice(0, 3).join("、") || "暂无"}</span>
+                      </p>
+                    ))}
+                    {grounding.userNotes.map((note) => <p key={note}><strong>[用户偏好]</strong><span>{note}</span></p>)}
+                  </div>
+                </details>
+              ) : null}
+            </div>
+            <div className="interview-competency-grid">
+              {(activeDecision?.progress ?? competencyModel.dimensions.map((item) => ({
+                id: item.id,
+                name: item.name,
+                weight: item.weight,
+                attempts: 0,
+                bestScore: 0,
+                status: "untested" as const,
+              }))).map((item) => (
+                <article
+                  key={item.id}
+                  className={`${item.status} ${activeDecision?.targetCompetencyId === item.id ? "active" : ""}`}
+                >
+                  {item.status === "supported" ? <CheckCircle2 size={13} /> : <Crosshair size={13} />}
+                  <strong>{item.name}</strong>
+                  <span>{item.weight}% · {competencyStatusLabel[item.status]}{item.attempts ? ` · ${item.attempts}轮` : ""}</span>
+                </article>
+              ))}
+            </div>
+            {activeDecision ? (
+              <details className="interview-decision-trace">
+                <summary>查看本轮追问决策依据</summary>
+                <p>{activeDecision.rationale}</p>
+                {activeDecision.previousAssessment ? (
+                  <small>
+                    上一回答证据 {activeDecision.previousAssessment.score} 分 · {activeDecision.previousAssessment.summary}
+                  </small>
+                ) : null}
+              </details>
+            ) : null}
+          </section>
 
           <div className="interview-dialogue" ref={chatRef} aria-live="polite">
             {messages.length ? messages.map((message) => (
@@ -343,38 +567,16 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
             )}
 
             {feedback ? (
-              <div className="interview-feedback-report">
-                <div className="feedback-score">
-                  <strong>{feedback.overallScore}</strong>
-                  <span>总体评分</span>
-                </div>
-                <div className="feedback-bars">
-                  {[
-                    ["表达能力", feedback.expression],
-                    ["专业匹配度", feedback.professionalFit],
-                    ["逻辑结构", feedback.logic],
-                  ].map(([label, score]) => (
-                    <div key={label}>
-                      <span>{label}</span>
-                      <i><b style={{ width: `${score}%` }} /></i>
-                      <em>{score}</em>
-                    </div>
-                  ))}
-                </div>
-                <div className="feedback-detail">
-                  <strong>可改进点</strong>
-                  <ul>{feedback.improvements.map((item) => <li key={item}>{item}</li>)}</ul>
-                  <strong>推荐优化回答</strong>
-                  <p>{feedback.optimizedAnswer}</p>
-                  <button type="button" className="interview-growth-action" onClick={() => void handleGrowthPlanAction()} disabled={growthPlanStatus === "saving"}>
-                    <TrendingUp size={16} /> {growthPlanStatus === "saving" ? "正在生成成长计划" : growthPlanStatus === "error" ? "前往成长规划重试" : "查看职业成长计划"}
-                  </button>
-                </div>
-              </div>
+              <InterviewAssessmentReport
+                report={feedback}
+                growthPlanStatus={growthPlanStatus}
+                onOpenGrowthPlan={() => void handleGrowthPlanAction()}
+                memoryStatus={interviewMemoryStatus}
+              />
             ) : null}
           </div>
 
-          <div className="interview-composer">
+          {!feedback ? <div className="interview-composer">
             <textarea
               value={answer}
               onChange={(event) => {
@@ -389,34 +591,42 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
               }}
               placeholder="输入你的回答，或点击语音按钮完成转写后再发送"
               aria-label="模拟面试回答"
+              disabled={status === "idle" || status === "finished" || status === "thinking" || status === "feedback"}
             />
             <div className="interview-composer-actions">
-              <button type="button" className={`secondary-action compact-action ${speechStatus === "recording" ? "listening" : ""}`} onClick={() => void handleVoice()} disabled={status === "thinking" || status === "feedback"}>
+              <button type="button" className={`secondary-action compact-action ${speechStatus === "recording" ? "listening" : ""}`} onClick={() => void handleVoice()} disabled={status === "idle" || status === "finished" || status === "thinking" || status === "feedback"}>
                 {speechStatus === "recording" ? <MicOff size={16} /> : <Mic size={16} />}
                 {speechStatus === "recording" ? "停止录音" : speechStatus === "recognizing" ? "正在识别" : "语音回答"}
               </button>
-              <button type="button" className="secondary-action compact-action" onClick={handleRestartAnswer}>
+              <button type="button" className="secondary-action compact-action" onClick={handleRestartAnswer} disabled={status === "idle" || status === "finished" || status === "thinking" || status === "feedback"}>
                 <RotateCcw size={16} />
                 重新回答
               </button>
-              <button type="button" className="secondary-action compact-action" onClick={() => void handleSkip()} disabled={status === "idle" || status === "thinking" || status === "feedback"}>
+              <button type="button" className="secondary-action compact-action" onClick={() => void handleSkip()} disabled={status === "idle" || status === "finished" || status === "thinking" || status === "feedback"}>
                 <SkipForward size={16} />
                 跳过问题
               </button>
-              <button type="button" className="secondary-action compact-action" onClick={() => void handleFinish()} disabled={status === "idle" || status === "feedback" || turns.length === 0}>
+              <button type="button" className="secondary-action compact-action" onClick={handleFinish} disabled={status === "idle" || status === "finished" || status === "thinking" || status === "feedback" || turns.length === 0}>
                 <Square size={14} />
                 结束面试
               </button>
-              <button type="button" className="primary-action compact-action" onClick={() => void handleSendAnswer(inputMode)} disabled={!answer.trim() || status === "thinking" || status === "feedback"}>
+              <button type="button" className="primary-action compact-action" onClick={() => void handleSendAnswer(inputMode)} disabled={!answer.trim() || status === "idle" || status === "finished" || status === "thinking" || status === "feedback"}>
                 <ArrowUp size={16} />
                 发送
               </button>
             </div>
             {speechStatus === "unsupported" ? <p className="interview-hint">当前浏览器不支持 Web Speech API，请使用文字输入。</p> : null}
             {speechStatus === "error" ? <p className="interview-hint error">语音识别失败，请重新录制或改用文字输入。</p> : null}
-          </div>
+          </div> : null}
         </section>
       </div>
+      {finishDialogOpen ? (
+        <InterviewExitDialog
+          evaluation={sessionEvaluation}
+          onContinue={closeFinishDialog}
+          onGenerateStageReport={() => void finishInterview(messages, turns, "user_early", "stage")}
+        />
+      ) : null}
     </section>
   );
 }
