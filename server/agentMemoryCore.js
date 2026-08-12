@@ -392,6 +392,7 @@ const identityPayload = (db, userId) => {
   `).get(userId);
   return {
     ok: true,
+    authenticated: false,
     identity: account
       ? {
           userId,
