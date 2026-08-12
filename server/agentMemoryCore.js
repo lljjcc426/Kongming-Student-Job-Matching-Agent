@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { readBoundedIntegerEnv } from "./runtimeConfig.js";
 
@@ -10,6 +11,8 @@ const MAX_MESSAGE_CHARS = 6000;
 const MAX_FEEDBACK_CORRECTION_CHARS = 1000;
 const MAX_CONTEXT_CHARS = 120_000;
 const MAX_GROWTH_PLAN_CHARS = 500_000;
+const MIN_NICKNAME_CHARS = 2;
+const MAX_NICKNAME_CHARS = 24;
 const DEFAULT_MAX_MESSAGES = 120;
 const DEFAULT_RETENTION_DAYS = 180;
 
@@ -102,6 +105,19 @@ const openDatabase = () => {
       updated_at TEXT NOT NULL,
       FOREIGN KEY(user_id) REFERENCES agent_memory_profiles(user_id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS agent_accounts (
+      user_id TEXT PRIMARY KEY,
+      nickname TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      recovery_salt TEXT NOT NULL,
+      recovery_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES agent_memory_profiles(user_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_agent_accounts_nickname
+      ON agent_accounts(nickname COLLATE NOCASE);
   `);
   return database;
 };
@@ -123,6 +139,30 @@ const boundedJson = (value) => {
 
 const validateUserId = (value) =>
   typeof value === "string" && USER_ID_PATTERN.test(value) ? value : "";
+
+const sanitizeNickname = (value) => {
+  if (typeof value !== "string") return "";
+  const nickname = value.trim().replace(/\s+/g, " ");
+  const length = Array.from(nickname).length;
+  if (length < MIN_NICKNAME_CHARS || length > MAX_NICKNAME_CHARS) return "";
+  return /[\u0000-\u001f\u007f]/.test(nickname) ? "" : nickname;
+};
+
+const recoveryCodeHash = (recoveryCode, salt) =>
+  scryptSync(recoveryCode, salt, 32).toString("hex");
+
+const createRecoverySecret = () => {
+  const recoveryCode = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const salt = randomBytes(16).toString("hex");
+  return { recoveryCode, salt, hash: recoveryCodeHash(recoveryCode, salt) };
+};
+
+const verifyRecoveryCode = (recoveryCode, salt, expectedHash) => {
+  if (!/^\d{6}$/.test(recoveryCode)) return false;
+  const actual = Buffer.from(recoveryCodeHash(recoveryCode, salt), "hex");
+  const expected = Buffer.from(expectedHash, "hex");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+};
 
 const sanitizeMessage = (message) => {
   if (!message || typeof message !== "object") return null;
@@ -201,6 +241,97 @@ const ensureProfile = (db, userId) => {
     VALUES (?, ?, ?)
     ON CONFLICT(user_id) DO NOTHING
   `).run(userId, timestamp, timestamp);
+};
+
+const identityPayload = (db, userId) => {
+  const account = db.prepare(`
+    SELECT nickname, created_at AS createdAt, updated_at AS updatedAt
+    FROM agent_accounts
+    WHERE user_id = ?
+  `).get(userId);
+  return {
+    ok: true,
+    identity: account
+      ? { userId, nickname: account.nickname, registered: true, ...account }
+      : { userId, nickname: "", registered: false },
+  };
+};
+
+const createIdentity = (db, userId, body) => {
+  const nickname = sanitizeNickname(body.nickname);
+  if (!nickname) {
+    return {
+      status: 400,
+      payload: { ok: false, error: `昵称需为 ${MIN_NICKNAME_CHARS}-${MAX_NICKNAME_CHARS} 个字符。` },
+    };
+  }
+
+  const occupied = db.prepare(`
+    SELECT user_id
+    FROM agent_accounts
+    WHERE nickname = ? COLLATE NOCASE AND user_id <> ?
+  `).get(nickname, userId);
+  if (occupied) {
+    return { status: 409, payload: { ok: false, error: "该昵称已被使用，请换一个昵称。" } };
+  }
+
+  ensureProfile(db, userId);
+  const secret = createRecoverySecret();
+  const timestamp = nowIso();
+  db.prepare(`
+    INSERT INTO agent_accounts (
+      user_id, nickname, recovery_salt, recovery_hash, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      nickname = excluded.nickname,
+      recovery_salt = excluded.recovery_salt,
+      recovery_hash = excluded.recovery_hash,
+      updated_at = excluded.updated_at
+  `).run(userId, nickname, secret.salt, secret.hash, timestamp, timestamp);
+
+  return {
+    status: 200,
+    payload: {
+      ...identityPayload(db, userId),
+      recoveryCode: secret.recoveryCode,
+      recoveryCodeIssuedAt: timestamp,
+    },
+  };
+};
+
+const restoreIdentity = (db, body) => {
+  const nickname = sanitizeNickname(body.nickname);
+  const recoveryCode = typeof body.recoveryCode === "string" ? body.recoveryCode.trim() : "";
+  if (!nickname || !/^\d{6}$/.test(recoveryCode)) {
+    return { status: 400, payload: { ok: false, error: "请输入昵称和 6 位恢复码。" } };
+  }
+
+  const account = db.prepare(`
+    SELECT user_id AS userId, nickname, recovery_salt AS recoverySalt,
+           recovery_hash AS recoveryHash, created_at AS createdAt, updated_at AS updatedAt
+    FROM agent_accounts
+    WHERE nickname = ? COLLATE NOCASE
+  `).get(nickname);
+  if (
+    !account
+    || !verifyRecoveryCode(recoveryCode, account.recoverySalt, account.recoveryHash)
+  ) {
+    return { status: 401, payload: { ok: false, error: "昵称或恢复码不正确。" } };
+  }
+
+  return {
+    status: 200,
+    payload: {
+      ok: true,
+      identity: {
+        userId: account.userId,
+        nickname: account.nickname,
+        registered: true,
+        createdAt: account.createdAt,
+        updatedAt: account.updatedAt,
+      },
+    },
+  };
 };
 
 const pruneMessages = (db, userId) => {
@@ -438,8 +569,31 @@ export const runAgentMemoryRequest = async (body = {}) => {
     if (body.action === "save-growth") {
       return saveGrowthPlan(db, userId, body);
     }
+    if (body.action === "identity-status") {
+      return { status: 200, payload: identityPayload(db, userId) };
+    }
+    if (body.action === "create-identity") {
+      return createIdentity(db, userId, body);
+    }
+    if (body.action === "restore-identity") {
+      return restoreIdentity(db, body);
+    }
     if (body.action === "clear") {
-      db.prepare("DELETE FROM agent_memory_profiles WHERE user_id = ?").run(userId);
+      const registered = db.prepare(`
+        SELECT 1 FROM agent_accounts WHERE user_id = ?
+      `).get(userId);
+      if (registered) {
+        db.prepare("DELETE FROM agent_memory_messages WHERE user_id = ?").run(userId);
+        db.prepare("DELETE FROM career_growth_plans WHERE user_id = ?").run(userId);
+        db.prepare(`
+          UPDATE agent_memory_profiles
+          SET resume_profile_json = '{}', target_job_json = '{}',
+              match_result_json = '{}', summary = '', updated_at = ?
+          WHERE user_id = ?
+        `).run(nowIso(), userId);
+      } else {
+        db.prepare("DELETE FROM agent_memory_profiles WHERE user_id = ?").run(userId);
+      }
       db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
       return { status: 200, payload: memoryPayload(db, userId) };
     }

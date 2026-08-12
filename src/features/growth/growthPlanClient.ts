@@ -1,6 +1,6 @@
 import type { GrowthPlan } from "./types";
+import { getMemoryUserId } from "../identity/identityClient";
 
-const USER_ID_STORAGE_KEY = "kongming.agent-memory.user-id.v1";
 const memoryEndpoint = () => import.meta.env.VITE_AGENT_MEMORY_API_URL || "/api/memory";
 
 type GrowthResponse = {
@@ -9,22 +9,11 @@ type GrowthResponse = {
   plan?: GrowthPlan | null;
 };
 
-const memoryUserId = () => {
-  const existing = window.localStorage.getItem(USER_ID_STORAGE_KEY);
-  if (existing) return existing;
-  const randomPart = typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID().replaceAll("-", "")
-    : `${Date.now()}${Math.random().toString(36).slice(2)}`;
-  const userId = `km_${randomPart}`;
-  window.localStorage.setItem(USER_ID_STORAGE_KEY, userId);
-  return userId;
-};
-
 const request = async (payload: Record<string, unknown>) => {
   const response = await fetch(memoryEndpoint(), {
     method: "POST",
     headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify({ ...payload, userId: memoryUserId() }),
+    body: JSON.stringify({ ...payload, userId: getMemoryUserId() }),
   });
   const data = await response.json().catch(() => ({})) as GrowthResponse;
   if (!response.ok || !data.ok) {

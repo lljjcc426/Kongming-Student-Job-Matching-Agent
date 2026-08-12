@@ -2,8 +2,8 @@ import type { ChatMessage } from "../../app/types";
 import type { Job } from "../../data";
 import type { MatchResult } from "../../matchEngine";
 import type { StructuredResume } from "../../modelParsers";
+import { getMemoryUserId } from "../identity/identityClient";
 
-const USER_ID_STORAGE_KEY = "kongming.agent-memory.user-id.v1";
 const memoryEndpoint = () => import.meta.env.VITE_AGENT_MEMORY_API_URL || "/api/memory";
 
 export type AgentMemoryStatus = "loading" | "ready" | "error";
@@ -66,22 +66,11 @@ const emptyMemory = (): AgentMemory => ({
   updatedAt: null,
 });
 
-const memoryUserId = () => {
-  const existing = window.localStorage.getItem(USER_ID_STORAGE_KEY);
-  if (existing) return existing;
-  const randomPart = typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID().replaceAll("-", "")
-    : `${Date.now()}${Math.random().toString(36).slice(2)}`;
-  const userId = `km_${randomPart}`;
-  window.localStorage.setItem(USER_ID_STORAGE_KEY, userId);
-  return userId;
-};
-
 const requestMemory = async (payload: Record<string, unknown>): Promise<AgentMemory> => {
   const response = await fetch(memoryEndpoint(), {
     method: "POST",
     headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify({ ...payload, userId: memoryUserId() }),
+    body: JSON.stringify({ ...payload, userId: getMemoryUserId() }),
   });
   const data = await response.json().catch(() => ({})) as MemoryResponse;
   if (!response.ok || !data.ok || !data.memory) {

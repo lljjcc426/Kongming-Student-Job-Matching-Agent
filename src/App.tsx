@@ -9,6 +9,9 @@ import { useMatchInsights } from "./features/matching/useMatchInsights";
 import { useResumeProcessing } from "./features/resume/useResumeProcessing";
 import { useGrowthPlan } from "./features/growth/useGrowthPlan";
 import LoadingScreen from "./LoadingScreen";
+import IdentityDialog from "./components/identity/IdentityDialog";
+import { useIdentity } from "./features/identity/useIdentity";
+import type { AppIdentity } from "./features/identity/identityClient";
 
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -16,8 +19,12 @@ const InterviewPage = lazy(() => import("./pages/InterviewPage"));
 const MatchingWorkspacePage = lazy(() => import("./pages/MatchingWorkspacePage"));
 const GrowthPlanPage = lazy(() => import("./pages/GrowthPlanPage"));
 
-function App() {
-  const [introVisible, setIntroVisible] = useState(true);
+type WorkspaceProps = {
+  identity: AppIdentity;
+  onOpenIdentity: () => void;
+};
+
+function Workspace({ identity, onOpenIdentity }: WorkspaceProps) {
   const [activePage, setActivePage] = useState<ActivePage>("home");
   const profileColumnRef = useRef<HTMLElement | null>(null);
   const {
@@ -111,13 +118,14 @@ function App() {
     });
   }, [activePage, structuredResume]);
 
-  if (introVisible) {
-    return <LoadingScreen onFinish={() => setIntroVisible(false)} />;
-  }
-
   return (
     <main className="app-shell">
-      <AppNav activePage={activePage} onChange={setActivePage} />
+      <AppNav
+        activePage={activePage}
+        identity={identity}
+        onChange={setActivePage}
+        onOpenIdentity={onOpenIdentity}
+      />
 
       <Suspense fallback={<PageLoadingFallback />}>
         {activePage === "home" ? <HomePage onNavigate={setActivePage} /> : null}
@@ -226,6 +234,35 @@ function App() {
         ) : null}
       </Suspense>
     </main>
+  );
+}
+
+function App() {
+  const [introVisible, setIntroVisible] = useState(true);
+  const identity = useIdentity();
+
+  if (introVisible) {
+    return <LoadingScreen onFinish={() => setIntroVisible(false)} />;
+  }
+
+  return (
+    <>
+      <Workspace
+        key={identity.identity.userId}
+        identity={identity.identity}
+        onOpenIdentity={identity.openDialog}
+      />
+      <IdentityDialog
+        open={identity.dialogOpen}
+        identity={identity.identity}
+        onClose={identity.closeDialog}
+        onCreate={identity.create}
+        onRestore={identity.restore}
+        onContinueAnonymous={identity.continueAnonymous}
+        onLogout={identity.logout}
+        onStartFresh={identity.startFresh}
+      />
+    </>
   );
 }
 

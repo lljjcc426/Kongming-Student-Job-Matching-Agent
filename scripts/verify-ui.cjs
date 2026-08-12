@@ -7,6 +7,7 @@ const UI_ARTIFACT_DIR =
   || "D:\\Kongming-RAG\\jobs-v1\\test-artifacts";
 const screenshotPaths = {
   intro: path.join(UI_ARTIFACT_DIR, "check-intro.png"),
+  identity: path.join(UI_ARTIFACT_DIR, "check-identity.png"),
   resume: path.join(UI_ARTIFACT_DIR, "check-resume-after-upload.png"),
   interview: path.join(UI_ARTIFACT_DIR, "check-interview.png"),
   growth: path.join(UI_ARTIFACT_DIR, "check-growth-plan.png"),
@@ -270,6 +271,11 @@ async function main() {
     await page.waitForFunction(() => !document.querySelector(".loading-screen"), null, { timeout: 5000 });
   });
 
+  const identityDialog = await page.locator(".identity-dialog").count();
+  const identityProtectAction = await page.getByRole("button", { name: /保护当前进度/ }).count();
+  await page.screenshot({ path: screenshotPaths.identity, fullPage: false });
+  await page.getByRole("button", { name: "暂不绑定，继续本机体验" }).click();
+
   const title = await page.locator("h1").first().innerText();
   await page.locator(".app-nav > div button").nth(1).click();
   const initialJobCards = await page.locator(".job-card").count();
@@ -447,6 +453,9 @@ async function main() {
   }
   if (!title.includes("孔明职配")) {
     throw new Error(`Unexpected home title: ${title}`);
+  }
+  if (identityDialog !== 1 || identityProtectAction !== 1) {
+    throw new Error(`Expected identity recovery dialog, found dialog=${identityDialog}, protect=${identityProtectAction}`);
   }
   if (initialJobCards !== 0) {
     throw new Error(`Initial page should not show preset job cards, found ${initialJobCards}`);

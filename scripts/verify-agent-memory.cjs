@@ -105,6 +105,50 @@ async function main() {
     });
     assert.equal(invalidGrowth.status, 400);
 
+    const createdIdentity = await runAgentMemoryRequest({
+      action: "create-identity",
+      userId,
+      nickname: "孔明验证用户",
+    });
+    assert.equal(createdIdentity.status, 200);
+    assert.equal(createdIdentity.payload.identity.userId, userId);
+    assert.equal(createdIdentity.payload.identity.registered, true);
+    assert.match(createdIdentity.payload.recoveryCode, /^\d{6}$/);
+
+    const memoryAfterBinding = await runAgentMemoryRequest({ action: "load", userId });
+    assert.equal(memoryAfterBinding.payload.memory.messages.length, 2);
+    const growthAfterBinding = await runAgentMemoryRequest({ action: "load-growth", userId });
+    assert.equal(growthAfterBinding.payload.plan.id, growthPlan.id);
+
+    closeAgentMemoryStore();
+    const identityStatus = await runAgentMemoryRequest({ action: "identity-status", userId });
+    assert.equal(identityStatus.status, 200);
+    assert.equal(identityStatus.payload.identity.nickname, "孔明验证用户");
+
+    const wrongRecovery = await runAgentMemoryRequest({
+      action: "restore-identity",
+      userId: "km_temporary_browser_001",
+      nickname: "孔明验证用户",
+      recoveryCode: "999999" === createdIdentity.payload.recoveryCode ? "888888" : "999999",
+    });
+    assert.equal(wrongRecovery.status, 401);
+
+    const restoredIdentity = await runAgentMemoryRequest({
+      action: "restore-identity",
+      userId: "km_temporary_browser_001",
+      nickname: "孔明验证用户",
+      recoveryCode: createdIdentity.payload.recoveryCode,
+    });
+    assert.equal(restoredIdentity.status, 200);
+    assert.equal(restoredIdentity.payload.identity.userId, userId);
+
+    const duplicateNickname = await runAgentMemoryRequest({
+      action: "create-identity",
+      userId: "km_second_identity_001",
+      nickname: "孔明验证用户",
+    });
+    assert.equal(duplicateNickname.status, 409);
+
     const cleared = await runAgentMemoryRequest({ action: "clear", userId });
     assert.equal(cleared.status, 200);
     assert.deepEqual(cleared.payload.memory.messages, []);
@@ -112,7 +156,10 @@ async function main() {
     assert.equal(cleared.payload.memory.summary, "");
     const clearedGrowth = await runAgentMemoryRequest({ action: "load-growth", userId });
     assert.equal(clearedGrowth.payload.plan, null);
-    console.log("[智能体记忆] 写入、反馈、重启恢复、结构化上下文与清除验证通过");
+    const identityAfterClear = await runAgentMemoryRequest({ action: "identity-status", userId });
+    assert.equal(identityAfterClear.payload.identity.registered, true);
+    assert.equal(identityAfterClear.payload.identity.nickname, "孔明验证用户");
+    console.log("[智能体记忆] 写入、反馈、身份找回、重启恢复、结构化上下文与清除验证通过");
     console.log(`[智能体记忆] 测试数据库位于 D 盘临时目录：${testDirectory}`);
   } finally {
     closeAgentMemoryStore();
