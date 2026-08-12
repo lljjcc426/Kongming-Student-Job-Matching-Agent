@@ -9,10 +9,12 @@ import {
   clearAgentMemory,
   createEmptyAgentMemory,
   loadAgentMemory,
+  saveAgentFeedback,
   saveAgentMemory,
   type AgentMemory,
   type AgentMemoryContext,
   type AgentMemoryStatus,
+  type AgentFeedbackRating,
 } from "./agentMemoryClient";
 
 type SpeechRecognitionResultLike = {
@@ -248,6 +250,26 @@ export function useCareerChat({
     }
   };
 
+  const submitFeedback = async (
+    messageId: string,
+    rating: AgentFeedbackRating,
+    correction = "",
+  ) => {
+    try {
+      const targetMessage = messages.find((message) => message.id === messageId);
+      if (targetMessage) {
+        await saveAgentMemory([targetMessage]);
+      }
+      const storedMemory = await saveAgentFeedback(messageId, rating, correction);
+      memoryRef.current = storedMemory;
+      setMemory(storedMemory);
+      setMemoryStatus("ready");
+    } catch (error) {
+      setMemoryStatus("error");
+      throw error;
+    }
+  };
+
   return {
     messages,
     input,
@@ -258,8 +280,10 @@ export function useCareerChat({
     memoryStatus,
     memoryCount: memory.messages.length,
     memoryUpdatedAt: memory.updatedAt,
+    feedback: memory.feedback,
     startVoiceInput,
     send,
     clearMemory,
+    submitFeedback,
   };
 }

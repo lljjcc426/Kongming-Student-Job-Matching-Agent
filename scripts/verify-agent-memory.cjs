@@ -53,11 +53,36 @@ async function main() {
     assert.equal(restored.payload.memory.messages[0].content, "我希望在北京寻找大模型算法实习。");
     assert.equal(restored.payload.memory.targetJob.city, "北京");
 
+    const feedback = await runAgentMemoryRequest({
+      action: "save-feedback",
+      userId,
+      messageId: "assistant-1",
+      rating: "negative",
+      correction: "我只考虑北京岗位，不接受销售方向。",
+    });
+    assert.equal(feedback.status, 200);
+    assert.equal(feedback.payload.memory.feedback.length, 1);
+    assert.equal(feedback.payload.memory.feedback[0].rating, "negative");
+    assert.match(feedback.payload.memory.summary, /不接受销售方向/);
+
+    closeAgentMemoryStore();
+    const restoredFeedback = await runAgentMemoryRequest({ action: "load", userId });
+    assert.equal(restoredFeedback.payload.memory.feedback[0].correction, "我只考虑北京岗位，不接受销售方向。");
+
+    const invalidFeedback = await runAgentMemoryRequest({
+      action: "save-feedback",
+      userId,
+      messageId: "missing-message",
+      rating: "positive",
+    });
+    assert.equal(invalidFeedback.status, 404);
+
     const cleared = await runAgentMemoryRequest({ action: "clear", userId });
     assert.equal(cleared.status, 200);
     assert.deepEqual(cleared.payload.memory.messages, []);
+    assert.deepEqual(cleared.payload.memory.feedback, []);
     assert.equal(cleared.payload.memory.summary, "");
-    console.log("[智能体记忆] 写入、重启恢复、结构化上下文与清除验证通过");
+    console.log("[智能体记忆] 写入、反馈、重启恢复、结构化上下文与清除验证通过");
     console.log(`[智能体记忆] 测试数据库位于 D 盘临时目录：${testDirectory}`);
   } finally {
     closeAgentMemoryStore();

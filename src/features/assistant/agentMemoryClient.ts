@@ -12,8 +12,20 @@ export type StoredAgentMessage = ChatMessage & {
   createdAt?: string;
 };
 
+export type AgentFeedbackRating = "positive" | "negative";
+
+export type AgentFeedback = {
+  messageId: string;
+  rating: AgentFeedbackRating;
+  correction: string;
+  responseExcerpt: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type AgentMemory = {
   messages: StoredAgentMessage[];
+  feedback: AgentFeedback[];
   resumeProfile: Partial<StructuredResume>;
   targetJob: Partial<Job>;
   matchResult: Partial<MatchResult>;
@@ -31,6 +43,7 @@ export type AgentMemoryContext = {
 export type AgentMemoryPromptContext = {
   summary: string;
   relevantMessages: Array<Pick<ChatMessage, "role" | "content">>;
+  feedback: Array<Pick<AgentFeedback, "rating" | "correction" | "responseExcerpt">>;
   resumeProfile: Partial<StructuredResume>;
   targetJob: Partial<Job>;
   matchResult: Partial<MatchResult>;
@@ -45,6 +58,7 @@ type MemoryResponse = {
 
 const emptyMemory = (): AgentMemory => ({
   messages: [],
+  feedback: [],
   resumeProfile: {},
   targetJob: {},
   matchResult: {},
@@ -84,6 +98,17 @@ export const saveAgentMemory = (
 ) => requestMemory({ action: "save", messages, context });
 
 export const clearAgentMemory = () => requestMemory({ action: "clear" });
+
+export const saveAgentFeedback = (
+  messageId: string,
+  rating: AgentFeedbackRating,
+  correction = "",
+) => requestMemory({
+  action: "save-feedback",
+  messageId,
+  rating,
+  correction,
+});
 
 const memoryTerms = (text: string) => {
   const normalized = text.toLowerCase().replace(/\s+/g, "");
@@ -128,6 +153,11 @@ export const buildAgentMemoryPrompt = (
   return {
     summary: memory.summary,
     relevantMessages: [...relevant, ...recent].map(({ role, content }) => ({ role, content })),
+    feedback: memory.feedback.slice(-10).map(({ rating, correction, responseExcerpt }) => ({
+      rating,
+      correction,
+      responseExcerpt,
+    })),
     resumeProfile: currentContext.resumeProfile || memory.resumeProfile,
     targetJob: currentContext.targetJob || memory.targetJob,
     matchResult: currentContext.matchResult || memory.matchResult,

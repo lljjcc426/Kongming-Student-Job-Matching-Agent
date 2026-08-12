@@ -7673,6 +7673,126 @@ textarea {
   line-height: 1.75;
 }
 
+.assistant-message-content {
+  min-width: 0;
+}
+
+.assistant-feedback-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 5px 4px 0 10px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.assistant-feedback-row > span {
+  margin-right: 2px;
+}
+
+.assistant-feedback-row button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.assistant-feedback-row button:hover:not(:disabled),
+.assistant-feedback-row button.active {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(224, 242, 254, 0.76);
+  color: #0369a1;
+}
+
+.assistant-feedback-row button.negative:hover:not(:disabled),
+.assistant-feedback-row button.negative.active {
+  border-color: rgba(251, 113, 133, 0.42);
+  background: rgba(255, 241, 242, 0.86);
+  color: #be123c;
+}
+
+.assistant-feedback-row button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.assistant-feedback-row em {
+  color: #0f9ec2;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.assistant-feedback-editor {
+  display: grid;
+  gap: 7px;
+  margin: 7px 2px 0 8px;
+  padding: 10px;
+  border: 1px solid rgba(147, 197, 253, 0.52);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.assistant-feedback-editor label {
+  color: #334155;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.assistant-feedback-editor textarea {
+  width: 100%;
+  min-height: 58px;
+  resize: vertical;
+  border: 1px solid rgba(147, 197, 253, 0.62);
+  border-radius: 9px;
+  padding: 8px 9px;
+  background: #fff;
+  color: #1e293b;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.assistant-feedback-editor > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.assistant-feedback-editor button {
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid rgba(147, 197, 253, 0.62);
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.assistant-feedback-editor button.primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.assistant-feedback-error {
+  display: block;
+  padding: 4px 10px 0;
+  color: #be123c;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .assistant-markdown-message :is(p, h1, h2, h3, h4, ul, ol, li, table, blockquote, pre) {
   margin: 0;
   padding: 0;

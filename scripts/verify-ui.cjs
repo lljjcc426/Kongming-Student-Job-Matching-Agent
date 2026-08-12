@@ -11,6 +11,7 @@ const screenshotPaths = {
   interview: path.join(UI_ARTIFACT_DIR, "check-interview.png"),
   assistant: path.join(UI_ARTIFACT_DIR, "check-assistant.png"),
   assistantMobile: path.join(UI_ARTIFACT_DIR, "check-assistant-mobile.png"),
+  assistantFeedback: path.join(UI_ARTIFACT_DIR, "check-assistant-feedback.png"),
 };
 
 const mockJobs = [
@@ -93,6 +94,7 @@ async function main() {
   const browser = await launchBrowser();
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
   let jobKnowledgeRequestBody = null;
+  const careerChatRequestBodies = [];
   page.on("request", (request) => {
     if (!request.url().includes("/api/jobs/search") || request.method() !== "POST") return;
     try {
@@ -213,6 +215,7 @@ async function main() {
     }
 
     if (body.task === "career-chat") {
+      careerChatRequestBodies.push(body);
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
@@ -341,6 +344,13 @@ async function main() {
     { timeout: 8000 },
   );
   const memoryLabelAfterChat = await page.locator(".assistant-memory-state").innerText();
+  const feedbackCorrection = "我只考虑北京岗位，不接受销售方向。";
+  await page.getByRole("button", { name: "这条回答需要改进" }).click();
+  await page.getByLabel("告诉我哪里需要调整（可选）").fill(feedbackCorrection);
+  await page.screenshot({ path: screenshotPaths.assistantFeedback, fullPage: false });
+  await page.getByRole("button", { name: "保存反馈" }).click();
+  await page.locator(".assistant-feedback-row button.negative.active").waitFor({ state: "visible", timeout: 8000 });
+  const negativeFeedbackActiveAfterSave = await page.locator(".assistant-feedback-row button.negative.active").count();
 
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(1400);
@@ -352,6 +362,18 @@ async function main() {
   await page.locator(".assistant-memory-state.ready").waitFor({ state: "visible", timeout: 8000 });
   const restoredQuestionCount = await page.getByText(persistentQuestion, { exact: true }).count();
   const memoryLabelAfterReload = await page.locator(".assistant-memory-state").innerText();
+  const negativeFeedbackActiveAfterReload = await page.locator(".assistant-feedback-row button.negative.active").count();
+  const followupQuestion = "请根据我之前的偏好继续推荐";
+  await page.locator(".assistant-chat-panel textarea[aria-label='AI 助手输入']").fill(followupQuestion);
+  await page.getByRole("button", { name: "发送" }).click();
+  await page.waitForFunction(
+    () => (document.querySelector(".assistant-memory-state")?.textContent || "").includes("4 条"),
+    null,
+    { timeout: 8000 },
+  );
+  const feedbackInjectedIntoFollowup = careerChatRequestBodies.at(-1)?.persistentMemory?.feedback?.some(
+    (item) => item.rating === "negative" && item.correction === feedbackCorrection,
+  ) === true;
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "清除长期记忆" }).click();
@@ -442,6 +464,9 @@ async function main() {
   if (!memoryLabelAfterChat.includes("2 条") || restoredQuestionCount !== 1 || !memoryLabelAfterReload.includes("2 条")) {
     throw new Error(`Expected memory to survive reload, found afterChat=${memoryLabelAfterChat}, restored=${restoredQuestionCount}, afterReload=${memoryLabelAfterReload}`);
   }
+  if (negativeFeedbackActiveAfterSave !== 1 || negativeFeedbackActiveAfterReload !== 1 || !feedbackInjectedIntoFollowup) {
+    throw new Error(`Expected feedback to persist and reach the next prompt, found saved=${negativeFeedbackActiveAfterSave}, restored=${negativeFeedbackActiveAfterReload}, injected=${feedbackInjectedIntoFollowup}`);
+  }
   if (restoredQuestionCountAfterClear !== 0) {
     throw new Error(`Expected memory clear to remove restored messages, found ${restoredQuestionCountAfterClear}`);
   }
@@ -505,6 +530,9 @@ async function main() {
     memoryLabelAfterChat,
     restoredQuestionCount,
     memoryLabelAfterReload,
+    negativeFeedbackActiveAfterSave,
+    negativeFeedbackActiveAfterReload,
+    feedbackInjectedIntoFollowup,
     restoredQuestionCountAfterClear,
     quickQuestionButtons,
     quickQuestionFilled,

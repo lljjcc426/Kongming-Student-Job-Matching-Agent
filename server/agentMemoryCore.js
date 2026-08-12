@@ -7,6 +7,7 @@ const DEFAULT_WINDOWS_ROOT = "D:\\Kongming-Memory";
 const DEFAULT_OTHER_ROOT = path.resolve("data", "agent-memory");
 const USER_ID_PATTERN = /^[a-zA-Z0-9_-]{8,80}$/;
 const MAX_MESSAGE_CHARS = 6000;
+const MAX_FEEDBACK_CORRECTION_CHARS = 1000;
 const MAX_CONTEXT_CHARS = 120_000;
 const DEFAULT_MAX_MESSAGES = 120;
 const DEFAULT_RETENTION_DAYS = 180;
@@ -76,6 +77,22 @@ const openDatabase = () => {
 
     CREATE INDEX IF NOT EXISTS idx_agent_memory_messages_user_id
       ON agent_memory_messages(user_id, id DESC);
+
+    CREATE TABLE IF NOT EXISTS agent_memory_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      message_id TEXT NOT NULL,
+      rating TEXT NOT NULL CHECK(rating IN ('positive', 'negative')),
+      correction TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(user_id, message_id),
+      FOREIGN KEY(user_id, message_id)
+        REFERENCES agent_memory_messages(user_id, message_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_agent_memory_feedback_user_id
+      ON agent_memory_feedback(user_id, id DESC);
   `);
   return database;
 };
@@ -120,7 +137,24 @@ const listMessages = (db, userId, limit = maxMessages()) =>
     LIMIT ?
   `).all(userId, limit).reverse();
 
-const buildSummary = (profile, target, match, messages) => {
+const listFeedback = (db, userId, limit = 20) =>
+  db.prepare(`
+    SELECT feedback.message_id AS messageId,
+           feedback.rating,
+           feedback.correction,
+           feedback.created_at AS createdAt,
+           feedback.updated_at AS updatedAt,
+           SUBSTR(messages.content, 1, 500) AS responseExcerpt
+    FROM agent_memory_feedback AS feedback
+    JOIN agent_memory_messages AS messages
+      ON messages.user_id = feedback.user_id
+     AND messages.message_id = feedback.message_id
+    WHERE feedback.user_id = ?
+    ORDER BY feedback.id DESC
+    LIMIT ?
+  `).all(userId, limit).reverse();
+
+const buildSummary = (profile, target, match, messages, feedback = []) => {
   const segments = [];
   const targetRoles = Array.isArray(profile?.targetRoles) ? profile.targetRoles.slice(0, 3) : [];
   const skills = Array.isArray(profile?.skills) ? profile.skills.slice(0, 6) : [];
@@ -143,6 +177,11 @@ const buildSummary = (profile, target, match, messages) => {
     .slice(-3)
     .map((message) => message.content.replace(/\s+/g, " ").slice(0, 160));
   if (recentGoals.length) segments.push(`近期关注：${recentGoals.join("；")}`);
+  const corrections = feedback
+    .filter((item) => item.rating === "negative" && item.correction)
+    .slice(-3)
+    .map((item) => item.correction.replace(/\s+/g, " ").slice(0, 180));
+  if (corrections.length) segments.push(`用户纠正：${corrections.join("；")}`);
   return segments.join("\n").slice(0, 1800);
 };
 
@@ -189,6 +228,7 @@ const memoryPayload = (db, userId) => {
       userId,
       memory: {
         messages: [],
+        feedback: [],
         resumeProfile: {},
         targetJob: {},
         matchResult: {},
@@ -203,6 +243,7 @@ const memoryPayload = (db, userId) => {
     userId,
     memory: {
       messages: listMessages(db, userId),
+      feedback: listFeedback(db, userId),
       resumeProfile: parseJson(profileRow.resume_profile_json),
       targetJob: parseJson(profileRow.target_job_json),
       matchResult: parseJson(profileRow.match_result_json),
@@ -247,11 +288,13 @@ const saveMemory = (db, userId, body) => {
 
   pruneMessages(db, userId);
   const messages = listMessages(db, userId);
+  const feedback = listFeedback(db, userId);
   const summary = buildSummary(
     parseJson(profileJson),
     parseJson(targetJson),
     parseJson(matchJson),
     messages,
+    feedback,
   );
   db.prepare(`
     UPDATE agent_memory_profiles
@@ -261,6 +304,60 @@ const saveMemory = (db, userId, body) => {
   `).run(profileJson, targetJson, matchJson, summary, nowIso(), userId);
 
   return memoryPayload(db, userId);
+};
+
+const saveFeedback = (db, userId, body) => {
+  const messageId = typeof body.messageId === "string"
+    ? body.messageId.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 100)
+    : "";
+  const rating = body.rating === "positive" || body.rating === "negative"
+    ? body.rating
+    : "";
+  const correction = rating === "negative" && typeof body.correction === "string"
+    ? body.correction.trim().slice(0, MAX_FEEDBACK_CORRECTION_CHARS)
+    : "";
+  if (!messageId || !rating) {
+    return { status: 400, payload: { ok: false, error: "反馈内容不合法。" } };
+  }
+
+  const assistantMessage = db.prepare(`
+    SELECT message_id
+    FROM agent_memory_messages
+    WHERE user_id = ? AND message_id = ? AND role = 'assistant'
+  `).get(userId, messageId);
+  if (!assistantMessage) {
+    return { status: 404, payload: { ok: false, error: "找不到对应的 AI 回答。" } };
+  }
+
+  const timestamp = nowIso();
+  db.prepare(`
+    INSERT INTO agent_memory_feedback (
+      user_id, message_id, rating, correction, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, message_id) DO UPDATE SET
+      rating = excluded.rating,
+      correction = excluded.correction,
+      updated_at = excluded.updated_at
+  `).run(userId, messageId, rating, correction, timestamp, timestamp);
+
+  const profileRow = db.prepare(`
+    SELECT resume_profile_json, target_job_json, match_result_json
+    FROM agent_memory_profiles
+    WHERE user_id = ?
+  `).get(userId);
+  const summary = buildSummary(
+    parseJson(profileRow.resume_profile_json),
+    parseJson(profileRow.target_job_json),
+    parseJson(profileRow.match_result_json),
+    listMessages(db, userId),
+    listFeedback(db, userId),
+  );
+  db.prepare(`
+    UPDATE agent_memory_profiles
+    SET summary = ?, updated_at = ?
+    WHERE user_id = ?
+  `).run(summary, timestamp, userId);
+  return { status: 200, payload: memoryPayload(db, userId) };
 };
 
 export const runAgentMemoryRequest = async (body = {}) => {
@@ -276,6 +373,9 @@ export const runAgentMemoryRequest = async (body = {}) => {
     }
     if (body.action === "save") {
       return { status: 200, payload: saveMemory(db, userId, body) };
+    }
+    if (body.action === "save-feedback") {
+      return saveFeedback(db, userId, body);
     }
     if (body.action === "clear") {
       db.prepare("DELETE FROM agent_memory_profiles WHERE user_id = ?").run(userId);

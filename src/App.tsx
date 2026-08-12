@@ -82,9 +82,11 @@ function App() {
     memoryStatus,
     memoryCount,
     memoryUpdatedAt,
+    feedback: chatFeedback,
     startVoiceInput: handleChatSpeechInput,
     send: handleSendChat,
     clearMemory: handleClearChatMemory,
+    submitFeedback: handleChatFeedback,
   } = useCareerChat({
     resumeText,
     resumeProfile: structuredResume,
@@ -179,10 +181,12 @@ function App() {
               memoryStatus={memoryStatus}
               memoryCount={memoryCount}
               memoryUpdatedAt={memoryUpdatedAt}
+              feedback={chatFeedback}
               onInputChange={setChatInput}
               onSend={() => void handleSendChat()}
               onVoiceInput={handleChatSpeechInput}
               onClearMemory={() => void handleClearChatMemory()}
+              onFeedback={handleChatFeedback}
             />
           </section>
         ) : null}
