@@ -5,6 +5,8 @@ import type { InterviewFeedbackReport, InterviewTurn, InterviewType } from "../.
 import {
   createGrowthPlan,
   growthPlanProgress,
+  normalizeGrowthPlan,
+  reassessGrowthPlan,
   updateGrowthTargetDate,
   updateGrowthTaskEvidence,
 } from "./growthEngine";
@@ -33,10 +35,11 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
     void loadGrowthPlan()
       .then((storedPlan) => {
         if (!active) return;
-        planRef.current = storedPlan;
-        setPlan(storedPlan);
-        setStatus(storedPlan ? "ready" : "empty");
-        setMessage(storedPlan ? "已恢复上次成长计划" : "完成一次模拟面试后生成成长计划");
+        const normalizedPlan = storedPlan ? normalizeGrowthPlan(storedPlan) : null;
+        planRef.current = normalizedPlan;
+        setPlan(normalizedPlan);
+        setStatus(normalizedPlan ? "ready" : "empty");
+        setMessage(normalizedPlan ? "已恢复上次成长计划" : "完成一次模拟面试后生成成长计划");
       })
       .catch(() => {
         if (!active) return;
@@ -80,8 +83,16 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
       interviewType,
       completedAt: new Date().toISOString(),
     };
-    const nextPlan = createGrowthPlan({ profile, job, matchResult, interview });
-    await persist(nextPlan, `已根据最新面试生成 ${nextPlan.planningDays} 天动态成长计划`);
+    const current = planRef.current;
+    const nextPlan = current?.targetJobId === job.id
+      ? reassessGrowthPlan(current, { profile, job, matchResult, interview }, "interview_reassessment")
+      : createGrowthPlan({ profile, job, matchResult, interview });
+    await persist(
+      nextPlan,
+      current?.targetJobId === job.id
+        ? "已根据最新面试完成实证复测并调整后续计划"
+        : `已根据最新面试生成 ${nextPlan.planningDays} 天动态成长计划`,
+    );
   };
 
   const updateTask = async (
@@ -92,7 +103,15 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
   ) => {
     if (!planRef.current) throw new Error("尚未生成成长计划。");
     const nextPlan = updateGrowthTaskEvidence(planRef.current, taskId, evidenceText, evidenceUrl, completed);
-    await persist(nextPlan, completed ? "任务证据已保存，匹配度预测已更新" : "任务状态已更新");
+    const updatedTask = nextPlan.tasks.find((item) => item.id === taskId);
+    await persist(
+      nextPlan,
+      !completed
+        ? "任务证据已撤回"
+        : updatedTask?.evidenceStatus === "verified"
+          ? "证据审核通过，已更新预测分；实证分需复测后更新"
+          : "证据需要补充，当前不会计入进度或匹配预测",
+    );
   };
 
   const updateTargetDate = async (targetDate: string) => {
@@ -121,6 +140,19 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
     await persist(nextPlan, "已根据当前岗位和画像重新生成计划");
   };
 
+  const reassess = async () => {
+    if (!planRef.current) throw new Error("请先完成一次模拟面试。");
+    if (!hasAnalysis || planRef.current.targetJobId !== job.id) {
+      throw new Error("请先完成当前目标岗位的简历解析和匹配分析。");
+    }
+    const nextPlan = reassessGrowthPlan(
+      planRef.current,
+      { profile, job, matchResult, interview: planRef.current.interview },
+      "resume_reassessment",
+    );
+    await persist(nextPlan, "已使用最新简历与岗位分析重算实证匹配度");
+  };
+
   const progress = useMemo(
     () => plan ? growthPlanProgress(plan) : { completed: 0, total: 0, percentage: 0 },
     [plan],
@@ -136,5 +168,6 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
     updateTask,
     updateTargetDate,
     regenerate,
+    reassess,
   };
 }

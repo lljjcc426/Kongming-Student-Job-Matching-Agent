@@ -2,6 +2,8 @@ import type { Job, StudentProfile } from "../../data";
 import type { MatchResult } from "../../matchEngine";
 import type {
   GrowthAdaptation,
+  GrowthAssessment,
+  GrowthEvidenceReview,
   GrowthGap,
   GrowthPlan,
   GrowthRecommendation,
@@ -24,6 +26,7 @@ type GrowthPlanInput = {
 
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 const slug = (value: string) => value.toLowerCase().replace(/[^\u4e00-\u9fa5a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 36) || "growth";
+const normalizeText = (value: string) => value.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
 const DAY_MS = 86_400_000;
 const MIN_PLANNING_DAYS = 7;
 const MAX_PLANNING_DAYS = 365;
@@ -377,6 +380,7 @@ const interviewGaps = (interview: InterviewGrowthSnapshot): GrowthGap[] => {
       source: "interview" as const,
       baselineScore: clamp(score),
       currentScore: clamp(score),
+      projectedScore: clamp(score),
       targetScore: Math.max(85, clamp(score + 12)),
       reason,
     }));
@@ -390,6 +394,7 @@ const jobGaps = (matchResult: MatchResult): GrowthGap[] => {
     source: "job" as const,
     baselineScore: clamp(Math.min(ability, 48 + index * 4)),
     currentScore: clamp(Math.min(ability, 48 + index * 4)),
+    projectedScore: clamp(Math.min(ability, 48 + index * 4)),
     targetScore: 82,
     reason: `目标岗位关键词中包含“${keyword}”，当前简历尚缺少可验证证据。`,
   }));
@@ -404,6 +409,7 @@ const buildGaps = (input: GrowthPlanInput) => {
     source: "resume" as const,
     baselineScore: input.matchResult.total,
     currentScore: input.matchResult.total,
+    projectedScore: input.matchResult.total,
     targetScore: Math.min(92, input.matchResult.total + 10),
     reason: "核心能力已基本覆盖，下一步重点是补充量化成果与可信项目证据。",
   }];
@@ -432,8 +438,11 @@ const task = (
   resources,
   scoreGain,
   completed: false,
+  evidenceStatus: "not_submitted",
+  evidenceReview: null,
   evidenceText: "",
   evidenceUrl: "",
+  submittedAt: null,
   completedAt: null,
   dueDate: "",
 });
@@ -590,6 +599,146 @@ const recommendationsOf = (gaps: GrowthGap[], job: Job): GrowthRecommendation[] 
   ];
 };
 
+const EVIDENCE_STOP_TERMS = new Set([
+  "任务", "完成", "成果", "学习", "项目", "能力", "岗位", "相关", "进行", "记录", "说明", "结果",
+]);
+
+const evidenceTermsOf = (value: string) => {
+  const terms = new Set<string>();
+  const add = (term: string) => {
+    const normalized = term.toLowerCase().trim();
+    if (normalized.length >= 2 && !EVIDENCE_STOP_TERMS.has(normalized)) terms.add(normalized);
+  };
+  for (const match of value.matchAll(/[a-z][a-z0-9+#.-]{1,}|[\u4e00-\u9fa5]{2,}/gi)) {
+    const token = match[0];
+    add(token);
+    if (/^[\u4e00-\u9fa5]+$/.test(token)) {
+      for (let size = 2; size <= Math.min(4, token.length); size += 1) {
+        for (let index = 0; index <= token.length - size; index += 1) add(token.slice(index, index + size));
+      }
+    }
+  }
+  return [...terms];
+};
+
+const evidenceHasArtifact = (value: string) => /代码|仓库|提交|文档|报告|笔记|截图|录音|视频|测验|证书|作品|原型|README|链接|部署|演示/i.test(value);
+const evidenceHasAction = (value: string) => /负责|设计|实现|分析|验证|修复|构建|整理|复盘|提交|输出|发布|完成|对比|测试/.test(value);
+const evidenceHasOutcome = (value: string) => /\d|%|提升|降低|增长|覆盖|产出|通过|上线|发布|排名|获奖|准确率|耗时|用户|样本/.test(value);
+
+const trustedEvidenceUrl = (value: string) => {
+  if (!value) return false;
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return /(^|\.)(github\.com|gitee\.com|gitlink\.org\.cn|bilibili\.com|yuque\.com|notion\.site|docs\.qq\.com|feishu\.cn|coursera\.org|datawhale\.cn|datawhalechina\.github\.io)$/.test(host);
+  } catch {
+    return false;
+  }
+};
+
+export const reviewGrowthEvidence = (
+  taskToReview: GrowthTask,
+  gaps: GrowthGap[],
+  evidenceText: string,
+  evidenceUrl: string,
+): GrowthEvidenceReview => {
+  const reviewedAt = new Date().toISOString();
+  const normalizedText = evidenceText.trim();
+  const normalizedUrl = evidenceUrl.trim();
+  const linkedGaps = gaps.filter((gap) => taskToReview.gapIds.includes(gap.id));
+  const directGapHits = linkedGaps.filter((gap) => normalizeText(normalizedText).includes(normalizeText(gap.name))).length;
+  const expectedTerms = evidenceTermsOf([
+    taskToReview.title,
+    taskToReview.description,
+    taskToReview.evidenceRequirement,
+    ...linkedGaps.map((gap) => gap.name),
+  ].join(" "));
+  const normalizedEvidence = normalizeText(normalizedText);
+  const termHits = expectedTerms.filter((term) => normalizedEvidence.includes(normalizeText(term))).length;
+  const hasArtifact = evidenceHasArtifact(normalizedText);
+  const hasAction = evidenceHasAction(normalizedText);
+  const hasOutcome = evidenceHasOutcome(normalizedText);
+  const hasTrustedLink = trustedEvidenceUrl(normalizedUrl);
+
+  const relevance = clamp(
+    10
+    + Math.min(36, directGapHits * 28)
+    + Math.min(30, termHits * 6)
+    + (hasAction ? 12 : 0)
+    + (hasArtifact ? 8 : 0),
+  );
+  const completeness = clamp(
+    (normalizedText.length >= 80 ? 55 : normalizedText.length >= 45 ? 45 : normalizedText.length >= 24 ? 32 : 10)
+    + (hasAction ? 15 : 0)
+    + (hasOutcome ? 18 : 0)
+    + (hasArtifact ? 12 : 0)
+    + (normalizedUrl ? 8 : 0),
+  );
+  const credibility = clamp(
+    (normalizedText.length >= 45 ? 25 : normalizedText.length >= 24 ? 16 : 6)
+    + (hasAction ? 18 : 0)
+    + (hasOutcome ? 24 : 0)
+    + (hasArtifact ? 12 : 0)
+    + (hasTrustedLink ? 20 : normalizedUrl ? 8 : 0),
+  );
+  const score = clamp(relevance * 0.4 + completeness * 0.35 + credibility * 0.25);
+  const reasons: string[] = [];
+  if (normalizedText.length < 24) reasons.push("证据说明过短，请补充个人动作、产出和结果。");
+  if (directGapHits === 0 && termHits < 3) reasons.push(`请明确说明证据如何支撑“${linkedGaps.map((gap) => gap.name).join("、") || taskToReview.title}”。`);
+  if (!hasAction) reasons.push("请说明你亲自完成的分析、实现、验证或复盘动作。");
+  if (!hasOutcome) reasons.push("请补充数量、质量、通过情况或可观察成果，避免只写“已完成”。");
+  if (!hasArtifact && !normalizedUrl) reasons.push("请说明可核验产物类型，或补充仓库、文档、截图等证据链接。");
+  if (normalizedUrl && !hasTrustedLink) reasons.push("链接仅完成格式检查，系统未远程读取其内容，请在文字中补充关键证据。");
+
+  const decision = score >= 62 && relevance >= 55 && completeness >= 55 && credibility >= 45
+    ? "verified"
+    : "needs_revision";
+  if (decision === "verified") {
+    reasons.splice(0, reasons.length,
+      `证据与${linkedGaps.map((gap) => `“${gap.name}”`).join("、") || "任务目标"}存在明确关联。`,
+      hasOutcome ? "已识别可观察成果或量化结果。" : "已识别具体行动与可核验产物。",
+      normalizedUrl ? "证据链接仅校验格式，未代替内容真实性核验。" : "当前结论基于用户提交的文字证据。",
+    );
+  }
+
+  return {
+    decision,
+    score,
+    relevance,
+    completeness,
+    credibility,
+    summary: decision === "verified"
+      ? `本地证据审核通过（${score}分），可用于成长预测；真实匹配分仍需复测。`
+      : `本地证据审核未通过（${score}分），补充后才能计入成长预测。`,
+    reasons,
+    reviewedAt,
+    reviewer: "local-evidence-agent-v1",
+    linkCheck: normalizedUrl ? "format_only" : "not_provided",
+  };
+};
+
+const assessmentOf = (
+  input: GrowthPlanInput,
+  trigger: GrowthAssessment["trigger"],
+  previousMatchScore: number | null,
+  verifiedTaskCount: number,
+): GrowthAssessment => {
+  const createdAt = new Date().toISOString();
+  const scoreDelta = previousMatchScore === null ? 0 : input.matchResult.total - previousMatchScore;
+  return {
+    id: `assessment-${Date.now()}-${trigger}`,
+    createdAt,
+    trigger,
+    previousMatchScore,
+    matchScore: input.matchResult.total,
+    interviewScore: input.interview.feedback.overallScore,
+    evidenceCoverage: input.matchResult.scoreExplanation.evidenceCoverage,
+    verifiedTaskCount,
+    summary: previousMatchScore === null
+      ? `建立实证基线：人岗匹配 ${input.matchResult.total} 分，面试 ${input.interview.feedback.overallScore} 分。`
+      : `复测后人岗匹配 ${input.matchResult.total} 分（${scoreDelta > 0 ? `+${scoreDelta}` : scoreDelta}），面试 ${input.interview.feedback.overallScore} 分。`,
+  };
+};
+
 export const createGrowthPlan = (input: GrowthPlanInput): GrowthPlan => {
   const now = new Date().toISOString();
   const gaps = buildGaps(input);
@@ -602,12 +751,16 @@ export const createGrowthPlan = (input: GrowthPlanInput): GrowthPlan => {
     return previous ? {
       ...item,
       completed: previous.completed,
+      evidenceStatus: previous.evidenceStatus ?? (previous.completed ? "needs_revision" : "not_submitted"),
+      evidenceReview: previous.evidenceReview ?? null,
       evidenceText: previous.evidenceText,
       evidenceUrl: previous.evidenceUrl,
+      submittedAt: previous.submittedAt ?? previous.completedAt,
       completedAt: previous.completedAt,
     } : item;
   });
   const isRebuild = Boolean(input.previousPlan);
+  const initialAssessment = assessmentOf(input, "initial", null, 0);
   const plan: GrowthPlan = {
     id: input.previousPlan?.id ?? `growth-${Date.now()}-${slug(input.job.id)}`,
     version: 1,
@@ -621,8 +774,12 @@ export const createGrowthPlan = (input: GrowthPlanInput): GrowthPlan => {
     createdAt: input.previousPlan?.createdAt ?? now,
     updatedAt: now,
     revision: input.previousPlan ? input.previousPlan.revision + 1 : 1,
-    baseMatchScore: input.matchResult.total,
-    projectedMatchScore: input.matchResult.total,
+    baseMatchScore: input.previousPlan?.baseMatchScore ?? input.matchResult.total,
+    verifiedMatchScore: input.previousPlan?.verifiedMatchScore ?? input.matchResult.total,
+    verifiedInterviewScore: input.previousPlan?.verifiedInterviewScore ?? input.interview.feedback.overallScore,
+    verifiedEvidenceCoverage: input.previousPlan?.verifiedEvidenceCoverage ?? input.matchResult.scoreExplanation.evidenceCoverage,
+    lastReassessedAt: input.previousPlan?.lastReassessedAt ?? now,
+    projectedMatchScore: input.previousPlan?.verifiedMatchScore ?? input.matchResult.total,
     gaps,
     stages: buildStages(input.job, gaps, schedule),
     tasks,
@@ -637,6 +794,7 @@ export const createGrowthPlan = (input: GrowthPlanInput): GrowthPlan => {
           : `已结合${input.job.title}岗位要求、简历匹配结果和${input.interview.interviewType}报告生成 ${schedule.totalDays} 天（${schedule.totalWeeks} 周）动态计划。`,
       },
     ],
+    assessments: input.previousPlan?.assessments ?? [initialAssessment],
     interview: input.interview,
   };
   return tasks.some((item) => item.completed) ? recalculate(plan) : plan;
@@ -644,7 +802,7 @@ export const createGrowthPlan = (input: GrowthPlanInput): GrowthPlan => {
 
 const stageProgress = (tasks: GrowthTask[], days: GrowthStageDays) => {
   const stageTasks = tasks.filter((item) => item.stageDays === days);
-  const completed = stageTasks.filter((item) => item.completed).length;
+  const completed = stageTasks.filter((item) => item.completed && item.evidenceStatus === "verified").length;
   return stageTasks.length ? completed / stageTasks.length : 0;
 };
 
@@ -682,18 +840,19 @@ const adaptPlan = (plan: GrowthPlan): GrowthPlan => {
 };
 
 const recalculate = (plan: GrowthPlan): GrowthPlan => {
-  const completedGain = plan.tasks.filter((item) => item.completed).reduce((sum, item) => sum + item.scoreGain, 0);
+  const verifiedTasks = plan.tasks.filter((item) => item.completed && item.evidenceStatus === "verified");
+  const completedGain = verifiedTasks.reduce((sum, item) => sum + item.scoreGain, 0);
   const gaps = plan.gaps.map((gap) => {
-    const linkedCompleted = plan.tasks.filter((item) => item.completed && item.gapIds.includes(gap.id)).length;
+    const linkedCompleted = verifiedTasks.filter((item) => item.gapIds.includes(gap.id)).length;
     return {
       ...gap,
-      currentScore: Math.min(gap.targetScore, clamp(gap.baselineScore + linkedCompleted * 7)),
+      projectedScore: Math.min(gap.targetScore, clamp(gap.currentScore + linkedCompleted * 7)),
     };
   });
   return adaptPlan({
     ...plan,
     gaps,
-    projectedMatchScore: Math.min(96, clamp(plan.baseMatchScore + completedGain)),
+    projectedMatchScore: Math.min(96, clamp(plan.verifiedMatchScore + completedGain)),
     updatedAt: new Date().toISOString(),
   });
 };
@@ -714,20 +873,145 @@ export const updateGrowthTaskEvidence = (
     throw new Error("完成任务前请填写证据说明或证据链接。");
   }
   const taskToUpdate = plan.tasks.find((item) => item.id === taskId);
+  if (!taskToUpdate) throw new Error("没有找到需要更新的成长任务。");
   const stage = plan.stages.find((item) => item.days === taskToUpdate?.stageDays);
   if (completed && stage && !stage.unlocked) {
     throw new Error("请先完成上一阶段至少75%的任务，再进入本阶段。");
   }
+  const reviewedAt = new Date().toISOString();
+  const review = completed
+    ? reviewGrowthEvidence(taskToUpdate, plan.gaps, normalizedText, normalizedUrl)
+    : null;
+  const verified = review?.decision === "verified";
   return recalculate({
     ...plan,
     tasks: plan.tasks.map((item) => item.id === taskId ? {
       ...item,
       evidenceText: normalizedText.slice(0, 1200),
       evidenceUrl: normalizedUrl.slice(0, 800),
-      completed,
-      completedAt: completed ? new Date().toISOString() : null,
+      completed: Boolean(verified),
+      evidenceStatus: completed ? review!.decision : "not_submitted",
+      evidenceReview: review,
+      submittedAt: completed ? reviewedAt : null,
+      completedAt: verified ? reviewedAt : null,
     } : item),
   });
+};
+
+export const reassessGrowthPlan = (
+  plan: GrowthPlan,
+  input: Omit<GrowthPlanInput, "targetDate" | "previousPlan">,
+  trigger: GrowthAssessment["trigger"] = "manual_reassessment",
+): GrowthPlan => {
+  const now = new Date().toISOString();
+  const verifiedTaskCount = plan.tasks.filter((item) => item.completed && item.evidenceStatus === "verified").length;
+  const rebuilt = createGrowthPlan({
+    ...input,
+    targetDate: plan.targetDate,
+    previousPlan: plan,
+  });
+  const scoreDelta = input.matchResult.total - plan.verifiedMatchScore;
+  const assessment = assessmentOf(input, trigger, plan.verifiedMatchScore, verifiedTaskCount);
+  const actualAbilityScores = new Map(
+    input.matchResult.abilityGraph.nodes.map((node) => [normalizeText(node.name), node.score]),
+  );
+  const interviewScores = new Map([
+    ["表达与结构", input.interview.feedback.expression],
+    ["岗位专业匹配", input.interview.feedback.professionalFit],
+    ["逻辑与复盘", input.interview.feedback.logic],
+  ]);
+  const gaps = rebuilt.gaps.map((gap) => {
+    const reassessedScore = gap.source === "interview"
+      ? interviewScores.get(gap.name)
+      : actualAbilityScores.get(normalizeText(gap.name));
+    return {
+      ...gap,
+      baselineScore: plan.gaps.find((item) => item.id === gap.id)?.baselineScore ?? gap.baselineScore,
+      currentScore: clamp(reassessedScore ?? (gap.id === "resume-evidence" ? input.matchResult.total : gap.currentScore)),
+      projectedScore: clamp(reassessedScore ?? (gap.id === "resume-evidence" ? input.matchResult.total : gap.currentScore)),
+    };
+  });
+  const adaptations = [
+    ...plan.adaptations,
+    {
+      id: `reassessment-${Date.now()}`,
+      createdAt: now,
+      message: `已完成${trigger === "interview_reassessment" ? "面试" : "简历与岗位"}复测：实证匹配度 ${plan.verifiedMatchScore} → ${input.matchResult.total} 分${scoreDelta > 0 ? `，提升 ${scoreDelta} 分` : scoreDelta < 0 ? `，下降 ${Math.abs(scoreDelta)} 分` : "，保持不变"}。后续任务已按剩余差距调整优先级。`,
+    },
+  ];
+  const next: GrowthPlan = {
+    ...rebuilt,
+    gaps,
+    verifiedMatchScore: input.matchResult.total,
+    verifiedInterviewScore: input.interview.feedback.overallScore,
+    verifiedEvidenceCoverage: input.matchResult.scoreExplanation.evidenceCoverage,
+    lastReassessedAt: now,
+    adaptations,
+    assessments: [...(plan.assessments ?? []), assessment],
+    interview: input.interview,
+    revision: plan.revision + 1,
+    updatedAt: now,
+  };
+  return recalculate(next);
+};
+
+export const normalizeGrowthPlan = (plan: GrowthPlan): GrowthPlan => {
+  const now = new Date().toISOString();
+  const verifiedMatchScore = Number.isFinite(plan.verifiedMatchScore) ? plan.verifiedMatchScore : plan.baseMatchScore;
+  const assessments = Array.isArray(plan.assessments) && plan.assessments.length
+    ? plan.assessments
+    : [{
+      id: `assessment-migrated-${plan.id}`,
+      createdAt: plan.lastReassessedAt || plan.createdAt || now,
+      trigger: "initial" as const,
+      previousMatchScore: null,
+      matchScore: verifiedMatchScore,
+      interviewScore: Number.isFinite(plan.verifiedInterviewScore)
+        ? plan.verifiedInterviewScore
+        : plan.interview.feedback.overallScore,
+      evidenceCoverage: Number.isFinite(plan.verifiedEvidenceCoverage) ? plan.verifiedEvidenceCoverage : 0,
+      verifiedTaskCount: 0,
+      summary: `已从历史计划恢复实证基线：人岗匹配 ${verifiedMatchScore} 分。`,
+    }];
+  const normalized: GrowthPlan = {
+    ...plan,
+    verifiedMatchScore,
+    verifiedInterviewScore: Number.isFinite(plan.verifiedInterviewScore)
+      ? plan.verifiedInterviewScore
+      : plan.interview.feedback.overallScore,
+    verifiedEvidenceCoverage: Number.isFinite(plan.verifiedEvidenceCoverage)
+      ? plan.verifiedEvidenceCoverage
+      : 0,
+    lastReassessedAt: plan.lastReassessedAt || plan.createdAt || now,
+    assessments,
+    gaps: plan.gaps.map((gap) => ({
+      ...gap,
+      projectedScore: Number.isFinite(gap.projectedScore) ? gap.projectedScore : gap.currentScore,
+    })),
+    tasks: plan.tasks.map((item) => {
+      if (item.evidenceStatus) return item;
+      return {
+        ...item,
+        completed: false,
+        evidenceStatus: item.completed ? "needs_revision" : "not_submitted",
+        evidenceReview: item.completed ? {
+          decision: "needs_revision",
+          score: 0,
+          relevance: 0,
+          completeness: 0,
+          credibility: 0,
+          summary: "这是旧版未审核证据，请重新提交审核后再计入成长预测。",
+          reasons: ["旧版任务没有结构化审核记录。"],
+          reviewedAt: now,
+          reviewer: "local-evidence-agent-v1",
+          linkCheck: item.evidenceUrl ? "format_only" : "not_provided",
+        } : null,
+        submittedAt: item.completedAt,
+        completedAt: null,
+      };
+    }),
+  };
+  return recalculate(normalized);
 };
 
 export const updateGrowthTargetDate = (
@@ -737,7 +1021,7 @@ export const updateGrowthTargetDate = (
 ): GrowthPlan => createGrowthPlan({ ...input, targetDate, previousPlan: plan });
 
 export const growthPlanProgress = (plan: GrowthPlan) => {
-  const completed = plan.tasks.filter((item) => item.completed).length;
+  const completed = plan.tasks.filter((item) => item.completed && item.evidenceStatus === "verified").length;
   return {
     completed,
     total: plan.tasks.length,

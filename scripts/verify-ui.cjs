@@ -378,15 +378,34 @@ async function main() {
   const growthTaskCount = await page.locator(".growth-task-card").count();
   const growthStageCount = await page.locator(".growth-stage-tabs button").count();
   const baseGrowthScore = Number((await page.locator(".growth-summary-grid article").nth(1).locator("strong").innerText()).replace(/\D/g, ""));
+  const firstTaskCard = page.locator(".growth-task-card").first();
+  await firstTaskCard.locator("textarea").fill("我已经完成了这个学习任务，学习了相关内容，并且感觉自己有了很多收获。");
+  await firstTaskCard.getByRole("button", { name: "提交证据审核" }).click();
+  await firstTaskCard.locator(".growth-evidence-review.needs-revision").waitFor({ state: "visible", timeout: 8000 });
+  const weakEvidenceReview = await firstTaskCard.locator(".growth-evidence-review").innerText();
+  const scoreAfterWeakEvidence = Number((await page.locator(".growth-summary-grid article.projected strong").innerText()).replace(/\D/g, ""));
   for (let week = 1; week <= 3; week += 1) {
     const taskCard = page.locator(".growth-task-card").nth(week - 1);
-    await taskCard.locator("textarea").fill(`第${week}项成果已完成，包含学习笔记、练习结果与岗位应用复盘。`);
-    await taskCard.getByRole("button", { name: "提交证据并完成" }).click();
+    const taskTitle = await taskCard.locator("h3").innerText();
+    await taskCard.locator("textarea").fill(`围绕“${taskTitle}”，我亲自分析需求、设计并实现可运行成果，提交GitHub仓库和README。完成3组测试与前后对比，关键指标提升18%，并记录问题修复和复盘结论。`);
+    await taskCard.locator('input[placeholder*="证据链接"]').fill(`https://github.com/luxury221/kongming-evidence-${week}`);
+    await taskCard.locator(".growth-evidence-form > button").click();
     await taskCard.locator(".growth-completed-evidence").waitFor({ state: "visible", timeout: 8000 });
   }
   const projectedGrowthScore = Number((await page.locator(".growth-summary-grid article.projected strong").innerText()).replace(/\D/g, ""));
+  const verifiedScoreAfterEvidence = Number((await page.locator(".growth-summary-grid article").nth(1).locator("strong").innerText()).replace(/\D/g, ""));
   const growthProgress = await page.locator(".growth-summary-grid article").nth(3).locator("strong").innerText();
+  const evidenceReviewText = await page.locator(".growth-completed-evidence").first().innerText();
+  const scoreBoundaryText = await page.locator(".growth-score-boundary").innerText();
   const growthResourceText = await page.locator(".growth-resource-panel").innerText();
+  const assessmentCountBefore = await page.locator(".growth-assessment-panel > article").count();
+  await page.getByRole("button", { name: "重新计算实证分" }).click();
+  await page.waitForFunction(
+    (count) => document.querySelectorAll(".growth-assessment-panel > article").length === count + 1,
+    assessmentCountBefore,
+    { timeout: 8000 },
+  );
+  const assessmentCountAfter = await page.locator(".growth-assessment-panel > article").count();
   await page.locator(".growth-stage-tabs button").nth(1).click();
   const nextStageUnlocked = await page.locator(".growth-task-card textarea").first().isEnabled();
   const adaptationText = await page.locator(".growth-adaptation-panel").innerText();
@@ -573,8 +592,14 @@ async function main() {
   if (!longScheduleTotalTasks.includes("20") || !dynamicScheduleStages.some((label) => label.includes("第29-42天"))) {
     throw new Error(`Expected dynamic long/mid schedules, found long=${longScheduleTotalTasks}, mid=${dynamicScheduleStages.join(" | ")}`);
   }
-  if (projectedGrowthScore <= baseGrowthScore || !growthProgress.includes("25") || !nextStageUnlocked) {
-    throw new Error(`Expected evidence to improve the score and unlock stage 60, found base=${baseGrowthScore}, projected=${projectedGrowthScore}, progress=${growthProgress}, unlocked=${nextStageUnlocked}`);
+  if (!weakEvidenceReview.includes("证据需补充") || scoreAfterWeakEvidence !== baseGrowthScore) {
+    throw new Error(`Expected vague evidence rejection without score gain, found review=${weakEvidenceReview}, score=${scoreAfterWeakEvidence}`);
+  }
+  if (projectedGrowthScore <= baseGrowthScore || verifiedScoreAfterEvidence !== baseGrowthScore || !growthProgress.includes("25") || !nextStageUnlocked) {
+    throw new Error(`Expected audited evidence to improve only projection and unlock stage 2, found base=${baseGrowthScore}, verified=${verifiedScoreAfterEvidence}, projected=${projectedGrowthScore}, progress=${growthProgress}, unlocked=${nextStageUnlocked}`);
+  }
+  if (!evidenceReviewText.includes("证据审核通过") || !scoreBoundaryText.includes("预测分与实证分已分离") || assessmentCountAfter !== assessmentCountBefore + 1) {
+    throw new Error(`Expected evidence review details and reassessment trail, found evidence=${evidenceReviewText}, boundary=${scoreBoundaryText}, assessments=${assessmentCountBefore}->${assessmentCountAfter}`);
   }
   if (!adaptationText.includes("已解锁第15-28天阶段") || !restoredGrowthProgress.includes("25")) {
     throw new Error(`Expected adaptive plan and persistence, found adaptation=${adaptationText}, restored=${restoredGrowthProgress}`);
@@ -661,8 +686,12 @@ async function main() {
     longScheduleTotalTasks,
     dynamicScheduleStages,
     baseGrowthScore,
+    scoreAfterWeakEvidence,
+    weakEvidenceReview,
+    verifiedScoreAfterEvidence,
     projectedGrowthScore,
     growthProgress,
+    assessmentCountAfter,
     domesticGrowthResources: ["哔哩哔哩", "Datawhale"],
     nextStageUnlocked,
     restoredGrowthProgress,

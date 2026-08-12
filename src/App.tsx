@@ -230,6 +230,7 @@ function Workspace({ identity, onOpenIdentity }: WorkspaceProps) {
             onUpdateTask={growth.updateTask}
             onUpdateTargetDate={growth.updateTargetDate}
             onRegenerate={growth.regenerate}
+            onReassess={growth.reassess}
           />
         ) : null}
       </Suspense>

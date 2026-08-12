@@ -26,6 +26,7 @@
     "verify:provider": "node scripts/verify-provider-config.cjs",
     "verify:interview-scoring": "node scripts/verify-interview-scoring.cjs",
     "verify:match-evidence": "node scripts/verify-match-evidence.cjs",
+    "verify:growth-loop": "node scripts/verify-growth-loop.cjs",
     "verify:agent-memory": "node scripts/verify-agent-memory.cjs",
     "verify:resume-processing": "node scripts/verify-resume-processing.cjs",
     "verify:ui": "node scripts/verify-ui.cjs",

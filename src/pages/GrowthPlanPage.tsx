@@ -29,6 +29,7 @@ type GrowthPlanPageProps = {
   onUpdateTask: (taskId: string, evidenceText: string, evidenceUrl: string, completed: boolean) => Promise<void>;
   onUpdateTargetDate: (targetDate: string) => Promise<void>;
   onRegenerate: () => Promise<void>;
+  onReassess: () => Promise<void>;
 };
 
 type EvidenceDraft = { text: string; url: string };
@@ -57,6 +58,7 @@ export default function GrowthPlanPage({
   onUpdateTask,
   onUpdateTargetDate,
   onRegenerate,
+  onReassess,
 }: GrowthPlanPageProps) {
   const [activeStage, setActiveStage] = useState<GrowthStageDays>(0);
   const [drafts, setDrafts] = useState<Record<string, EvidenceDraft>>({});
@@ -64,6 +66,7 @@ export default function GrowthPlanPage({
   const [workingTask, setWorkingTask] = useState<string | null>(null);
   const [dateError, setDateError] = useState("");
   const [workingDate, setWorkingDate] = useState(false);
+  const [reassessError, setReassessError] = useState("");
 
   useEffect(() => {
     if (!plan) return;
@@ -111,7 +114,9 @@ export default function GrowthPlanPage({
 
   const activeStageInfo = plan.stages.find((stage) => stage.days === resolvedActiveStage) ?? plan.stages[0];
   const activeStageIndex = Math.max(0, plan.stages.findIndex((stage) => stage.days === activeStageInfo.days));
-  const stageCompleted = stageTasks.filter((task) => task.completed).length;
+  const stageCompleted = stageTasks.filter((task) => task.completed && task.evidenceStatus === "verified").length;
+  const verifiedTaskCount = plan.tasks.filter((task) => task.completed && task.evidenceStatus === "verified").length;
+  const revisionTaskCount = plan.tasks.filter((task) => task.evidenceStatus === "needs_revision").length;
   const planningDays = plan.planningDays ?? plan.stages[plan.stages.length - 1]?.days ?? 90;
   const planningWeeks = plan.planningWeeks ?? Math.ceil(planningDays / 7);
 
@@ -143,6 +148,15 @@ export default function GrowthPlanPage({
     }
   };
 
+  const reassess = async () => {
+    setReassessError("");
+    try {
+      await onReassess();
+    } catch (error) {
+      setReassessError(error instanceof Error ? error.message : "复测失败，请重试。");
+    }
+  };
+
   return (
     <section className="growth-plan-page">
       <header className="growth-hero">
@@ -166,10 +180,14 @@ export default function GrowthPlanPage({
           <button type="button" onClick={() => void onRegenerate()} disabled={status === "saving"}>
             <RefreshCw size={15} /> 按当前画像重排
           </button>
+          <button type="button" onClick={() => void reassess()} disabled={status === "saving" || !isTargetCurrent}>
+            <TrendingUp size={15} /> 重新计算实证分
+          </button>
         </div>
       </header>
 
       {dateError ? <div className="growth-warning">{dateError}</div> : null}
+      {reassessError ? <div className="growth-warning">{reassessError}</div> : null}
 
       {!isTargetCurrent ? (
         <div className="growth-warning">
@@ -186,22 +204,31 @@ export default function GrowthPlanPage({
         </article>
         <article>
           <Flag size={19} />
-          <span>当前匹配度</span>
-          <strong>{plan.baseMatchScore}<em>分</em></strong>
-          <small>生成计划时的基线</small>
+          <span>当前实证匹配度</span>
+          <strong>{plan.verifiedMatchScore}<em>分</em></strong>
+          <small>初始 {plan.baseMatchScore} 分 · 最近复测结果</small>
         </article>
         <article className="projected">
           <TrendingUp size={19} />
-          <span>证据完成后预测</span>
+          <span>已验证证据预测</span>
           <strong>{plan.projectedMatchScore}<em>分</em></strong>
-          <small>不代表真实招聘结果</small>
+          <small>仅为成长预测，不覆盖实证分</small>
         </article>
         <article>
           <CheckCircle2 size={19} />
-          <span>计划进度</span>
+          <span>证据审核进度</span>
           <strong>{progress.percentage}<em>%</em></strong>
-          <small>{progress.completed}/{progress.total} 项已完成</small>
+          <small>{progress.completed}/{progress.total} 项已验证{revisionTaskCount ? ` · ${revisionTaskCount} 项待补充` : ""}</small>
         </article>
+      </section>
+
+      <section className="growth-score-boundary">
+        <FileCheck2 size={18} />
+        <div>
+          <strong>预测分与实证分已分离</strong>
+          <p>任务证据先由本地审核智能体检查相关性、完整性和可信度。审核通过只更新预测分；把成果写入简历或完成新一轮面试后，再点击“重新计算实证分”。</p>
+        </div>
+        <span>{verifiedTaskCount} 项证据已通过</span>
       </section>
 
       <div className="growth-content-grid">
@@ -216,7 +243,7 @@ export default function GrowthPlanPage({
 
           <div className="growth-stage-tabs" role="tablist" aria-label="成长计划阶段">
             {plan.stages.map((stage, stageIndex) => {
-              const completed = plan.tasks.filter((task) => task.stageDays === stage.days && task.completed).length;
+              const completed = plan.tasks.filter((task) => task.stageDays === stage.days && task.completed && task.evidenceStatus === "verified").length;
               const total = plan.tasks.filter((task) => task.stageDays === stage.days).length;
               return (
                 <button
@@ -247,7 +274,7 @@ export default function GrowthPlanPage({
             {stageTasks.map((task) => {
               const draft = drafts[task.id] ?? { text: "", url: "" };
               return (
-                <article key={task.id} className={`growth-task-card ${task.completed ? "completed" : ""} ${!activeStageInfo.unlocked ? "locked" : ""}`}>
+                <article key={task.id} className={`growth-task-card evidence-${task.evidenceStatus} ${task.completed ? "completed" : ""} ${!activeStageInfo.unlocked ? "locked" : ""}`}>
                   <header>
                     <div className="growth-task-icon">{taskIcon(task)}</div>
                     <div>
@@ -273,17 +300,27 @@ export default function GrowthPlanPage({
 
                   {task.completed ? (
                     <div className="growth-completed-evidence">
-                      <strong><CheckCircle2 size={15} /> 已提交证据</strong>
+                      <strong><CheckCircle2 size={15} /> 证据审核通过 · {task.evidenceReview?.score ?? 0} 分</strong>
                       <p>{task.evidenceText || "已通过证据链接完成验收。"}</p>
                       {task.evidenceUrl ? <a href={task.evidenceUrl} target="_blank" rel="noreferrer">打开证据链接 <ExternalLink size={12} /></a> : null}
-                      <button type="button" onClick={() => void submitTask(task, false)} disabled={workingTask === task.id}>撤销完成</button>
+                      {task.evidenceReview ? (
+                        <small>{task.evidenceReview.summary} 相关性 {task.evidenceReview.relevance} · 完整性 {task.evidenceReview.completeness} · 可信度 {task.evidenceReview.credibility}</small>
+                      ) : null}
+                      <button type="button" onClick={() => void submitTask(task, false)} disabled={workingTask === task.id}>撤回证据</button>
                     </div>
                   ) : (
                     <div className="growth-evidence-form">
+                      {task.evidenceStatus === "needs_revision" && task.evidenceReview ? (
+                        <div className="growth-evidence-review needs-revision">
+                          <strong>证据需补充 · {task.evidenceReview.score} 分</strong>
+                          <p>{task.evidenceReview.summary}</p>
+                          <ul>{task.evidenceReview.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+                        </div>
+                      ) : null}
                       <textarea
                         aria-label={`${task.title}证据说明（第${task.week}周）`}
                         value={draft.text}
-                        placeholder="说明你完成了什么、结果如何；也可以只填写下方证据链接。"
+                        placeholder="说明你的具体行动、可核验产物和结果；只写“已完成”不会通过审核。"
                         onChange={(event) => setDrafts((current) => ({
                           ...current,
                           [task.id]: { ...draft, text: event.target.value },
@@ -305,7 +342,7 @@ export default function GrowthPlanPage({
                         onClick={() => void submitTask(task, true)}
                         disabled={!activeStageInfo.unlocked || workingTask === task.id || status === "saving"}
                       >
-                        <CheckCircle2 size={15} /> {workingTask === task.id ? "正在验收" : "提交证据并完成"}
+                        <CheckCircle2 size={15} /> {workingTask === task.id ? "审核中" : task.evidenceStatus === "needs_revision" ? "重新提交证据审核" : "提交证据审核"}
                       </button>
                       {taskError[task.id] ? <small className="error">{taskError[task.id]}</small> : null}
                     </div>
@@ -321,8 +358,8 @@ export default function GrowthPlanPage({
             <header><Target size={17} /><h2>能力差距</h2></header>
             {plan.gaps.map((gap) => (
               <article key={gap.id}>
-                <div><strong>{gap.name}</strong><span>{gap.currentScore} → {gap.targetScore}</span></div>
-                <i><b style={{ width: `${gap.currentScore}%` }} /></i>
+                <div><strong>{gap.name}</strong><span>实证 {gap.currentScore} · 预测 {gap.projectedScore} → {gap.targetScore}</span></div>
+                <i><b style={{ width: `${gap.projectedScore}%` }} /></i>
                 <p>{gap.reason}</p>
               </article>
             ))}
@@ -347,6 +384,20 @@ export default function GrowthPlanPage({
                 <i />
                 <p>{item.message}</p>
                 <time>{new Date(item.createdAt).toLocaleString("zh-CN")}</time>
+              </article>
+            ))}
+          </section>
+
+          <section className="growth-assessment-panel">
+            <header><TrendingUp size={17} /><h2>实证复测记录</h2><em>{plan.assessments.length} 次</em></header>
+            {plan.assessments.slice().reverse().map((assessment) => (
+              <article key={assessment.id}>
+                <div>
+                  <strong>{assessment.matchScore} 分</strong>
+                  <span>面试 {assessment.interviewScore} · 证据覆盖 {assessment.evidenceCoverage}%</span>
+                </div>
+                <p>{assessment.summary}</p>
+                <time>{new Date(assessment.createdAt).toLocaleString("zh-CN")}</time>
               </article>
             ))}
           </section>
