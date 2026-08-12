@@ -282,9 +282,15 @@ async function main() {
   });
 
   const identityDialog = await page.locator(".identity-dialog").count();
-  const identityProtectAction = await page.getByRole("button", { name: /保护当前进度/ }).count();
+  const identityLoginTitle = await page.getByRole("heading", { name: "登录孔明职配" }).count();
+  const identityDemoAction = await page.getByRole("button", { name: /一键进入演示账号/ }).count();
+  await page.getByRole("button", { name: "创建账号" }).click();
+  const registrationTitle = await page.getByRole("heading", { name: "创建你的求职账号" }).count();
+  const registrationPasswordFields = await page.locator('.identity-dialog input[type="password"]').count();
+  await page.getByRole("button", { name: "返回登录" }).click();
   await page.screenshot({ path: screenshotPaths.identity, fullPage: false });
-  await page.getByRole("button", { name: "暂不绑定，继续本机体验" }).click();
+  await page.getByRole("button", { name: /一键进入演示账号/ }).click();
+  await page.locator(".app-nav").waitFor({ state: "visible", timeout: 8000 });
 
   const title = await page.locator("h1").first().innerText();
   await page.locator(".app-nav > div button").nth(1).click();
@@ -475,8 +481,11 @@ async function main() {
   if (!title.includes("孔明职配")) {
     throw new Error(`Unexpected home title: ${title}`);
   }
-  if (identityDialog !== 1 || identityProtectAction !== 1) {
-    throw new Error(`Expected identity recovery dialog, found dialog=${identityDialog}, protect=${identityProtectAction}`);
+  if (identityDialog !== 1 || identityLoginTitle !== 1 || identityDemoAction !== 1) {
+    throw new Error(`Expected real login page, found dialog=${identityDialog}, title=${identityLoginTitle}, demo=${identityDemoAction}`);
+  }
+  if (registrationTitle !== 1 || registrationPasswordFields !== 2) {
+    throw new Error(`Expected registration form with password confirmation, found title=${registrationTitle}, passwords=${registrationPasswordFields}`);
   }
   if (initialJobCards !== 0) {
     throw new Error(`Initial page should not show preset job cards, found ${initialJobCards}`);

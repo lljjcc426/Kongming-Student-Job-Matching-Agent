@@ -12,6 +12,7 @@ import {
 } from "./server/localJobKnowledgeWorker.js";
 import { closeLocalOcrWorker, warmLocalOcrWorker } from "./server/localOcrWorker.js";
 import {
+  AUTH_SESSION_COOKIE,
   closeAgentMemoryStore,
   runAgentMemoryRequest,
 } from "./server/agentMemoryCore.js";
@@ -170,7 +171,18 @@ const agentMemoryDevProxy = (): Plugin => ({
       }
 
       try {
-        const result = await runAgentMemoryRequest(await readJsonBody(request));
+        const cookieHeader = request.headers.cookie || "";
+        const sessionToken = cookieHeader.split(";").map((item) => item.trim()).reduce((token, item) => {
+          const [name, ...value] = item.split("=");
+          return name === AUTH_SESSION_COOKIE ? decodeURIComponent(value.join("=")) : token;
+        }, "");
+        const result = await runAgentMemoryRequest(await readJsonBody(request), { sessionToken });
+        if (result.sessionToken || result.clearSession) {
+          response.setHeader(
+            "Set-Cookie",
+            `${AUTH_SESSION_COOKIE}=${result.clearSession ? "" : encodeURIComponent(result.sessionToken)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${result.clearSession ? 0 : 2592000}`,
+          );
+        }
         response.statusCode = result.status;
         response.end(JSON.stringify(result.payload));
       } catch (error) {

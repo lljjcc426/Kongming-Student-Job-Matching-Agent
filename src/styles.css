@@ -13823,3 +13823,112 @@ body:has(.resume-editor-page) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.identity-login-backdrop {
+  background:
+    radial-gradient(circle at 18% 20%, rgba(14, 165, 233, 0.24), transparent 28%),
+    radial-gradient(circle at 82% 78%, rgba(37, 99, 235, 0.22), transparent 30%),
+    linear-gradient(145deg, #071a43, #0d2d6d 55%, #075985);
+}
+
+.identity-login-backdrop::before,
+.identity-login-backdrop::after {
+  content: "";
+  position: absolute;
+  width: 340px;
+  height: 340px;
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.identity-login-backdrop::before {
+  top: -170px;
+  right: 8vw;
+  box-shadow: 0 0 90px rgba(56, 189, 248, 0.12);
+}
+
+.identity-login-backdrop::after {
+  bottom: -210px;
+  left: 7vw;
+  width: 440px;
+  height: 440px;
+}
+
+.identity-login-dialog {
+  z-index: 1;
+  width: min(500px, 100%);
+}
+
+.identity-login-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 11px;
+}
+
+.identity-login-links button {
+  padding: 6px 2px;
+  border: 0;
+  color: #2563eb;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.identity-demo-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 12px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.identity-demo-divider::before,
+.identity-demo-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: rgba(148, 163, 184, 0.3);
+}
+
+.identity-demo-action {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px dashed rgba(37, 99, 235, 0.48);
+  border-radius: 13px;
+  color: #1d4ed8;
+  background: rgba(239, 246, 255, 0.76);
+  font-weight: 900;
+  text-align: left;
+  cursor: pointer;
+}
+
+.identity-demo-action svg {
+  grid-row: 1 / span 2;
+}
+
+.identity-demo-action small {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.identity-form-actions > :only-child {
+  grid-column: 1 / -1;
+}
+
+.identity-wide-action:disabled,
+.identity-demo-action:disabled,
+.identity-account-actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}

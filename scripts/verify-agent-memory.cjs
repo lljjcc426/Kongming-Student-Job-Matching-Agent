@@ -16,7 +16,8 @@ process.env.AGENT_MEMORY_RETENTION_DAYS = "180";
 const coreUrl = pathToFileURL(path.resolve("server/agentMemoryCore.js")).href;
 
 async function main() {
-  const { closeAgentMemoryStore, resolveAgentMemoryPath, runAgentMemoryRequest } = await import(coreUrl);
+  const { closeAgentMemoryStore, resolveAgentMemoryPath, runAgentMemoryRequest: requestMemory } = await import(coreUrl);
+  const runAgentMemoryRequest = (body) => requestMemory(body, { trustedUserId: true });
   const userId = "km_verify_agent_memory_001";
 
   try {
@@ -105,61 +106,111 @@ async function main() {
     });
     assert.equal(invalidGrowth.status, 400);
 
-    const createdIdentity = await runAgentMemoryRequest({
-      action: "create-identity",
+    const weakPassword = await requestMemory({
+      action: "register",
       userId,
       nickname: "孔明验证用户",
+      password: "123456",
     });
-    assert.equal(createdIdentity.status, 200);
-    assert.equal(createdIdentity.payload.identity.userId, userId);
-    assert.equal(createdIdentity.payload.identity.registered, true);
-    assert.match(createdIdentity.payload.recoveryCode, /^\d{6}$/);
+    assert.equal(weakPassword.status, 400);
 
-    const memoryAfterBinding = await runAgentMemoryRequest({ action: "load", userId });
+    const registered = await requestMemory({
+      action: "register",
+      userId,
+      nickname: "孔明验证用户",
+      password: "safe-pass-2026",
+    });
+    assert.equal(registered.status, 200);
+    assert.equal(registered.payload.identity.userId, userId);
+    assert.equal(registered.payload.identity.authenticated, true);
+    assert.match(registered.payload.recoveryCode, /^\d{6}$/);
+    assert.ok(registered.sessionToken);
+    const sessionContext = { sessionToken: registered.sessionToken };
+
+    const memoryAfterBinding = await requestMemory({ action: "load", userId: "km_spoofed_other_user" }, sessionContext);
     assert.equal(memoryAfterBinding.payload.memory.messages.length, 2);
-    const growthAfterBinding = await runAgentMemoryRequest({ action: "load-growth", userId });
+    const growthAfterBinding = await requestMemory({ action: "load-growth" }, sessionContext);
     assert.equal(growthAfterBinding.payload.plan.id, growthPlan.id);
 
     closeAgentMemoryStore();
-    const identityStatus = await runAgentMemoryRequest({ action: "identity-status", userId });
+    const identityStatus = await requestMemory({ action: "auth-status", userId }, sessionContext);
     assert.equal(identityStatus.status, 200);
     assert.equal(identityStatus.payload.identity.nickname, "孔明验证用户");
+    assert.equal(identityStatus.payload.authenticated, true);
 
-    const wrongRecovery = await runAgentMemoryRequest({
-      action: "restore-identity",
+    const unauthorized = await requestMemory({ action: "load", userId });
+    assert.equal(unauthorized.status, 401);
+
+    const wrongPassword = await requestMemory({
+      action: "login",
+      nickname: "孔明验证用户",
+      password: "wrong-password",
+    });
+    assert.equal(wrongPassword.status, 401);
+
+    const loggedIn = await requestMemory({
+      action: "login",
+      nickname: "孔明验证用户",
+      password: "safe-pass-2026",
+    });
+    assert.equal(loggedIn.status, 200);
+    assert.ok(loggedIn.sessionToken);
+
+    const wrongRecovery = await requestMemory({
+      action: "recover-account",
       userId: "km_temporary_browser_001",
       nickname: "孔明验证用户",
-      recoveryCode: "999999" === createdIdentity.payload.recoveryCode ? "888888" : "999999",
+      recoveryCode: "999999" === registered.payload.recoveryCode ? "888888" : "999999",
+      password: "replacement-pass-2026",
     });
     assert.equal(wrongRecovery.status, 401);
 
-    const restoredIdentity = await runAgentMemoryRequest({
-      action: "restore-identity",
+    const restoredIdentity = await requestMemory({
+      action: "recover-account",
       userId: "km_temporary_browser_001",
       nickname: "孔明验证用户",
-      recoveryCode: createdIdentity.payload.recoveryCode,
+      recoveryCode: registered.payload.recoveryCode,
+      password: "replacement-pass-2026",
     });
     assert.equal(restoredIdentity.status, 200);
     assert.equal(restoredIdentity.payload.identity.userId, userId);
+    assert.ok(restoredIdentity.sessionToken);
 
-    const duplicateNickname = await runAgentMemoryRequest({
-      action: "create-identity",
+    const duplicateNickname = await requestMemory({
+      action: "register",
       userId: "km_second_identity_001",
       nickname: "孔明验证用户",
+      password: "another-safe-pass",
     });
     assert.equal(duplicateNickname.status, 409);
 
-    const cleared = await runAgentMemoryRequest({ action: "clear", userId });
+    const recoveredSession = { sessionToken: restoredIdentity.sessionToken };
+    const oldSessionInvalidated = await requestMemory({ action: "load" }, sessionContext);
+    assert.equal(oldSessionInvalidated.status, 401);
+
+    const cleared = await requestMemory({ action: "clear" }, recoveredSession);
     assert.equal(cleared.status, 200);
     assert.deepEqual(cleared.payload.memory.messages, []);
     assert.deepEqual(cleared.payload.memory.feedback, []);
     assert.equal(cleared.payload.memory.summary, "");
-    const clearedGrowth = await runAgentMemoryRequest({ action: "load-growth", userId });
+    const clearedGrowth = await requestMemory({ action: "load-growth" }, recoveredSession);
     assert.equal(clearedGrowth.payload.plan, null);
-    const identityAfterClear = await runAgentMemoryRequest({ action: "identity-status", userId });
+    const identityAfterClear = await requestMemory({ action: "auth-status" }, recoveredSession);
     assert.equal(identityAfterClear.payload.identity.registered, true);
     assert.equal(identityAfterClear.payload.identity.nickname, "孔明验证用户");
-    console.log("[智能体记忆] 写入、反馈、身份找回、重启恢复、结构化上下文与清除验证通过");
+
+    const demoLogin = await requestMemory({ action: "login-demo" });
+    assert.equal(demoLogin.status, 200);
+    assert.equal(demoLogin.payload.identity.accountKind, "demo");
+    const demoMemory = await requestMemory({ action: "load" }, { sessionToken: demoLogin.sessionToken });
+    assert.deepEqual(demoMemory.payload.memory.messages, []);
+
+    const logout = await requestMemory({ action: "logout" }, recoveredSession);
+    assert.equal(logout.status, 200);
+    assert.equal(logout.clearSession, true);
+    const afterLogout = await requestMemory({ action: "load" }, recoveredSession);
+    assert.equal(afterLogout.status, 401);
+    console.log("[智能体记忆] 写入、密码认证、会话隔离、恢复、演示账号、重启恢复与清除验证通过");
     console.log(`[智能体记忆] 测试数据库位于 D 盘临时目录：${testDirectory}`);
   } finally {
     closeAgentMemoryStore();

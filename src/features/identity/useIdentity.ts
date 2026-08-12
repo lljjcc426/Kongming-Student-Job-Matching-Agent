@@ -1,71 +1,74 @@
 import { useEffect, useState } from "react";
 import {
-  continueAsAnonymous,
-  createIdentity,
   getCachedIdentity,
-  hasCompletedIdentityChoice,
-  loadIdentityStatus,
-  restoreIdentity,
-  startFreshExperience,
+  loadAuthStatus,
+  loginAccount,
+  loginDemoAccount,
+  logoutAccount,
+  recoverAccount,
+  registerAccount,
   type AppIdentity,
 } from "./identityClient";
 
 export function useIdentity() {
   const [identity, setIdentity] = useState<AppIdentity>(getCachedIdentity);
-  const [dialogOpen, setDialogOpen] = useState(() => !hasCompletedIdentityChoice());
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
-    void loadIdentityStatus()
+    void loadAuthStatus()
       .then((storedIdentity) => {
-        if (!active) return;
-        setIdentity(storedIdentity);
-        if (storedIdentity.registered) setDialogOpen(false);
+        if (active) setIdentity(storedIdentity);
       })
       .catch(() => {
-        // 本地身份仍可继续使用，服务恢复后会在下一次请求中重新校验。
+        if (active) setIdentity((current) => ({ ...current, authenticated: false }));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
   }, []);
 
-  const create = async (nickname: string) => {
-    const result = await createIdentity(nickname);
+  const register = async (nickname: string, password: string) => {
+    const result = await registerAccount(nickname, password);
     setIdentity(result.identity);
-    return result.recoveryCode;
+    return result;
   };
 
-  const restore = async (nickname: string, recoveryCode: string) => {
-    const restored = await restoreIdentity(nickname, recoveryCode);
-    setIdentity(restored);
-    setDialogOpen(false);
+  const login = async (nickname: string, password: string) => {
+    const loggedIn = await loginAccount(nickname, password);
+    setIdentity(loggedIn);
   };
 
-  const continueAnonymous = () => {
-    setIdentity(continueAsAnonymous());
-    setDialogOpen(false);
+  const recover = async (nickname: string, recoveryCode: string, password: string) => {
+    const recovered = await recoverAccount(nickname, recoveryCode, password);
+    setIdentity(recovered);
   };
 
-  const logout = () => {
-    setIdentity(startFreshExperience(false));
-    setDialogOpen(true);
+  const loginDemo = async () => {
+    const demo = await loginDemoAccount();
+    setIdentity(demo);
   };
 
-  const startFresh = () => {
-    setIdentity(startFreshExperience(true));
+  const logout = async () => {
+    const loggedOut = await logoutAccount();
+    setIdentity(loggedOut);
     setDialogOpen(false);
   };
 
   return {
     identity,
+    loading,
     dialogOpen,
     openDialog: () => setDialogOpen(true),
     closeDialog: () => setDialogOpen(false),
-    create,
-    restore,
-    continueAnonymous,
+    register,
+    login,
+    recover,
+    loginDemo,
     logout,
-    startFresh,
   };
 }

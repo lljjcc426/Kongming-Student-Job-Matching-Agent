@@ -1,5 +1,4 @@
 import type { GrowthPlan } from "./types";
-import { getMemoryUserId } from "../identity/identityClient";
 
 const memoryEndpoint = () => import.meta.env.VITE_AGENT_MEMORY_API_URL || "/api/memory";
 
@@ -12,8 +11,9 @@ type GrowthResponse = {
 const request = async (payload: Record<string, unknown>) => {
   const response = await fetch(memoryEndpoint(), {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify({ ...payload, userId: getMemoryUserId() }),
+    body: JSON.stringify(payload),
   });
   const data = await response.json().catch(() => ({})) as GrowthResponse;
   if (!response.ok || !data.ok) {

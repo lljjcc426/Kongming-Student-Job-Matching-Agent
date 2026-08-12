@@ -1,6 +1,5 @@
 export const AGENT_USER_ID_STORAGE_KEY = "kongming.agent-memory.user-id.v1";
-const IDENTITY_STORAGE_KEY = "kongming.identity.account.v1";
-const IDENTITY_CHOICE_STORAGE_KEY = "kongming.identity.choice.v1";
+const IDENTITY_STORAGE_KEY = "kongming.identity.account.v2";
 
 const identityEndpoint = () => import.meta.env.VITE_AGENT_MEMORY_API_URL || "/api/memory";
 
@@ -8,15 +7,21 @@ export type AppIdentity = {
   userId: string;
   nickname: string;
   registered: boolean;
+  authenticated: boolean;
+  hasPassword: boolean;
+  accountKind: "user" | "demo";
   createdAt?: string;
   updatedAt?: string;
+  sessionExpiresAt?: string;
 };
 
 type IdentityResponse = {
   ok: boolean;
+  authenticated?: boolean;
   error?: string;
   identity?: AppIdentity;
   recoveryCode?: string;
+  migratedLegacyIdentity?: boolean;
 };
 
 const newUserId = () => {
@@ -34,84 +39,84 @@ export const getMemoryUserId = () => {
   return userId;
 };
 
-const anonymousIdentity = (userId = getMemoryUserId()): AppIdentity => ({
+const emptyIdentity = (userId = getMemoryUserId()): AppIdentity => ({
   userId,
   nickname: "",
   registered: false,
+  authenticated: false,
+  hasPassword: false,
+  accountKind: "user",
 });
 
-const persistIdentity = (identity: AppIdentity, markChoice = true) => {
-  window.localStorage.setItem(AGENT_USER_ID_STORAGE_KEY, identity.userId);
-  if (identity.registered) {
-    window.localStorage.setItem(IDENTITY_STORAGE_KEY, JSON.stringify(identity));
-  } else {
-    window.localStorage.removeItem(IDENTITY_STORAGE_KEY);
-  }
-  if (markChoice) window.localStorage.setItem(IDENTITY_CHOICE_STORAGE_KEY, "done");
+const persistIdentity = (identity: AppIdentity) => {
+  window.localStorage.setItem(AGENT_USER_ID_STORAGE_KEY, identity.userId || getMemoryUserId());
+  window.localStorage.setItem(IDENTITY_STORAGE_KEY, JSON.stringify(identity));
 };
 
 export const getCachedIdentity = (): AppIdentity => {
-  const userId = getMemoryUserId();
   try {
     const stored = JSON.parse(window.localStorage.getItem(IDENTITY_STORAGE_KEY) || "null") as AppIdentity | null;
-    if (stored?.registered && stored.userId === userId && typeof stored.nickname === "string") {
-      return stored;
+    if (stored?.userId && typeof stored.nickname === "string") {
+      return { ...stored, authenticated: false };
     }
   } catch {
     window.localStorage.removeItem(IDENTITY_STORAGE_KEY);
   }
-  return anonymousIdentity(userId);
+  return emptyIdentity();
 };
 
-export const hasCompletedIdentityChoice = () =>
-  window.localStorage.getItem(IDENTITY_CHOICE_STORAGE_KEY) === "done"
-  || getCachedIdentity().registered;
-
-const requestIdentity = async (payload: Record<string, unknown>) => {
+const requestIdentity = async (payload: Record<string, unknown>, requireIdentity = true) => {
   const response = await fetch(identityEndpoint(), {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json; charset=utf-8" },
     body: JSON.stringify({ ...payload, userId: getMemoryUserId() }),
   });
   const data = await response.json().catch(() => ({})) as IdentityResponse;
-  if (!response.ok || !data.ok || !data.identity) {
-    throw new Error(data.error || "用户身份服务暂不可用。");
+  if (!response.ok || !data.ok || (requireIdentity && !data.identity)) {
+    throw new Error(data.error || "账户服务暂不可用。");
   }
+  if (data.identity) persistIdentity(data.identity);
   return data;
 };
 
-export const loadIdentityStatus = async () => {
-  const data = await requestIdentity({ action: "identity-status" });
-  persistIdentity(data.identity!, data.identity!.registered);
+export const loadAuthStatus = async () => {
+  const data = await requestIdentity({ action: "auth-status" });
   return data.identity!;
 };
 
-export const createIdentity = async (nickname: string) => {
-  const data = await requestIdentity({ action: "create-identity", nickname });
-  persistIdentity(data.identity!);
-  return { identity: data.identity!, recoveryCode: data.recoveryCode || "" };
+export const registerAccount = async (nickname: string, password: string) => {
+  const data = await requestIdentity({ action: "register", nickname, password });
+  return {
+    identity: data.identity!,
+    recoveryCode: data.recoveryCode || "",
+    migratedLegacyIdentity: Boolean(data.migratedLegacyIdentity),
+  };
 };
 
-export const restoreIdentity = async (nickname: string, recoveryCode: string) => {
-  const data = await requestIdentity({ action: "restore-identity", nickname, recoveryCode });
-  persistIdentity(data.identity!);
+export const loginAccount = async (nickname: string, password: string) => {
+  const data = await requestIdentity({ action: "login", nickname, password });
   return data.identity!;
 };
 
-export const continueAsAnonymous = () => {
-  const identity = anonymousIdentity();
-  persistIdentity(identity);
-  return identity;
+export const recoverAccount = async (
+  nickname: string,
+  recoveryCode: string,
+  password: string,
+) => {
+  const data = await requestIdentity({ action: "recover-account", nickname, recoveryCode, password });
+  return data.identity!;
 };
 
-export const startFreshExperience = (rememberChoice = true) => {
-  const identity = anonymousIdentity(newUserId());
+export const loginDemoAccount = async () => {
+  const data = await requestIdentity({ action: "login-demo" });
+  return data.identity!;
+};
+
+export const logoutAccount = async () => {
+  await requestIdentity({ action: "logout" }, false);
+  const identity = emptyIdentity(newUserId());
   window.localStorage.setItem(AGENT_USER_ID_STORAGE_KEY, identity.userId);
   window.localStorage.removeItem(IDENTITY_STORAGE_KEY);
-  if (rememberChoice) {
-    window.localStorage.setItem(IDENTITY_CHOICE_STORAGE_KEY, "done");
-  } else {
-    window.localStorage.removeItem(IDENTITY_CHOICE_STORAGE_KEY);
-  }
   return identity;
 };

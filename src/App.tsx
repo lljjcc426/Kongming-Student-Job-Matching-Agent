@@ -247,20 +247,24 @@ function App() {
 
   return (
     <>
-      <Workspace
-        key={identity.identity.userId}
-        identity={identity.identity}
-        onOpenIdentity={identity.openDialog}
-      />
+      {identity.identity.authenticated ? (
+        <Workspace
+          key={identity.identity.userId}
+          identity={identity.identity}
+          onOpenIdentity={identity.openDialog}
+        />
+      ) : null}
       <IdentityDialog
-        open={identity.dialogOpen}
+        open={identity.dialogOpen || !identity.identity.authenticated}
+        required={!identity.identity.authenticated}
+        loading={identity.loading}
         identity={identity.identity}
         onClose={identity.closeDialog}
-        onCreate={identity.create}
-        onRestore={identity.restore}
-        onContinueAnonymous={identity.continueAnonymous}
+        onRegister={identity.register}
+        onLogin={identity.login}
+        onRecover={identity.recover}
+        onLoginDemo={identity.loginDemo}
         onLogout={identity.logout}
-        onStartFresh={identity.startFresh}
       />
     </>
   );
