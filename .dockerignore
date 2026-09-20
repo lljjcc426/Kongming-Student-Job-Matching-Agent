@@ -1,0 +1,16 @@
+.git
+.vercel
+.env
+.env.*
+node_modules
+dist
+build
+out
+output
+artifacts
+__pycache__
+*.py[cod]
+*.log
+docs
+public
+src

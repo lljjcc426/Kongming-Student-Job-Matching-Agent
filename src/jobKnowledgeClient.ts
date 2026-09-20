@@ -66,6 +66,8 @@ export type JobKnowledgeSearchResponse =
         rerankerEnabled: boolean;
         rerankerApplied: boolean;
         rerankerModel: string | null;
+        rerankerSource: string | null;
+        rerankerMaxLength: number | null;
         rerankCandidates: number;
         rerankElapsedMs: number;
         rerankerError: string | null;

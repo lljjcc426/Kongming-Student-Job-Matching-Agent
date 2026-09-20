@@ -1,5 +1,6 @@
 import type { Job } from "./data";
 import type { MatchResult } from "./matchEngine";
+import type { AgentMemoryPromptContext } from "./features/assistant/agentMemoryClient";
 
 export type ArkTask = "match-analysis" | "resume-vision" | "resume-structure" | "job-recommendations" | "jd-analysis" | "interview-feedback" | "career-chat";
 
@@ -21,6 +22,7 @@ export type ArkRequest = {
     role: "user" | "assistant";
     content: string;
   }>;
+  persistentMemory?: AgentMemoryPromptContext;
 };
 
 export type ArkResponse = {

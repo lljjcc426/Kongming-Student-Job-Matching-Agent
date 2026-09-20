@@ -21,6 +21,7 @@ const MIN_TEXT_QUALITY = 0.56;
 const MIN_TEXT_COVERAGE = 0.35;
 const MAX_PAGE_IMAGE_CHARS = 1_450_000;
 const PDF_CMAP_URL = "/vendor/pdfjs/cmaps/";
+const PDF_PAGE_CONCURRENCY = 2;
 
 const RESUME_SIGNAL_TERMS = [
   "姓名",
@@ -131,7 +132,7 @@ const compressCanvas = (canvas: HTMLCanvasElement) => {
 
 const renderPageToImage = async (page: PDFPageProxy) => {
   const baseViewport = page.getViewport({ scale: 1 });
-  const maxSide = 1900;
+  const maxSide = 1600;
   const scale = Math.min(2, maxSide / Math.max(baseViewport.width, baseViewport.height));
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
@@ -149,6 +150,24 @@ const renderPageToImage = async (page: PDFPageProxy) => {
     width: canvas.width,
     height: canvas.height,
   } satisfies OcrPageInput;
+};
+
+const mapWithConcurrency = async <T, R>(
+  values: T[],
+  limit: number,
+  mapper: (value: T, index: number) => Promise<R>,
+) => {
+  const output = new Array<R>(values.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, values.length) }, async () => {
+    while (cursor < values.length) {
+      const index = cursor;
+      cursor += 1;
+      output[index] = await mapper(values[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return output;
 };
 
 const extractPageText = async (page: PDFPageProxy) => {
@@ -176,11 +195,11 @@ export async function readPdfResume(file: File): Promise<PdfReadResult> {
   const pageTexts: string[] = [];
   const imageDataUrls: string[] = [];
   const pageImages: OcrPageInput[] = [];
-
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+  const pageNumbers = Array.from({ length: pdf.numPages }, (_, index) => index + 1);
+  pageTexts.push(...await mapWithConcurrency(pageNumbers, PDF_PAGE_CONCURRENCY, async (pageNumber) => {
     const page = await pdf.getPage(pageNumber);
-    pageTexts.push(await extractPageText(page));
-  }
+    return extractPageText(page);
+  }));
 
   const normalized = normalizeText(pageTexts.map((text, index) => `【第 ${index + 1} 页】\n${text}`).join("\n\n"));
   const quality = getTextQuality(normalized);
@@ -200,14 +219,21 @@ export async function readPdfResume(file: File): Promise<PdfReadResult> {
     };
   }
 
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+  const unreadablePageNumbers = pageNumbers.filter((pageNumber) => {
+    const pageText = pageTexts[pageNumber - 1] || "";
+    return pageText.replace(/\s/g, "").length < MIN_PAGE_TEXT_CHARS
+      || getTextQuality(pageText) < MIN_TEXT_QUALITY;
+  });
+  const pagesToRender = unreadablePageNumbers.length ? unreadablePageNumbers : pageNumbers;
+  const renderedPages = await mapWithConcurrency(pagesToRender, PDF_PAGE_CONCURRENCY, async (pageNumber) => {
     const page = await pdf.getPage(pageNumber);
-    const image = await renderPageToImage(page);
-    if (image) {
-      pageImages.push(image);
-      imageDataUrls.push(image.imageDataUrl);
-    }
-  }
+    return renderPageToImage(page);
+  });
+  renderedPages.forEach((image) => {
+    if (!image) return;
+    pageImages.push(image);
+    imageDataUrls.push(image.imageDataUrl);
+  });
 
   return {
     text: normalized,

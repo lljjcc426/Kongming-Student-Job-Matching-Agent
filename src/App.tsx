@@ -7,15 +7,24 @@ import { useCareerChat } from "./features/assistant/useCareerChat";
 import { useJobWorkspace } from "./features/jobs/useJobWorkspace";
 import { useMatchInsights } from "./features/matching/useMatchInsights";
 import { useResumeProcessing } from "./features/resume/useResumeProcessing";
+import { useGrowthPlan } from "./features/growth/useGrowthPlan";
 import LoadingScreen from "./LoadingScreen";
+import IdentityDialog from "./components/identity/IdentityDialog";
+import { useIdentity } from "./features/identity/useIdentity";
+import type { AppIdentity } from "./features/identity/identityClient";
 
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const HomePage = lazy(() => import("./pages/HomePage"));
 const InterviewPage = lazy(() => import("./pages/InterviewPage"));
 const MatchingWorkspacePage = lazy(() => import("./pages/MatchingWorkspacePage"));
+const GrowthPlanPage = lazy(() => import("./pages/GrowthPlanPage"));
 
-function App() {
-  const [introVisible, setIntroVisible] = useState(true);
+type WorkspaceProps = {
+  identity: AppIdentity;
+  onOpenIdentity: () => void;
+};
+
+function Workspace({ identity, onOpenIdentity }: WorkspaceProps) {
   const [activePage, setActivePage] = useState<ActivePage>("home");
   const profileColumnRef = useRef<HTMLElement | null>(null);
   const {
@@ -28,6 +37,7 @@ function App() {
     modelJobs,
     modelInsight,
     modelStatus,
+    documentStatus,
     modelMessage,
     pipelineStep,
     uploadMessage,
@@ -79,12 +89,24 @@ function App() {
     status: chatStatus,
     statusMessage: chatMessage,
     bodyRef: chatBodyRef,
+    memoryStatus,
+    memoryCount,
+    memoryUpdatedAt,
+    feedback: chatFeedback,
     startVoiceInput: handleChatSpeechInput,
     send: handleSendChat,
+    clearMemory: handleClearChatMemory,
+    submitFeedback: handleChatFeedback,
   } = useCareerChat({
     resumeText,
     resumeProfile: structuredResume,
     selectedJob,
+    matchResult: result,
+    hasAnalysis,
+  });
+  const growth = useGrowthPlan({
+    profile: activeProfile,
+    job: selectedJob,
     matchResult: result,
     hasAnalysis,
   });
@@ -96,13 +118,14 @@ function App() {
     });
   }, [activePage, structuredResume]);
 
-  if (introVisible) {
-    return <LoadingScreen onFinish={() => setIntroVisible(false)} />;
-  }
-
   return (
     <main className="app-shell">
-      <AppNav activePage={activePage} onChange={setActivePage} />
+      <AppNav
+        activePage={activePage}
+        identity={identity}
+        onChange={setActivePage}
+        onOpenIdentity={onOpenIdentity}
+      />
 
       <Suspense fallback={<PageLoadingFallback />}>
         {activePage === "home" ? <HomePage onNavigate={setActivePage} /> : null}
@@ -116,7 +139,7 @@ function App() {
             onChange={setStructuredResume}
             onUpload={(file) => uploadResume(file, { jdText: customJdText })}
             uploadMessage={uploadMessage}
-            isUploading={modelStatus === "loading"}
+            isUploading={documentStatus === "loading"}
           />
         ) : null}
 
@@ -172,18 +195,79 @@ function App() {
               status={chatStatus}
               statusMessage={chatStatus === "loading" ? "正在生成回复" : chatStatus === "listening" ? "正在收听" : chatMessage}
               bodyRef={chatBodyRef}
+              memoryStatus={memoryStatus}
+              memoryCount={memoryCount}
+              memoryUpdatedAt={memoryUpdatedAt}
+              feedback={chatFeedback}
               onInputChange={setChatInput}
               onSend={() => void handleSendChat()}
               onVoiceInput={handleChatSpeechInput}
+              onClearMemory={() => void handleClearChatMemory()}
+              onFeedback={handleChatFeedback}
             />
           </section>
         ) : null}
 
         {activePage === "interview" ? (
-          <InterviewPage job={selectedJob} profile={activeProfile} resumeText={resumeText} hasAnalysis={hasAnalysis} />
+          <InterviewPage
+            job={selectedJob}
+            profile={activeProfile}
+            resumeText={resumeText}
+            hasAnalysis={hasAnalysis}
+            onComplete={growth.completeInterview}
+            onOpenGrowthPlan={() => setActivePage("growth")}
+          />
+        ) : null}
+
+        {activePage === "growth" ? (
+          <GrowthPlanPage
+            plan={growth.plan}
+            status={growth.status}
+            message={growth.message}
+            progress={growth.progress}
+            isTargetCurrent={growth.isTargetCurrent}
+            onOpenInterview={() => setActivePage("interview")}
+            onUpdateTask={growth.updateTask}
+            onUpdateTargetDate={growth.updateTargetDate}
+            onRegenerate={growth.regenerate}
+            onReassess={growth.reassess}
+          />
         ) : null}
       </Suspense>
     </main>
+  );
+}
+
+function App() {
+  const [introVisible, setIntroVisible] = useState(true);
+  const identity = useIdentity();
+
+  if (introVisible) {
+    return <LoadingScreen onFinish={() => setIntroVisible(false)} />;
+  }
+
+  return (
+    <>
+      {identity.identity.authenticated ? (
+        <Workspace
+          key={identity.identity.userId}
+          identity={identity.identity}
+          onOpenIdentity={identity.openDialog}
+        />
+      ) : null}
+      <IdentityDialog
+        open={identity.dialogOpen || !identity.identity.authenticated}
+        required={!identity.identity.authenticated}
+        loading={identity.loading}
+        identity={identity.identity}
+        onClose={identity.closeDialog}
+        onRegister={identity.register}
+        onLogin={identity.login}
+        onRecover={identity.recover}
+        onLoginDemo={identity.loginDemo}
+        onLogout={identity.logout}
+      />
+    </>
   );
 }
 

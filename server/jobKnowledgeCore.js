@@ -1,7 +1,8 @@
 import {
-  getLocalJobKnowledgeStatus,
-  searchLocalJobKnowledge,
-} from "./localJobKnowledgeWorker.js";
+  getRemoteJobKnowledgeStatus,
+  hasRemoteJobKnowledge,
+  searchRemoteJobKnowledge,
+} from "./jobKnowledgeRemote.js";
 
 const MAX_QUERY_CHARS = 2000;
 const MAX_QUERY_VARIANTS = 3;
@@ -27,7 +28,7 @@ const normalizeFilters = (value) => {
   };
 };
 
-const normalizeSearchBody = (body) => {
+export const normalizeSearchBody = (body) => {
   const query = typeof body?.query === "string" ? body.query.trim() : "";
   const queries = Array.isArray(body?.queries)
     ? [...new Set(
@@ -44,6 +45,8 @@ const normalizeSearchBody = (body) => {
       ? Math.max(1, Math.min(30, Math.round(rawTopK)))
       : 10,
     filters: normalizeFilters(body?.filters),
+    ...(typeof body?.rerank === "boolean" ? { rerank: body.rerank } : {}),
+    bypassCache: body?.bypassCache === true,
   };
 };
 
@@ -66,66 +69,113 @@ const validateSearchBody = (body) => {
   return "";
 };
 
-export async function runJobKnowledgeSearch(body, { allowLocal = true } = {}) {
+const backendMode = () => {
+  const mode = process.env.JOB_RAG_BACKEND?.trim().toLowerCase();
+  return ["auto", "local", "remote"].includes(mode) ? mode : "auto";
+};
+
+const localSearch = async (body) => {
+  const { searchLocalJobKnowledge } = await import("./localJobKnowledgeWorker.js");
+  const result = await searchLocalJobKnowledge(body);
+  return { status: 200, payload: { ok: true, ...result } };
+};
+
+const localStatus = async () => {
+  const { getLocalJobKnowledgeStatus } = await import("./localJobKnowledgeWorker.js");
+  const result = await getLocalJobKnowledgeStatus();
+  return {
+    status: result.ready ? 200 : 503,
+    payload: { ok: result.ready, ...result },
+  };
+};
+
+export async function runJobKnowledgeSearch(
+  body,
+  { allowLocal = true, allowRemote = true } = {},
+) {
   const validationError = validateSearchBody(body);
   if (validationError) {
-    return {
-      status: 400,
-      payload: { ok: false, error: validationError },
-    };
+    return { status: 400, payload: { ok: false, error: validationError } };
   }
-  if (!allowLocal) {
+
+  const normalizedBody = normalizeSearchBody(body);
+  const mode = backendMode();
+  if (mode === "remote" || (!allowLocal && mode !== "local")) {
+    return allowRemote
+      ? searchRemoteJobKnowledge(normalizedBody)
+      : { status: 503, payload: { ok: false, error: "远程岗位知识库未启用。" } };
+  }
+  if (mode === "local" && !allowLocal) {
     return {
       status: 503,
-      payload: {
-        ok: false,
-        error: "当前部署环境未连接岗位向量数据库，请使用本地服务或配置生产向量库。",
-      },
+      payload: { ok: false, error: "当前部署环境不能使用本地岗位知识库。" },
     };
   }
 
-  try {
-    const result = await searchLocalJobKnowledge(normalizeSearchBody(body));
-    return {
-      status: 200,
-      payload: { ok: true, ...result },
-    };
-  } catch (error) {
-    return {
-      status: 503,
-      payload: {
-        ok: false,
-        error: error instanceof Error ? error.message : "岗位知识库暂不可用。",
-      },
-    };
+  if (allowLocal) {
+    try {
+      return await localSearch(normalizedBody);
+    } catch (error) {
+      if (mode === "auto" && allowRemote && hasRemoteJobKnowledge()) {
+        console.warn("[job-rag] local search unavailable; using remote backend");
+        return searchRemoteJobKnowledge(normalizedBody);
+      }
+      return {
+        status: 503,
+        payload: {
+          ok: false,
+          error: error instanceof Error ? error.message : "岗位知识库暂时不可用。",
+        },
+      };
+    }
   }
+
+  return {
+    status: 503,
+    payload: { ok: false, error: "岗位知识库后端尚未配置。" },
+  };
 }
 
-export async function runJobKnowledgeStatus({ allowLocal = true } = {}) {
-  if (!allowLocal) {
+export async function runJobKnowledgeStatus(
+  { allowLocal = true, allowRemote = true } = {},
+) {
+  const mode = backendMode();
+  if (mode === "remote" || (!allowLocal && mode !== "local")) {
+    return allowRemote
+      ? getRemoteJobKnowledgeStatus()
+      : {
+          status: 503,
+          payload: { ok: false, ready: false, error: "远程岗位知识库未启用。" },
+        };
+  }
+  if (mode === "local" && !allowLocal) {
     return {
       status: 503,
-      payload: {
-        ok: false,
-        ready: false,
-        error: "当前部署环境未连接岗位向量数据库。",
-      },
+      payload: { ok: false, ready: false, error: "当前部署环境不能使用本地岗位知识库。" },
     };
   }
-  try {
-    const result = await getLocalJobKnowledgeStatus();
-    return {
-      status: result.ready ? 200 : 503,
-      payload: { ok: result.ready, ...result },
-    };
-  } catch (error) {
-    return {
-      status: 503,
-      payload: {
-        ok: false,
-        ready: false,
-        error: error instanceof Error ? error.message : "岗位知识库状态检查失败。",
-      },
-    };
+
+  if (allowLocal) {
+    try {
+      return await localStatus();
+    } catch (error) {
+      if (mode === "auto" && allowRemote && hasRemoteJobKnowledge()) {
+        console.warn("[job-rag] local status unavailable; using remote backend");
+        return getRemoteJobKnowledgeStatus();
+      }
+      return {
+        status: 503,
+        payload: {
+          ok: false,
+          ready: false,
+          error: error instanceof Error ? error.message : "岗位知识库状态检查失败。",
+        },
+      };
+    }
   }
+
+  return {
+    status: 503,
+    payload: { ok: false, ready: false, error: "岗位知识库后端尚未配置。" },
+  };
 }

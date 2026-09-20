@@ -20,6 +20,9 @@ DEFAULT_QDRANT_PATH = Path(r"D:\Kongming-RAG\jobs-v1\database\qdrant")
 DEFAULT_MODEL_NAME = "BAAI/bge-small-zh-v1.5"
 DEFAULT_MODEL_CACHE = Path(r"D:\ai_models\huggingface")
 DEFAULT_RERANK_MODEL = "BAAI/bge-reranker-v2-m3"
+DEFAULT_RERANK_MODEL_PATH = Path(
+    r"D:\ai_models\kongming-rerankers\bge-reranker-v2-m3"
+)
 QUERY_INSTRUCTION = "为这个句子生成表示以用于检索相关文章："
 SCHEMA_VERSION = "1.2"
 VECTOR_BACKEND = "qdrant-local"
@@ -78,12 +81,79 @@ def _qdrant_path():
     return Path(os.environ.get("JOB_RAG_QDRANT_PATH", DEFAULT_QDRANT_PATH))
 
 
+def _manifest_qdrant_path(database):
+    configured_path = os.environ.get("JOB_RAG_QDRANT_PATH")
+    return Path(configured_path or database.get("path") or _qdrant_path())
+
+
 def _model_name():
     return os.environ.get("JOB_RAG_EMBED_MODEL", DEFAULT_MODEL_NAME)
 
 
 def _model_cache():
     return Path(os.environ.get("HF_HOME", DEFAULT_MODEL_CACHE))
+
+
+def _reranker_model_name():
+    return os.environ.get(
+        "JOB_RAG_RERANK_MODEL",
+        DEFAULT_RERANK_MODEL,
+    )
+
+
+def _reranker_model_path():
+    return Path(
+        os.environ.get(
+            "JOB_RAG_RERANK_MODEL_PATH",
+            DEFAULT_RERANK_MODEL_PATH,
+        )
+    )
+
+
+def _reranker_source():
+    model_path = _reranker_model_path()
+    if model_path.is_dir() or os.environ.get("JOB_RAG_RERANK_MODEL_PATH"):
+        return str(model_path)
+    return _reranker_model_name()
+
+
+def _reranker_model_available():
+    model_path = _reranker_model_path()
+    required_files = (
+        model_path / "config.json",
+        model_path / "model.safetensors",
+        model_path / "tokenizer_config.json",
+    )
+    tokenizer_available = any(
+        (model_path / file_name).is_file()
+        for file_name in ("tokenizer.json", "sentencepiece.bpe.model")
+    )
+    return all(file_path.is_file() for file_path in required_files) and tokenizer_available
+
+
+def _reranker_enabled():
+    return _env_bool(
+        "JOB_RAG_RERANK_ENABLED",
+        _reranker_model_available(),
+    )
+
+
+def _reranker_top_n():
+    return _env_int(
+        "JOB_RAG_RERANK_TOP_N",
+        8,
+        minimum=1,
+        maximum=30,
+    )
+
+
+def _reranker_max_length():
+    return _env_int(
+        "JOB_RAG_RERANK_MAX_LENGTH",
+        384,
+        minimum=128,
+        maximum=2048,
+    )
 
 
 def _env_bool(name, default=False):
@@ -335,7 +405,7 @@ def _make_embed_model():
 
 def _inspect_qdrant(manifest, client=None):
     database = manifest.get("database") or {}
-    database_path = Path(database.get("path") or _qdrant_path())
+    database_path = _manifest_qdrant_path(database)
     collection_name = database.get("collection")
     record_count = int(manifest.get("record_count") or 0)
     node_count = int(manifest.get("node_count") or record_count)
@@ -771,6 +841,7 @@ class JobKnowledgeBase:
         self.reranker = None
         self.reranker_error = None
         self.reranker_loaded_model = None
+        self.reranker_loaded_source = None
 
     def _cache_status(self):
         return {
@@ -786,20 +857,17 @@ class JobKnowledgeBase:
         }
 
     def _reranker_status(self):
+        model_path = _reranker_model_path()
         return {
-            "configured": _env_bool("JOB_RAG_RERANK_ENABLED", False),
+            "configured": _reranker_enabled(),
             "loaded": self.reranker is not None,
-            "model": os.environ.get(
-                "JOB_RAG_RERANK_MODEL",
-                DEFAULT_RERANK_MODEL,
-            ),
+            "model": _reranker_model_name(),
+            "source": self.reranker_loaded_source or _reranker_source(),
+            "modelPath": str(model_path),
+            "localModelAvailable": _reranker_model_available(),
             "device": os.environ.get("JOB_RAG_RERANK_DEVICE", "cpu"),
-            "topN": _env_int(
-                "JOB_RAG_RERANK_TOP_N",
-                12,
-                minimum=1,
-                maximum=30,
-            ),
+            "topN": _reranker_top_n(),
+            "maxLength": _reranker_max_length(),
             "localFilesOnly": _env_bool(
                 "JOB_RAG_RERANK_LOCAL_FILES_ONLY",
                 True,
@@ -819,12 +887,14 @@ class JobKnowledgeBase:
             "filters": normalized_filters,
             "rerank": rerank_enabled,
             "rerank_model": (
-                os.environ.get(
-                    "JOB_RAG_RERANK_MODEL",
-                    DEFAULT_RERANK_MODEL,
-                )
+                _reranker_model_name()
                 if rerank_enabled
                 else None
+            ),
+            "rerank_source": _reranker_source() if rerank_enabled else None,
+            "rerank_top_n": _reranker_top_n() if rerank_enabled else None,
+            "rerank_max_length": (
+                _reranker_max_length() if rerank_enabled else None
             ),
         }
         return hashlib.sha256(
@@ -869,33 +939,26 @@ class JobKnowledgeBase:
             return self.reranker
         if self.reranker_error:
             return None
-        model_name = os.environ.get(
-            "JOB_RAG_RERANK_MODEL",
-            DEFAULT_RERANK_MODEL,
-        )
+        model_name = _reranker_model_name()
+        model_source = _reranker_source()
         try:
             from sentence_transformers import CrossEncoder
 
             with contextlib.redirect_stdout(sys.stderr):
                 self.reranker = CrossEncoder(
-                    model_name,
+                    model_source,
                     device=os.environ.get(
                         "JOB_RAG_RERANK_DEVICE",
                         "cpu",
                     ),
-                    cache_folder=str(_model_cache()),
                     local_files_only=_env_bool(
                         "JOB_RAG_RERANK_LOCAL_FILES_ONLY",
                         True,
                     ),
-                    max_length=_env_int(
-                        "JOB_RAG_RERANK_MAX_LENGTH",
-                        512,
-                        minimum=128,
-                        maximum=2048,
-                    ),
+                    max_length=_reranker_max_length(),
                 )
             self.reranker_loaded_model = model_name
+            self.reranker_loaded_source = model_source
             return self.reranker
         except Exception as error:
             self.reranker_error = str(error)[:500]
@@ -908,12 +971,13 @@ class JobKnowledgeBase:
             "rerankerEnabled": enabled,
             "rerankerApplied": False,
             "rerankerModel": (
-                os.environ.get(
-                    "JOB_RAG_RERANK_MODEL",
-                    DEFAULT_RERANK_MODEL,
-                )
+                _reranker_model_name()
                 if enabled
                 else None
+            ),
+            "rerankerSource": _reranker_source() if enabled else None,
+            "rerankerMaxLength": (
+                _reranker_max_length() if enabled else None
             ),
             "rerankCandidates": 0,
             "rerankElapsedMs": 0,
@@ -936,12 +1000,7 @@ class JobKnowledgeBase:
             len(ranked_ids),
             max(
                 top_k,
-                _env_int(
-                    "JOB_RAG_RERANK_TOP_N",
-                    12,
-                    minimum=1,
-                    maximum=30,
-                ),
+                _reranker_top_n(),
             ),
         )
         rerank_ids = ranked_ids[:rerank_count]
@@ -1034,6 +1093,8 @@ class JobKnowledgeBase:
             )
         pointer = _read_json(pointer_path)
         version_dir = Path(pointer["version_dir"])
+        if not version_dir.exists():
+            version_dir = _index_root() / "versions" / pointer["version_id"]
         return {
             "pointer": pointer,
             "version_dir": version_dir,
@@ -1047,7 +1108,9 @@ class JobKnowledgeBase:
         try:
             paths = self._active_paths()
             manifest = _read_json(paths["manifest"])
-            data_path = Path(manifest["dataset_path"])
+            data_path = Path(
+                os.environ.get("JOB_RAG_DATA_PATH", manifest["dataset_path"])
+            )
             current_hash = _sha256_file(data_path) if data_path.exists() else ""
             common_ready = all(
                 paths[key].exists()
@@ -1114,7 +1177,8 @@ class JobKnowledgeBase:
                     "缺少 Qdrant RAG 依赖，请先运行 npm run setup:rag"
                 ) from error
             database = self.manifest["database"]
-            self.qdrant_client = QdrantClient(path=database["path"])
+            database_path = _manifest_qdrant_path(database)
+            self.qdrant_client = QdrantClient(path=str(database_path))
             vector_store = QdrantVectorStore(
                 client=self.qdrant_client,
                 collection_name=database["collection"],
@@ -1147,10 +1211,17 @@ class JobKnowledgeBase:
     def close(self):
         self.index = None
         self.reranker = None
+        self.reranker_loaded_source = None
         self.search_cache.clear()
         if self.qdrant_client is not None:
             self.qdrant_client.close()
             self.qdrant_client = None
+
+    def warmup(self):
+        self.load()
+        if _reranker_enabled():
+            self._load_reranker()
+        return self.status()
 
     def search(self, body):
         query, queries = _normalize_search_queries(body)
@@ -1164,7 +1235,7 @@ class JobKnowledgeBase:
         self.load()
         started_at = time.perf_counter()
         rerank_enabled = (
-            _env_bool("JOB_RAG_RERANK_ENABLED", False)
+            _reranker_enabled()
             and body.get("rerank") is not False
         )
         cache_bypassed = body.get("bypassCache") is True
@@ -1415,10 +1486,9 @@ class JobKnowledgeBase:
             rerank_diagnostics = {
                 "rerankerEnabled": rerank_enabled,
                 "rerankerApplied": False,
-                "rerankerModel": os.environ.get(
-                    "JOB_RAG_RERANK_MODEL",
-                    DEFAULT_RERANK_MODEL,
-                ),
+                "rerankerModel": _reranker_model_name(),
+                "rerankerSource": _reranker_source(),
+                "rerankerMaxLength": _reranker_max_length(),
                 "rerankCandidates": 0,
                 "rerankElapsedMs": 0,
                 "rerankerError": self.reranker_error,
@@ -1530,8 +1600,7 @@ def serve():
                 if action == "status":
                     result = knowledge_base.status()
                 elif action == "warmup":
-                    knowledge_base.load()
-                    result = knowledge_base.status()
+                    result = knowledge_base.warmup()
                 elif action == "search":
                     result = knowledge_base.search(request.get("body") or {})
                 else:

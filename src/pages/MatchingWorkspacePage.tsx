@@ -14,6 +14,8 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import type { ActivePage, AsyncStatus, JdPipelineStep, PipelineStep } from "../app/types";
 import type { CareerOpsEvaluation } from "../careerOps";
 import JobCard from "../components/jobs/JobCard";
+import CareerAbilityGraph from "../components/matching/CareerAbilityGraph";
+import ScoreEvidencePanel from "../components/matching/ScoreEvidencePanel";
 import ModelInsightMarkdown from "../components/model/ModelInsightMarkdown";
 import FontAwesomeShapeIcon from "../components/shared/FontAwesomeShapeIcon";
 import { BulletList, EmptyState, InfoBlock, Panel, TagList } from "../components/shared/ContentPrimitives";
@@ -176,7 +178,7 @@ function JobMatchingColumn({
                   key={job.id}
                   job={job}
                   active={job.id === match.selectedJob.id}
-                  result={analyzeMatch(match.profile, job, resume.text)}
+                  result={analyzeMatch(match.profile, job, resume.text, resume.structured)}
                   onSelect={() => jd.onSelect(job.id)}
                 />
               ))}
@@ -274,13 +276,15 @@ function JobMatchingColumn({
               </div>
             </div>
 
+            <CareerAbilityGraph result={match.result} />
+
             <div className="chart-card">
               <div className="section-head">
                 <div>
                   <span>Match Score</span>
-                  <h3>五维匹配评分</h3>
+                  <h3>五维证据评分</h3>
                 </div>
-                <p>评分用于辅助求职决策，不代表企业筛选结果。</p>
+                <p>总分严格按五维权重计算；展开下方解释可核对每一分的来源。</p>
               </div>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={match.result.dimensions} margin={{ top: 10, right: 16, left: -14, bottom: 0 }}>
@@ -292,6 +296,8 @@ function JobMatchingColumn({
                 </BarChart>
               </ResponsiveContainer>
             </div>
+
+            <ScoreEvidencePanel result={match.result} />
           </>
         ) : (
           <EmptyState title="暂无匹配结果" text="上传简历后会生成岗位推荐；粘贴 JD 后会优先分析目标岗位。" />

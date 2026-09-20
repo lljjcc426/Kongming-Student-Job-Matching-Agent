@@ -2,8 +2,9 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
+import { readBoundedIntegerEnv } from "./runtimeConfig.js";
 
-const DEFAULT_TIMEOUT_MS = Number(process.env.JOB_RAG_TIMEOUT_MS || 180_000);
+const DEFAULT_TIMEOUT_MS = 180_000;
 const DEFAULT_WINDOWS_PYTHON = "D:\\conda_envs\\kongming-rag\\python.exe";
 const DEFAULT_DATA_PATH = "D:\\Kongming-RAG\\jobs-v1\\jobs-500.jsonl";
 const DEFAULT_INDEX_ROOT = "D:\\Kongming-RAG\\jobs-v1\\index";
@@ -95,7 +96,12 @@ const startWorker = () => {
   return worker;
 };
 
-const requestWorker = (action, body, timeoutMs = DEFAULT_TIMEOUT_MS) =>
+const jobKnowledgeTimeoutMs = () => readBoundedIntegerEnv(
+  "JOB_RAG_TIMEOUT_MS",
+  DEFAULT_TIMEOUT_MS,
+);
+
+const requestWorker = (action, body, timeoutMs = jobKnowledgeTimeoutMs()) =>
   new Promise((resolve, reject) => {
     const processHandle = startWorker();
     const id = `job-rag-${Date.now()}-${requestSequence += 1}`;
@@ -117,13 +123,13 @@ const requestWorker = (action, body, timeoutMs = DEFAULT_TIMEOUT_MS) =>
     );
   });
 
-export const searchLocalJobKnowledge = (body, timeoutMs = DEFAULT_TIMEOUT_MS) =>
+export const searchLocalJobKnowledge = (body, timeoutMs = jobKnowledgeTimeoutMs()) =>
   requestWorker("search", body, timeoutMs);
 
 export const getLocalJobKnowledgeStatus = (timeoutMs = 15_000) =>
   requestWorker("status", {}, timeoutMs);
 
-export const warmLocalJobKnowledge = (timeoutMs = DEFAULT_TIMEOUT_MS) =>
+export const warmLocalJobKnowledge = (timeoutMs = jobKnowledgeTimeoutMs()) =>
   requestWorker("warmup", {}, timeoutMs);
 
 export const closeLocalJobKnowledgeWorker = () => {

@@ -7,7 +7,7 @@
 3. 页面图片发送到同源 `/api/ocr`。
 4. OCR 返回每行文字、四点坐标和置信度。
 5. OCR 文本进入现有结构化简历流程，坐标只用于原简历字段高亮。
-6. OCR 置信度过低时，保留豆包视觉模型作为语义识别兜底。
+6. OCR 置信度过低时，通过 Gitee AI / 沐曦资源包中的视觉模型完成语义识别兜底。
 
 ## 本地 RapidOCR
 
@@ -31,9 +31,9 @@ OCR_PYTHON_PATH=D:\conda_envs\kongming-ocr\python.exe
 OCR_MODEL_CACHE=D:\ai_models\kongming-ocr\modelscope
 ```
 
-## 火山 OCR
+## 可选外部 OCR
 
-部署环境无法运行本地 Python 时，可切换为火山多语种 OCR：
+比赛默认路径为本地 RapidOCR 加沐曦视觉模型，不依赖其他外部 OCR。现有代码仍保留火山多语种 OCR 作为非竞赛部署的可选兼容路径：
 
 ```text
 OCR_PROVIDER=volcengine

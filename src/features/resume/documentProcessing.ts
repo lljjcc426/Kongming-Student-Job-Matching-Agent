@@ -57,6 +57,7 @@ export type ResumeDocumentProcessingDependencies = {
     imageDataUrls: string[],
     extractedText?: string,
     onBatch?: (firstPage: number, lastPage: number) => void,
+    pageNumbers?: number[],
   ) => Promise<VisionResult>;
   readPdf: (file: File) => Promise<PdfReadResult>;
 };
@@ -186,6 +187,7 @@ export async function processPdfResume(
             pdfResult.imageDataUrls,
             ocrText,
             (firstPage, lastPage) => onProgress?.(`正在识别简历图片第 ${firstPage}-${lastPage} 页`),
+            pdfResult.pageImages.map((page) => page.pageNumber),
           );
           if (vision.ok && vision.content) visionContent = vision.content;
         }
@@ -212,6 +214,7 @@ export async function processPdfResume(
       pdfResult.imageDataUrls,
       pdfResult.text,
       (firstPage, lastPage) => onProgress?.(`正在识别简历图片第 ${firstPage}-${lastPage} 页`),
+      pdfResult.pageImages.map((page) => page.pageNumber),
     );
     if (response.ok && response.content) {
       const combinedText = [

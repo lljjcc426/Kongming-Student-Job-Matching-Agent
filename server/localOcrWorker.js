@@ -2,13 +2,15 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
+import { readBoundedIntegerEnv } from "./runtimeConfig.js";
 
-const DEFAULT_TIMEOUT_MS = Number(process.env.OCR_LOCAL_TIMEOUT_MS || 95_000);
+const DEFAULT_TIMEOUT_MS = 95_000;
+const DEFAULT_WORKER_COUNT = 2;
 const DEFAULT_WINDOWS_PYTHON = "D:\\conda_envs\\kongming-ocr\\python.exe";
 const DEFAULT_WINDOWS_CACHE = "D:\\ai_models\\kongming-ocr\\modelscope";
 const WORKER_PATH = fileURLToPath(new URL("./local_ocr_worker.py", import.meta.url));
 
-let worker = null;
+const workers = [];
 let requestSequence = 0;
 const pending = new Map();
 
@@ -18,18 +20,25 @@ const pythonCommand = () => {
   return process.platform === "win32" ? "python" : "python3";
 };
 
-const rejectPending = (message) => {
-  pending.forEach(({ reject, timer }) => {
+const workerCount = () => readBoundedIntegerEnv(
+  "OCR_LOCAL_WORKERS",
+  DEFAULT_WORKER_COUNT,
+  { minimum: 1, maximum: 2 },
+);
+
+const rejectPending = (message, workerIndex) => {
+  pending.forEach(({ reject, timer, workerIndex: pendingWorkerIndex }, id) => {
+    if (workerIndex !== undefined && pendingWorkerIndex !== workerIndex) return;
     clearTimeout(timer);
     reject(new Error(message));
+    pending.delete(id);
   });
-  pending.clear();
 };
 
-const startWorker = () => {
-  if (worker && !worker.killed) return worker;
+const startWorker = (workerIndex) => {
+  if (workers[workerIndex] && !workers[workerIndex].killed) return workers[workerIndex];
 
-  worker = spawn(pythonCommand(), ["-u", WORKER_PATH], {
+  const worker = spawn(pythonCommand(), ["-u", WORKER_PATH], {
     stdio: ["pipe", "pipe", "pipe"],
     windowsHide: true,
     env: {
@@ -62,27 +71,34 @@ const startWorker = () => {
     if (message) console.warn(`[local-ocr] ${message.slice(0, 800)}`);
   });
   worker.on("error", (error) => {
-    rejectPending(`无法启动本地 OCR：${error.message}`);
-    worker = null;
+    rejectPending(`无法启动本地 OCR：${error.message}`, workerIndex);
+    if (workers[workerIndex] === worker) workers[workerIndex] = null;
   });
   worker.on("exit", (code) => {
-    rejectPending(`本地 OCR 进程已退出${typeof code === "number" ? `（${code}）` : ""}。`);
-    worker = null;
+    rejectPending(`本地 OCR 进程已退出${typeof code === "number" ? `（${code}）` : ""}。`, workerIndex);
+    if (workers[workerIndex] === worker) workers[workerIndex] = null;
   });
 
+  workers[workerIndex] = worker;
   return worker;
 };
 
-export const runLocalOcr = (imageDataUrl, timeoutMs = DEFAULT_TIMEOUT_MS) => new Promise((resolve, reject) => {
-  const processHandle = startWorker();
+const localOcrTimeoutMs = () => readBoundedIntegerEnv(
+  "OCR_LOCAL_TIMEOUT_MS",
+  DEFAULT_TIMEOUT_MS,
+);
+
+const sendWorkerRequest = (payload, timeoutMs, requestedWorkerIndex) => new Promise((resolve, reject) => {
+  const workerIndex = requestedWorkerIndex ?? (requestSequence % workerCount());
+  const processHandle = startWorker(workerIndex);
   const id = `ocr-${Date.now()}-${requestSequence += 1}`;
   const timer = setTimeout(() => {
     pending.delete(id);
     reject(new Error("本地 OCR 识别超时。"));
   }, timeoutMs);
-  pending.set(id, { resolve, reject, timer });
+  pending.set(id, { resolve, reject, timer, workerIndex });
 
-  processHandle.stdin.write(`${JSON.stringify({ id, imageDataUrl })}\n`, "utf8", (error) => {
+  processHandle.stdin.write(`${JSON.stringify({ id, ...payload })}\n`, "utf8", (error) => {
     if (!error) return;
     clearTimeout(timer);
     pending.delete(id);
@@ -90,9 +106,18 @@ export const runLocalOcr = (imageDataUrl, timeoutMs = DEFAULT_TIMEOUT_MS) => new
   });
 });
 
+export const runLocalOcr = (imageDataUrl, timeoutMs = localOcrTimeoutMs()) =>
+  sendWorkerRequest({ imageDataUrl }, timeoutMs);
+
+export const warmLocalOcrWorker = (timeoutMs = localOcrTimeoutMs()) =>
+  Promise.all(Array.from({ length: workerCount() }, (_, workerIndex) =>
+    sendWorkerRequest({ action: "warm" }, timeoutMs, workerIndex),
+  ));
+
 export const closeLocalOcrWorker = () => {
-  if (!worker) return;
   rejectPending("本地 OCR 服务已停止。");
-  worker.kill();
-  worker = null;
+  workers.forEach((worker, workerIndex) => {
+    if (worker) worker.kill();
+    workers[workerIndex] = null;
+  });
 };

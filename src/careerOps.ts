@@ -37,15 +37,29 @@ export function buildCareerOpsEvaluation(profile: StudentProfile, job: Job, resu
     firstAvailable(job.bonus, "可迁移经历与学习潜力"),
   ];
 
+  const evidenceById = new Map(result.evidence.map((item) => [item.id, item]));
   const requirementMatrix = requirementSeeds.map((requirement, index) => {
+    const relatedNodes = result.abilityGraph.nodes.filter((node) => node.requirementSources.includes(requirement));
     const dimension = result.dimensions[index % result.dimensions.length];
-    const score = dimension?.score ?? result.total;
-    const status: RequirementStatus = score >= 82 ? "强匹配" : score >= 68 ? "可补强" : "待验证";
+    const score = relatedNodes.length
+      ? Math.round(relatedNodes.reduce((sum, node) => sum + node.score, 0) / relatedNodes.length)
+      : dimension?.score ?? result.total;
+    const nodeStatuses = relatedNodes.map((node) => node.status);
+    const status: RequirementStatus = nodeStatuses.includes("matched")
+      ? "强匹配"
+      : nodeStatuses.includes("partial") || score >= 68
+        ? "可补强"
+        : "待验证";
+    const citedEvidence = relatedNodes
+      .flatMap((node) => node.evidenceIds)
+      .map((id) => evidenceById.get(id))
+      .find(Boolean);
     return {
       requirement,
-      evidence:
-        index === 0
-          ? `已覆盖${coveredText}，与${dimension?.name ?? "岗位能力"}相关。`
+      evidence: citedEvidence
+        ? `${citedEvidence.label}证据：“${citedEvidence.text}”（节点证据分 ${score}）。`
+        : relatedNodes.length
+          ? `关联能力为${relatedNodes.map((node) => node.name).join("、")}，但未找到可引用的简历证据。`
           : index === 1
             ? evidenceFallback
             : `需围绕${missingText}补充更清晰的成果、方法和复盘。`,

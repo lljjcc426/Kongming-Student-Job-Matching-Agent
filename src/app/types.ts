@@ -1,4 +1,4 @@
-export type ActivePage = "home" | "resume-editor" | "resume" | "jobs" | "interview" | "assistant";
+export type ActivePage = "home" | "resume-editor" | "resume" | "jobs" | "interview" | "growth" | "assistant";
 
 export type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
 

@@ -7,9 +7,24 @@ const UI_ARTIFACT_DIR =
   || "D:\\Kongming-RAG\\jobs-v1\\test-artifacts";
 const screenshotPaths = {
   intro: path.join(UI_ARTIFACT_DIR, "check-intro.png"),
+  identity: path.join(UI_ARTIFACT_DIR, "check-identity.png"),
   resume: path.join(UI_ARTIFACT_DIR, "check-resume-after-upload.png"),
+  matchingEvidence: path.join(UI_ARTIFACT_DIR, "check-matching-evidence.png"),
   interview: path.join(UI_ARTIFACT_DIR, "check-interview.png"),
+  growth: path.join(UI_ARTIFACT_DIR, "check-growth-plan.png"),
   assistant: path.join(UI_ARTIFACT_DIR, "check-assistant.png"),
+  assistantMobile: path.join(UI_ARTIFACT_DIR, "check-assistant-mobile.png"),
+  assistantFeedback: path.join(UI_ARTIFACT_DIR, "check-assistant-feedback.png"),
+};
+
+const dateAfterDays = (days) => {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + days);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 const mockJobs = [
@@ -91,7 +106,30 @@ async function main() {
   fs.mkdirSync(UI_ARTIFACT_DIR, { recursive: true });
   const browser = await launchBrowser();
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
+  await page.addInitScript(() => {
+    class ImmediateSpeechSynthesisUtterance {
+      constructor(text) {
+        this.text = text;
+        this.onend = null;
+        this.onerror = null;
+      }
+    }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", {
+      configurable: true,
+      value: ImmediateSpeechSynthesisUtterance,
+    });
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: {
+        cancel() {},
+        speak(utterance) {
+          window.setTimeout(() => utterance.onend?.(), 0);
+        },
+      },
+    });
+  });
   let jobKnowledgeRequestBody = null;
+  const careerChatRequestBodies = [];
   page.on("request", (request) => {
     if (!request.url().includes("/api/jobs/search") || request.method() !== "POST") return;
     try {
@@ -212,6 +250,7 @@ async function main() {
     }
 
     if (body.task === "career-chat") {
+      careerChatRequestBodies.push(body);
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
@@ -242,6 +281,17 @@ async function main() {
   await page.locator(".loading-screen").waitFor({ state: "detached", timeout: 5000 }).catch(async () => {
     await page.waitForFunction(() => !document.querySelector(".loading-screen"), null, { timeout: 5000 });
   });
+
+  const identityDialog = await page.locator(".identity-dialog").count();
+  const identityLoginTitle = await page.getByRole("heading", { name: "登录孔明职配" }).count();
+  const identityDemoAction = await page.getByRole("button", { name: /一键进入演示账号/ }).count();
+  await page.getByRole("button", { name: "创建账号" }).click();
+  const registrationTitle = await page.getByRole("heading", { name: "创建你的求职账号" }).count();
+  const registrationPasswordFields = await page.locator('.identity-dialog input[type="password"]').count();
+  await page.getByRole("button", { name: "返回登录" }).click();
+  await page.screenshot({ path: screenshotPaths.identity, fullPage: false });
+  await page.getByRole("button", { name: /一键进入演示账号/ }).click();
+  await page.locator(".app-nav").waitFor({ state: "visible", timeout: 8000 });
 
   const title = await page.locator("h1").first().innerText();
   await page.locator(".app-nav > div button").nth(1).click();
@@ -277,6 +327,15 @@ async function main() {
   const knowledgeJobCards = await page.locator(".job-card small").filter({ hasText: "职业知识库" }).count();
   const knowledgeJobLevels = await page.locator(".job-card p").allInnerTexts();
   const officialJobLink = await page.locator(".selected-job .apply-links a").first().getAttribute("href");
+  const abilityGraph = await page.locator("[data-testid='career-ability-graph']").count();
+  const abilityNodes = await page.locator(".ability-node").count();
+  const scoreEvidencePanel = await page.locator("[data-testid='score-evidence-panel']").count();
+  const dimensionEvidenceCards = await page.locator(".dimension-evidence-card").count();
+  const scoreFormula = await page.locator(".score-method-card code").innerText();
+  const supportedAbilityNode = page.locator(".ability-node.matched, .ability-node.partial").first();
+  await supportedAbilityNode.click();
+  const abilityEvidenceDetail = await page.locator(".ability-node-detail").innerText();
+  await page.screenshot({ path: screenshotPaths.matchingEvidence, fullPage: false });
   await page.locator(".jd-lab input").fill("用户研究实习生");
   await page.locator(".jd-textarea").fill("负责用户访谈、问卷研究、数据分析和用户洞察报告输出。");
   await page.getByRole("button", { name: "分析该岗位" }).click();
@@ -295,13 +354,158 @@ async function main() {
   await page.locator(".app-nav > div button").nth(4).click();
   await page.getByLabel("模拟面试回答").waitFor({ state: "visible", timeout: 8000 });
   const interviewInput = await page.getByLabel("模拟面试回答").count();
+  const seededInterviewMemory = await page.evaluate(async () => {
+    await fetch("/api/memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ action: "clear" }),
+    });
+    const response = await fetch("/api/memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({
+        action: "save-interview",
+        interview: {
+          interviewId: "ui-prior-product-interview",
+          jobId: "prior-user-research-role",
+          jobTitle: "用户研究实习生",
+          interviewType: "综合面",
+          report: {
+            modelTrack: "product",
+            reportKind: "stage",
+            overallScore: 54,
+            confidenceScore: 62,
+            coverageScore: 52,
+            integrityEvaluation: { score: 92 },
+            evidenceStats: { answerCount: 5, substantiveAnswers: 4, starEvidence: 2, quantifiedEvidence: 1 },
+            summary: "上次面试的用户洞察已有基础，需求优先级与量化验证仍需复测。",
+            dimensionReports: [
+              { id: "user-insight", name: "用户与问题洞察", weight: 20, score: 61, confidence: 68, status: "insufficient", attempts: 2, evidenceCount: 2 },
+              { id: "requirement-priority", name: "需求分析与优先级", weight: 18, score: 43, confidence: 55, status: "insufficient", attempts: 1, evidenceCount: 1 },
+              { id: "product-solution", name: "产品方案与体验设计", weight: 16, score: 0, confidence: 0, status: "untested", attempts: 0, evidenceCount: 0 },
+              { id: "product-data", name: "数据分析与实验", weight: 16, score: 0, confidence: 0, status: "untested", attempts: 0, evidenceCount: 0 },
+              { id: "product-delivery", name: "项目推进与协作", weight: 15, score: 0, confidence: 0, status: "untested", attempts: 0, evidenceCount: 0 },
+              { id: "business-retrospective", name: "商业理解与复盘", weight: 15, score: 0, confidence: 0, status: "untested", attempts: 0, evidenceCount: 0 },
+            ],
+          },
+        },
+      }),
+    });
+    return response.json();
+  });
+  await page.getByRole("button", { name: "开始面试" }).click();
+  await page.locator(".interview-grounding-strip").getByText("岗位 RAG 5 条").waitFor({ state: "visible", timeout: 8000 });
+  await page.locator(".interview-grounding-strip").getByText("历史面试 1 次").waitFor({ state: "visible", timeout: 8000 });
+  const groundingStripText = await page.locator(".interview-grounding-strip").innerText();
+  const interviewPromptBody = careerChatRequestBodies.find((body) => (
+    typeof body.userMessage === "string"
+    && body.userMessage.includes("本轮RAG岗位依据")
+    && body.userMessage.includes("相关历史面试记忆")
+  ));
+  await page.getByLabel("模拟面试回答").fill("用AI");
+  await page.getByRole("button", { name: "发送" }).click();
+  await page.locator(".interview-competency-panel header em").filter({ hasText: "澄清事实证据" }).waitFor({ state: "visible", timeout: 8000 });
+  const competencyPanel = await page.locator(".interview-competency-panel").count();
+  const competencyCards = await page.locator(".interview-competency-grid article").count();
+  const competencyModelName = await page.locator(".interview-competency-panel header strong").innerText();
+  const competencyStrategy = await page.locator(".interview-competency-panel header em").innerText();
+  const competencyDecisionTrace = page.locator(".interview-decision-trace");
+  await competencyDecisionTrace.locator("summary").click();
+  const competencyDecisionText = await competencyDecisionTrace.innerText();
+  const interviewSessionProgress = await page.locator("[data-testid='interview-session-progress']").innerText();
+  const interviewIntegrityText = await page.locator("[data-testid='interview-integrity-notice']").innerText();
+  await page.getByRole("button", { name: "结束面试" }).waitFor({ state: "visible", timeout: 8000 });
+  await page.getByRole("button", { name: "结束面试" }).click();
+  await page.locator("[data-testid='interview-exit-dialog']").waitFor({ state: "visible", timeout: 8000 });
+  const earlyExitDialogText = await page.locator("[data-testid='interview-exit-dialog']").innerText();
+  await page.getByRole("button", { name: "生成阶段性报告" }).click();
+  await page.getByRole("button", { name: "基于短板生成成长计划" }).waitFor({ state: "visible", timeout: 8000 });
+  const shortInterviewScore = Number(await page.locator(".assessment-score-ring strong").innerText());
+  const assessmentReport = await page.locator(".interview-assessment-report").count();
+  const assessmentRadar = await page.locator(".assessment-radar").count();
+  const assessmentDimensionCards = await page.locator(".assessment-dimension-card").count();
+  const assessmentSummary = await page.locator(".assessment-report-head p").innerText();
+  const assessmentMetricText = await page.locator(".assessment-metric-grid").innerText();
+  const assessmentSessionText = await page.locator("[data-testid='assessment-session-summary']").innerText();
+  const assessmentIntegrityText = await page.locator("[data-testid='assessment-integrity-panel']").innerText();
+  const assessmentGrowthText = await page.locator("[data-testid='assessment-growth-comparison']").innerText();
+  const interviewScoreFormula = await page.locator(".assessment-score-formula").innerText();
+  const interviewReportDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载报告" }).click();
+  const interviewReportFilename = (await interviewReportDownload).suggestedFilename();
+  await page.locator(".assessment-grounding-panel em.saved").waitFor({ state: "visible", timeout: 8000 });
+  const assessmentGroundingText = await page.locator(".assessment-grounding-panel").innerText();
+  const persistedInterviewMemoryCount = await page.evaluate(async () => {
+    const response = await fetch("/api/memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ action: "load" }),
+    });
+    const data = await response.json();
+    return data.memory?.interviews?.length ?? 0;
+  });
   await page.screenshot({ path: screenshotPaths.interview, fullPage: false });
 
-  await page.locator(".app-nav > div button").nth(5).click();
+  await page.getByRole("button", { name: "基于短板生成成长计划" }).click();
+  await page.locator(".growth-plan-page").waitFor({ state: "visible", timeout: 8000 });
+  const targetDateInput = page.locator('.growth-target-controls input[type="date"]');
+  await targetDateInput.fill(dateAfterDays(14));
+  await page.getByText("DYNAMIC 14 DAY PLAN · 2 WEEKS", { exact: false }).waitFor({ state: "visible", timeout: 8000 });
+  const shortScheduleStages = await page.locator(".growth-stage-tabs button").allInnerTexts();
+  await targetDateInput.fill(dateAfterDays(140));
+  await page.getByText("DYNAMIC 140 DAY PLAN · 20 WEEKS", { exact: false }).waitFor({ state: "visible", timeout: 8000 });
+  const longScheduleTotalTasks = await page.locator(".growth-summary-grid article").nth(3).locator("small").innerText();
+  await targetDateInput.fill(dateAfterDays(42));
+  await page.getByText("DYNAMIC 42 DAY PLAN · 6 WEEKS", { exact: false }).waitFor({ state: "visible", timeout: 8000 });
+  const dynamicScheduleStages = await page.locator(".growth-stage-tabs button").allInnerTexts();
+  const growthTaskCount = await page.locator(".growth-task-card").count();
+  const growthStageCount = await page.locator(".growth-stage-tabs button").count();
+  const baseGrowthScore = Number((await page.locator(".growth-summary-grid article").nth(1).locator("strong").innerText()).replace(/\D/g, ""));
+  const firstTaskCard = page.locator(".growth-task-card").first();
+  await firstTaskCard.locator("textarea").fill("我已经完成了这个学习任务，学习了相关内容，并且感觉自己有了很多收获。");
+  await firstTaskCard.getByRole("button", { name: "提交证据审核" }).click();
+  await firstTaskCard.locator(".growth-evidence-review.needs-revision").waitFor({ state: "visible", timeout: 8000 });
+  const weakEvidenceReview = await firstTaskCard.locator(".growth-evidence-review").innerText();
+  const scoreAfterWeakEvidence = Number((await page.locator(".growth-summary-grid article.projected strong").innerText()).replace(/\D/g, ""));
+  for (let week = 1; week <= 3; week += 1) {
+    const taskCard = page.locator(".growth-task-card").nth(week - 1);
+    const taskTitle = await taskCard.locator("h3").innerText();
+    await taskCard.locator("textarea").fill(`围绕“${taskTitle}”，我亲自分析需求、设计并实现可运行成果，提交GitHub仓库和README。完成3组测试与前后对比，关键指标提升18%，并记录问题修复和复盘结论。`);
+    await taskCard.locator('input[placeholder*="证据链接"]').fill(`https://github.com/luxury221/kongming-evidence-${week}`);
+    await taskCard.locator(".growth-evidence-form > button").click();
+    await taskCard.locator(".growth-completed-evidence").waitFor({ state: "visible", timeout: 8000 });
+  }
+  const projectedGrowthScore = Number((await page.locator(".growth-summary-grid article.projected strong").innerText()).replace(/\D/g, ""));
+  const verifiedScoreAfterEvidence = Number((await page.locator(".growth-summary-grid article").nth(1).locator("strong").innerText()).replace(/\D/g, ""));
+  const growthProgress = await page.locator(".growth-summary-grid article").nth(3).locator("strong").innerText();
+  const evidenceReviewText = await page.locator(".growth-completed-evidence").first().innerText();
+  const scoreBoundaryText = await page.locator(".growth-score-boundary").innerText();
+  const growthResourceText = await page.locator(".growth-resource-panel").innerText();
+  const assessmentCountBefore = await page.locator(".growth-assessment-panel > article").count();
+  await page.getByRole("button", { name: "重新计算实证分" }).click();
+  await page.waitForFunction(
+    (count) => document.querySelectorAll(".growth-assessment-panel > article").length === count + 1,
+    assessmentCountBefore,
+    { timeout: 8000 },
+  );
+  const assessmentCountAfter = await page.locator(".growth-assessment-panel > article").count();
+  await page.locator(".growth-stage-tabs button").nth(1).click();
+  const nextStageUnlocked = await page.locator(".growth-task-card textarea").first().isEnabled();
+  const adaptationText = await page.locator(".growth-adaptation-panel").innerText();
+  await page.screenshot({ path: screenshotPaths.growth, fullPage: false });
+
+  await page.locator(".app-nav > div button").nth(6).click();
   await page.waitForSelector(".particle-galaxy-core canvas", { timeout: 8000 });
   const assistantPage = await page.locator(".ai-assistant-page").count();
   const chatPanel = await page.locator(".assistant-chat-panel").count();
   const chatComposer = await page.locator(".assistant-chat-panel textarea[aria-label='AI 助手输入']").count();
+  await page.locator(".assistant-memory-state.ready").waitFor({ state: "visible", timeout: 8000 });
+  const memoryIndicator = await page.locator(".assistant-memory-state.ready").count();
+  const memoryClearButton = await page.getByRole("button", { name: "清除长期记忆" }).count();
+  const memoryLabel = await page.locator(".assistant-memory-state").innerText();
   const quickQuestionButtons = await page.locator(".assistant-quick-row button").count();
   const readActionVisible = await page.locator(".assistant-chat-panel .chat-actions button").count() > 0;
   const composerIconButtons = await page.locator(".assistant-round-button").count();
@@ -313,6 +517,71 @@ async function main() {
   await page.getByText("推荐适合我的岗位").click();
   const quickQuestionFilled = await page.locator(".assistant-chat-panel textarea[aria-label='AI 助手输入']").inputValue();
   await page.screenshot({ path: screenshotPaths.assistant, fullPage: false });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(500);
+  const assistantMobileLayout = await page.evaluate(() => {
+    const chatPanelNode = document.querySelector(".assistant-chat-panel");
+    const chatPanelRect = chatPanelNode?.getBoundingClientRect();
+    return {
+      viewportWidth: document.documentElement.clientWidth,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      chatPanelLeft: chatPanelRect?.left ?? null,
+      chatPanelRight: chatPanelRect?.right ?? null,
+    };
+  });
+  await page.screenshot({ path: screenshotPaths.assistantMobile, fullPage: false });
+
+  const persistentQuestion = "请记住我优先考虑北京的大模型实习岗位";
+  await page.locator(".assistant-chat-panel textarea[aria-label='AI 助手输入']").fill(persistentQuestion);
+  await page.getByRole("button", { name: "发送" }).click();
+  await page.waitForFunction(
+    () => (document.querySelector(".assistant-memory-state")?.textContent || "").includes("2 条"),
+    null,
+    { timeout: 8000 },
+  );
+  const memoryLabelAfterChat = await page.locator(".assistant-memory-state").innerText();
+  const feedbackCorrection = "我只考虑北京岗位，不接受销售方向。";
+  await page.getByRole("button", { name: "这条回答需要改进" }).click();
+  await page.getByLabel("告诉我哪里需要调整（可选）").fill(feedbackCorrection);
+  await page.screenshot({ path: screenshotPaths.assistantFeedback, fullPage: false });
+  await page.getByRole("button", { name: "保存反馈" }).click();
+  await page.locator(".assistant-feedback-row button.negative.active").waitFor({ state: "visible", timeout: 8000 });
+  const negativeFeedbackActiveAfterSave = await page.locator(".assistant-feedback-row button.negative.active").count();
+
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForTimeout(1400);
+  await page.locator(".loading-start-button").click();
+  await page.locator(".loading-screen").waitFor({ state: "detached", timeout: 5000 }).catch(async () => {
+    await page.waitForFunction(() => !document.querySelector(".loading-screen"), null, { timeout: 5000 });
+  });
+  await page.locator(".app-nav > div button").nth(5).click();
+  await page.locator(".growth-plan-page").waitFor({ state: "visible", timeout: 8000 });
+  const restoredGrowthProgress = await page.locator(".growth-summary-grid article").nth(3).locator("strong").innerText();
+  await page.locator(".app-nav > div button").nth(6).click();
+  await page.locator(".assistant-memory-state.ready").waitFor({ state: "visible", timeout: 8000 });
+  const restoredQuestionCount = await page.getByText(persistentQuestion, { exact: true }).count();
+  const memoryLabelAfterReload = await page.locator(".assistant-memory-state").innerText();
+  const negativeFeedbackActiveAfterReload = await page.locator(".assistant-feedback-row button.negative.active").count();
+  const followupQuestion = "请根据我之前的偏好继续推荐";
+  await page.locator(".assistant-chat-panel textarea[aria-label='AI 助手输入']").fill(followupQuestion);
+  await page.getByRole("button", { name: "发送" }).click();
+  await page.waitForFunction(
+    () => (document.querySelector(".assistant-memory-state")?.textContent || "").includes("4 条"),
+    null,
+    { timeout: 8000 },
+  );
+  const feedbackInjectedIntoFollowup = careerChatRequestBodies.at(-1)?.persistentMemory?.feedback?.some(
+    (item) => item.rating === "negative" && item.correction === feedbackCorrection,
+  ) === true;
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "清除长期记忆" }).click();
+  await page.waitForFunction(
+    () => (document.querySelector(".assistant-memory-state")?.textContent || "").includes("已启用"),
+    null,
+    { timeout: 8000 },
+  );
+  const restoredQuestionCountAfterClear = await page.getByText(persistentQuestion, { exact: true }).count();
   await browser.close();
 
   if (introStage !== 1 || introProgress !== 1 || introProgressCard !== 1 || introVideoBackdrop !== 1) {
@@ -327,13 +596,19 @@ async function main() {
   if (!title.includes("孔明职配")) {
     throw new Error(`Unexpected home title: ${title}`);
   }
+  if (identityDialog !== 1 || identityLoginTitle !== 1 || identityDemoAction !== 1) {
+    throw new Error(`Expected real login page, found dialog=${identityDialog}, title=${identityLoginTitle}, demo=${identityDemoAction}`);
+  }
+  if (registrationTitle !== 1 || registrationPasswordFields !== 2) {
+    throw new Error(`Expected registration form with password confirmation, found title=${registrationTitle}, passwords=${registrationPasswordFields}`);
+  }
   if (initialJobCards !== 0) {
     throw new Error(`Initial page should not show preset job cards, found ${initialJobCards}`);
   }
   if (uploadControl !== 1) {
     throw new Error(`Expected resume upload control, found ${uploadControl}`);
   }
-  if (!uploadMessage.includes("frontend-resume.txt")) {
+  if (!uploadMessage.includes("frontend-resume.txt") && !uploadMessage.includes("简历文档已就绪")) {
     throw new Error(`Upload did not update message: ${uploadMessage}`);
   }
   if (!studentPortrait.includes("陈雨")) {
@@ -373,6 +648,12 @@ async function main() {
   ].includes(new URL(officialJobLink).hostname)) {
     throw new Error(`Expected an official recruiting link, found ${officialJobLink}`);
   }
+  if (abilityGraph !== 1 || abilityNodes < 1 || scoreEvidencePanel !== 1 || dimensionEvidenceCards !== 5) {
+    throw new Error(`Expected ability graph and five score evidence cards, found graph=${abilityGraph}, nodes=${abilityNodes}, panel=${scoreEvidencePanel}, cards=${dimensionEvidenceCards}`);
+  }
+  if (!scoreFormula.includes("能力匹配") || !scoreFormula.includes("= ") || !abilityEvidenceDetail.includes("简历证据") || !abilityEvidenceDetail.includes("最强证据")) {
+    throw new Error(`Expected traceable score formula and ability evidence, found formula=${scoreFormula}, detail=${abilityEvidenceDetail}`);
+  }
   if (customJobTitle !== "用户研究实习生" || selectedJobTitle !== customJobTitle || jdMessage !== "意向岗位分析已完成") {
     throw new Error(`Expected analyzed custom job to become selected, found custom=${customJobTitle}, selected=${selectedJobTitle}, message=${jdMessage}`);
   }
@@ -385,8 +666,101 @@ async function main() {
   if (interviewInput !== 1) {
     throw new Error(`Expected interview practice input after analysis, found ${interviewInput}`);
   }
+  if (
+    seededInterviewMemory.ok !== true
+    || !groundingStripText.includes("岗位 RAG 5 条")
+    || !groundingStripText.includes("历史面试 1 次")
+    || !interviewPromptBody?.userMessage.includes("需求分析与优先级")
+  ) {
+    throw new Error(`Expected RAG and memory in interview prompt, found seeded=${JSON.stringify(seededInterviewMemory)}, strip=${groundingStripText}, prompt=${interviewPromptBody?.userMessage}`);
+  }
+  if (
+    competencyPanel !== 1
+    || competencyCards !== 6
+    || !competencyModelName.includes("产品经理")
+    || !competencyStrategy.includes("澄清事实证据")
+    || !competencyDecisionText.includes("证据不足")
+  ) {
+    throw new Error(
+      `Expected visible six-dimension follow-up decision, found panel=${competencyPanel}, cards=${competencyCards}, model=${competencyModelName}, strategy=${competencyStrategy}, trace=${competencyDecisionText}`,
+    );
+  }
+  if (shortInterviewScore > 22) {
+    throw new Error(`Expected the generic answer \"用AI\" to score at most 22, found ${shortInterviewScore}`);
+  }
+  if (
+    assessmentReport !== 1
+    || assessmentRadar !== 1
+    || assessmentDimensionCards !== 6
+    || !assessmentSummary.includes("覆盖 1/6 个能力维度")
+    || !assessmentMetricText.includes("考察覆盖")
+    || !assessmentMetricText.includes("评估置信度")
+    || !assessmentMetricText.includes("1 次")
+    || !assessmentMetricText.includes("回答一致性")
+    || !assessmentIntegrityText.includes("回答一致性核验")
+    || !assessmentIntegrityText.includes("待积累")
+    || !assessmentGrowthText.includes("跨次面试成长对比")
+    || !assessmentGrowthText.includes("用户与问题洞察")
+    || !assessmentGrowthText.includes("证据下降")
+    || !assessmentGrowthText.includes("口径不同")
+    || !interviewIntegrityText.includes("回答一致性 待积累")
+    || !interviewIntegrityText.includes("至少需要两轮回答")
+    || !assessmentSessionText.includes("本报告不作为完整能力认证")
+    || !assessmentSessionText.includes("有效回答 0/5")
+    || !earlyExitDialogText.includes("当前证据还不足以生成正式报告")
+    || !earlyExitDialogText.includes("有效维度")
+    || !earlyExitDialogText.includes("0/4")
+    || !interviewSessionProgress.includes("证据积累中")
+    || !interviewScoreFormula.includes("× 65%")
+    || !interviewScoreFormula.includes("证据上限 22")
+    || !interviewReportFilename.endsWith("阶段性诊断报告.md")
+    || !assessmentGroundingText.includes("岗位知识库 · 5 条")
+    || !assessmentGroundingText.includes("历史复测记忆 · 1 次")
+    || !assessmentGroundingText.includes("本次报告已写入长期记忆")
+    || persistedInterviewMemoryCount < 2
+  ) {
+    throw new Error(
+      `Expected downloadable evidence-based report, found report=${assessmentReport}, radar=${assessmentRadar}, dimensions=${assessmentDimensionCards}, summary=${assessmentSummary}, metrics=${assessmentMetricText}, growth=${assessmentGrowthText}, file=${interviewReportFilename}`,
+    );
+  }
+  if (growthTaskCount !== 4 || growthStageCount !== 3) {
+    throw new Error(`Expected 4 visible weekly tasks and 3 growth stages, found tasks=${growthTaskCount}, stages=${growthStageCount}`);
+  }
+  if (shortScheduleStages.length !== 2 || !shortScheduleStages.some((label) => label.includes("第8-14天"))) {
+    throw new Error(`Expected 14-day schedule to use two dynamic stages, found ${shortScheduleStages.join(" | ")}`);
+  }
+  if (!longScheduleTotalTasks.includes("20") || !dynamicScheduleStages.some((label) => label.includes("第29-42天"))) {
+    throw new Error(`Expected dynamic long/mid schedules, found long=${longScheduleTotalTasks}, mid=${dynamicScheduleStages.join(" | ")}`);
+  }
+  if (!weakEvidenceReview.includes("证据需补充") || scoreAfterWeakEvidence !== baseGrowthScore) {
+    throw new Error(`Expected vague evidence rejection without score gain, found review=${weakEvidenceReview}, score=${scoreAfterWeakEvidence}`);
+  }
+  if (projectedGrowthScore <= baseGrowthScore || verifiedScoreAfterEvidence !== baseGrowthScore || !growthProgress.includes("25") || !nextStageUnlocked) {
+    throw new Error(`Expected audited evidence to improve only projection and unlock stage 2, found base=${baseGrowthScore}, verified=${verifiedScoreAfterEvidence}, projected=${projectedGrowthScore}, progress=${growthProgress}, unlocked=${nextStageUnlocked}`);
+  }
+  if (!evidenceReviewText.includes("证据审核通过") || !scoreBoundaryText.includes("预测分与实证分已分离") || assessmentCountAfter !== assessmentCountBefore + 1) {
+    throw new Error(`Expected evidence review details and reassessment trail, found evidence=${evidenceReviewText}, boundary=${scoreBoundaryText}, assessments=${assessmentCountBefore}->${assessmentCountAfter}`);
+  }
+  if (!adaptationText.includes("已解锁第15-28天阶段") || !restoredGrowthProgress.includes("25")) {
+    throw new Error(`Expected adaptive plan and persistence, found adaptation=${adaptationText}, restored=${restoredGrowthProgress}`);
+  }
+  if (!growthResourceText.includes("哔哩哔哩") || !growthResourceText.includes("Datawhale")) {
+    throw new Error(`Expected domestic learning resources, found ${growthResourceText}`);
+  }
   if (assistantPage !== 1 || chatPanel !== 1 || chatComposer !== 1) {
     throw new Error(`Expected assistant page and chat panel, found page=${assistantPage}, panel=${chatPanel}, composer=${chatComposer}`);
+  }
+  if (memoryIndicator !== 1 || memoryClearButton !== 1 || !memoryLabel.includes("长期记忆")) {
+    throw new Error(`Expected persistent memory controls, found indicator=${memoryIndicator}, clear=${memoryClearButton}, label=${memoryLabel}`);
+  }
+  if (!memoryLabelAfterChat.includes("2 条") || restoredQuestionCount !== 1 || !memoryLabelAfterReload.includes("2 条")) {
+    throw new Error(`Expected memory to survive reload, found afterChat=${memoryLabelAfterChat}, restored=${restoredQuestionCount}, afterReload=${memoryLabelAfterReload}`);
+  }
+  if (negativeFeedbackActiveAfterSave !== 1 || negativeFeedbackActiveAfterReload !== 1 || !feedbackInjectedIntoFollowup) {
+    throw new Error(`Expected feedback to persist and reach the next prompt, found saved=${negativeFeedbackActiveAfterSave}, restored=${negativeFeedbackActiveAfterReload}, injected=${feedbackInjectedIntoFollowup}`);
+  }
+  if (restoredQuestionCountAfterClear !== 0) {
+    throw new Error(`Expected memory clear to remove restored messages, found ${restoredQuestionCountAfterClear}`);
   }
   if (quickQuestionButtons !== 4 || quickQuestionFilled !== "推荐适合我的岗位") {
     throw new Error(`Expected assistant quick questions to work, found buttons=${quickQuestionButtons}, input=${quickQuestionFilled}`);
@@ -402,6 +776,15 @@ async function main() {
   }
   if (!chatPanelRadius || chatPanelRadius === "0px") {
     throw new Error(`Expected rounded assistant chat panel, found radius=${chatPanelRadius}`);
+  }
+  if (
+    assistantMobileLayout.documentScrollWidth > assistantMobileLayout.viewportWidth + 1
+    || assistantMobileLayout.chatPanelLeft === null
+    || assistantMobileLayout.chatPanelRight === null
+    || assistantMobileLayout.chatPanelLeft < -1
+    || assistantMobileLayout.chatPanelRight > assistantMobileLayout.viewportWidth + 1
+  ) {
+    throw new Error(`Assistant mobile layout overflowed: ${JSON.stringify(assistantMobileLayout)}`);
   }
 
   console.log(JSON.stringify({
@@ -423,6 +806,12 @@ async function main() {
     knowledgeJobLevels,
     knowledgeQueryCount: 1 + jobKnowledgeRequestBody.queries.length,
     officialJobLink,
+    abilityGraph,
+    abilityNodes,
+    scoreEvidencePanel,
+    dimensionEvidenceCards,
+    scoreFormula,
+    abilityEvidenceDetail,
     customJobTitle,
     selectedJobTitle,
     jdMessage,
@@ -430,9 +819,50 @@ async function main() {
     reportFilename,
     skillsCard,
     interviewInput,
+    shortInterviewScore,
+    assessmentReport,
+    assessmentRadar,
+    assessmentDimensionCards,
+    assessmentSummary,
+    assessmentMetricText,
+    assessmentSessionText,
+    assessmentIntegrityText,
+    interviewScoreFormula,
+    interviewReportFilename,
+    groundingStripText,
+    interviewSessionProgress,
+    interviewIntegrityText,
+    earlyExitDialogText,
+    assessmentGroundingText,
+    persistedInterviewMemoryCount,
+    growthTaskCount,
+    growthStageCount,
+    shortScheduleStages,
+    longScheduleTotalTasks,
+    dynamicScheduleStages,
+    baseGrowthScore,
+    scoreAfterWeakEvidence,
+    weakEvidenceReview,
+    verifiedScoreAfterEvidence,
+    projectedGrowthScore,
+    growthProgress,
+    assessmentCountAfter,
+    domesticGrowthResources: ["哔哩哔哩", "Datawhale"],
+    nextStageUnlocked,
+    restoredGrowthProgress,
     assistantPage,
     chatPanel,
     chatComposer,
+    memoryIndicator,
+    memoryClearButton,
+    memoryLabel,
+    memoryLabelAfterChat,
+    restoredQuestionCount,
+    memoryLabelAfterReload,
+    negativeFeedbackActiveAfterSave,
+    negativeFeedbackActiveAfterReload,
+    feedbackInjectedIntoFollowup,
+    restoredQuestionCountAfterClear,
     quickQuestionButtons,
     quickQuestionFilled,
     readActionVisible,
@@ -442,6 +872,7 @@ async function main() {
     galaxyCanvas,
     galaxyLabel,
     chatPanelRadius,
+    assistantMobileLayout,
     screenshots: Object.values(screenshotPaths),
   }, null, 2));
 }

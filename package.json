@@ -1,23 +1,40 @@
 {
   "name": "kongming-student-job-matching-agent",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "build:job-index": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-job-index.ps1",
+    "package:job-rag-data": "powershell -NoProfile -ExecutionPolicy Bypass -File deploy/job-rag/package-data.ps1",
     "preview": "vite preview --host 0.0.0.0",
     "setup:ocr": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-ocr.ps1",
     "setup:rag": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-rag.ps1",
+    "setup:job-reranker": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cache-job-reranker.ps1",
     "collect:jobs": "node scripts/collect-official-jobs.cjs",
     "verify:parsers": "node scripts/verify-parsers.cjs",
     "verify:jobs": "node scripts/verify-job-dataset.cjs",
     "verify:job-db": "node scripts/verify-job-database.cjs",
     "verify:job-rag": "node scripts/verify-job-rag.cjs",
     "verify:job-rerank": "node scripts/verify-job-reranker.cjs",
+    "verify:job-remote": "node scripts/verify-job-remote.cjs",
+    "verify:provider": "node scripts/verify-provider-config.cjs",
+    "verify:interview-scoring": "node scripts/verify-interview-scoring.cjs",
+    "verify:interview-competency": "node scripts/verify-interview-competency.cjs",
+    "verify:interview-session": "node scripts/verify-interview-session.cjs",
+    "verify:interview-integrity": "node scripts/verify-interview-integrity.cjs",
+    "verify:interview-growth": "node scripts/verify-interview-growth-comparison.cjs",
+    "verify:match-evidence": "node scripts/verify-match-evidence.cjs",
+    "verify:growth-loop": "node scripts/verify-growth-loop.cjs",
+    "verify:agent-memory": "node scripts/verify-agent-memory.cjs",
     "verify:resume-processing": "node scripts/verify-resume-processing.cjs",
-    "verify:ui": "node scripts/verify-ui.cjs"
+    "verify:ui": "node scripts/verify-ui.cjs",
+    "verify:ui:standalone": "node scripts/verify-ui-standalone.cjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
@@ -29,7 +46,7 @@
     "animejs": "^4.4.1",
     "gsap": "^3.15.0",
     "lucide-react": "^0.561.0",
-    "pdfjs-dist": "^6.0.227",
+    "pdfjs-dist": "^6.2.108",
     "pixi-live2d-display": "^0.4.0",
     "pixi.js": "^6.5.10",
     "react": "^19.2.3",
@@ -38,12 +55,17 @@
     "recharts": "^3.6.0",
     "remark-gfm": "^4.0.1",
     "three": "^0.184.0",
-    "vite": "^7.2.7"
+    "vite": "^7.3.6"
   },
   "devDependencies": {
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "playwright": "^1.60.0",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "pixi-live2d-display": {
+      "gh-pages": "^6.3.0"
+    }
   }
 }

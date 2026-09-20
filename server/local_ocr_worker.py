@@ -74,7 +74,11 @@ def main():
         try:
             request = json.loads(raw_line)
             request_id = request.get("id")
-            result = _recognize(request.get("imageDataUrl"))
+            if request.get("action") == "warm":
+                _get_engine()
+                result = {"ready": True}
+            else:
+                result = _recognize(request.get("imageDataUrl"))
             _respond({"id": request_id, "ok": True, "result": result})
         except Exception as error:
             traceback.print_exc(file=sys.stderr)

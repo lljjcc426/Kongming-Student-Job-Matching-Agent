@@ -8,6 +8,7 @@ type OcrApiResponse = {
 };
 
 const OCR_TIMEOUT_MS = 100_000;
+const OCR_PAGE_CONCURRENCY = 2;
 
 const recognizeOcrPage = async (input: OcrPageInput): Promise<{ provider: OcrDocument["provider"]; page: OcrPage }> => {
   const controller = new AbortController();
@@ -40,14 +41,21 @@ export async function recognizeOcrDocument(
 ): Promise<OcrDocument> {
   if (!inputs.length) throw new Error("没有可供 OCR 识别的页面。");
 
-  const pages: OcrPage[] = [];
-  let provider: OcrDocument["provider"] = "local";
-  for (const input of inputs) {
-    const result = await recognizeOcrPage(input);
-    provider = result.provider;
-    pages.push(result.page);
-    onProgress?.(pages.length, inputs.length);
-  }
+  const results = new Array<{ provider: OcrDocument["provider"]; page: OcrPage }>(inputs.length);
+  let completed = 0;
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(OCR_PAGE_CONCURRENCY, inputs.length) }, async () => {
+    while (cursor < inputs.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await recognizeOcrPage(inputs[index]);
+      completed += 1;
+      onProgress?.(completed, inputs.length);
+    }
+  });
+  await Promise.all(workers);
+  const pages = results.map((item) => item.page);
+  const provider = results[0]?.provider ?? "local";
 
   const scores = pages.flatMap((page) => page.lines.map((line) => line.score)).filter(Number.isFinite);
   return {
