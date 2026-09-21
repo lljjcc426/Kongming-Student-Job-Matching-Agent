@@ -18,6 +18,7 @@
 | Web 面试诊断 | 面试完成时保留面试类型、回答轮次和反馈等级 | `src/types/interview.ts`、`src/pages/InterviewPage.tsx` |
 | 原生 AI 面试诊断 | ArkUI 原生综合面、技术面和 HR 面；会话授权后由 Network Kit 调用 `/api/ark` 生成追问和反馈，发送前脱敏；未授权、未配置或请求失败时明确回退本机规则，并持久化问题、回答、反馈和来源 | `harmony/entry/src/main/ets/common/NativeAiService.ets`、`harmony/entry/src/main/ets/common/NativeWorkspaceModel.ets`、`harmony/entry/src/main/ets/pages/NativeIndex.ets` |
 | 成长任务 | 将岗位缺口转换为最多三条实践、面试训练或简历证据任务 | `src/features/growth/growthEngine.ts` |
+| 原生来源核验 | Network Kit 先确认 DNS 结果均为公网地址并拒绝自动重定向，再发 HEAD；站点限制 HEAD 时使用流式 Range GET，账本保存实际方法、状态码和核验时间 | `harmony/entry/src/main/ets/common/NativeEvidenceService.ets` |
 | 证据审核 | 本地检查个人行动、产出物/结果、文本长度和链接格式 | `src/features/growth/growthEngine.ts` |
 | 实证覆盖 | 只有证据审核通过后才更新；预测覆盖与实证覆盖分开 | `src/features/growth/growthEngine.ts`、`src/pages/GrowthPlanPage.tsx` |
 | 本地恢复 | 成长计划和审核结果保存到 `localStorage`，刷新后恢复 | `src/features/growth/growthRepository.ts` |
@@ -76,6 +77,6 @@ mocked interview requests: 2
 
 1. 在真实岗位数据和正式简历结构上增加成长任务质量样本，避免只依赖通用 fallback 任务。
 2. 在现有公开来源可访问性、用户确认、内容指纹和撤销账本基础上，增加平台 API 提交归属、可信时间戳和人工复核状态。
-3. 在桌面实际添加服务卡片，验证阶段、下一行动、杀进程刷新和精准跳转。
+3. 在真机和不同系统版本复验已通过模拟器验收的服务卡片刷新、杀进程存续和精准跳转。
 4. 在真机上验收账号、OCR、语音和后台恢复，避免把编译通过写成真机能力已验证。
 5. 为比赛答辩准备一组同一用户的前后复测样本，展示覆盖率变化、证据引用和隐私授权轨迹，而不是只展示静态页面。

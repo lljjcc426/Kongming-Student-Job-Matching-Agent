@@ -80,7 +80,7 @@ second start: successfully
 
 本轮首先复现了快照启动后 Guest OS 已完成启动但 HDC 仍为 Offline。改为 cold boot 后 HDC 连接和安装恢复。运行脚本现已默认冷启动，并会自动恢复运行中但 HDC 离线的实例。
 
-`bm dump` 已确认 `EntryAbility` 和 `ApplicationFormAbility` 注册，但桌面卡片动态刷新仍需人工添加卡片后验证。
+`bm dump` 已确认 `EntryAbility` 和 `ApplicationFormAbility` 注册。2026-09-21 补充验证已完成桌面卡片添加、应用内动态刷新、覆盖安装保留、进程终止后存续，以及真实点击冷启动精准进入成长页。
 
 ## 尚需人工/真机测试
 
@@ -89,7 +89,7 @@ second start: successfully
 - Share Kit 成功、取消和异常回调；
 - 麦克风首次授权、拒绝、录音、停止、中英混合、后台和网络异常；
 - TTS 播放停止以及与录音互斥；
-- 服务卡片添加、动态刷新、杀进程后存续和精准跳转；
+- 服务卡片真机桌面、不同系统版本和多设备尺寸；
 - 手机、平板和 2in1 布局；
 - 公网 HTTPS 岗位与模型服务注入后的 HAP 端到端链路；
 - 正式签名和发布包安装。

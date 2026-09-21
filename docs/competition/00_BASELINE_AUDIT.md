@@ -32,24 +32,27 @@
 | Share Kit | 分析报告调用鸿蒙系统分享面板 | ArkTS 构建通过；需在支持该系统能力的设备上完成交互复验 |
 | Camera | 原生页面后续接入相机预览，运行时请求 CAMERA | 原生迁移后需重新验收授权与拒绝逻辑 |
 | Core Speech Kit | TTS 与短语音识别已接入，原生失败时降级浏览器/文字 | ArkTS 构建通过；真机权限、音频和网络异常待验 |
-| Form Kit | 今日行动数据、卡片页面和 `ApplicationFormAbility` 已实现 | `bm dump` 确认 Extension 注册；桌面动态刷新待验 |
+| Form Kit | 今日行动、成长任务完成度、实证覆盖率、目标路由和 `ApplicationFormAbility` 已实现；摘要、路由、Form ID 统一清洗，后台任务拒绝被显式捕获 | `bm dump` 确认 Extension 注册；模拟器已验证桌面添加与刷新、覆盖安装保留、进程终止后存续和实际点击冷启动进入成长页；卡片同步失败与主工作区保存结果隔离 |
+| Calendar Kit | 投递截止与面试时间通过 `editEvent` 打开系统事件编辑器，由用户确认保存 | 模拟器已验证编辑器、预填字段和取消不保存；真机保存和设备不支持路径待验 |
 | Network Kit | 原生请求 `/api/jobs`，展示官方来源、验证状态、详情和投递入口 | 本机 API 经 `10.0.2.2` 在 API 24 模拟器联调通过；公网 HTTPS 待部署 |
 
 ## 原生迁移后的验证边界
 
 - `npm run verify:harmony` 已改为检查 ArkUI 页面、ArkData Preferences、原生导航和默认 HAP 不包含 `resfile`。
 - 当前工作机已安装 DevEco Studio/Hvigor；`npm run build:harmony` 已完成 ArkTS 编译和 HAP 打包，源码中文路径由 D 盘 ASCII staging 规避。
-- `ApplicationCard.ets` 继续使用 Form Kit；下一步把成长驾驶舱的下一行动和完成度同步到原生服务卡片。
+- `ApplicationCard.ets` 已同步成长任务完成度与实证覆盖率，并通过动态卡片 `postCardAction` 和唯一 `AppStorage` 路由请求跳转到下一行动对应的原生页面；`CareerFormStore.ets` 和 `ApplicationFormAbility.ets` 已补齐输入边界与异步异常收口。模拟器已完成桌面真实点击、覆盖安装保留、冷启动参数解析和成长页精准跳转验收。
 
 ## 最新产物
 
 - 路径：`harmony/entry/build/default/outputs/default/entry-default-unsigned.hap`
-- 大小：1,348,090 bytes
-- SHA-256：`E1E3D965770590624E1035789C83F794253D7B9D1DB11FBA744EFC19E3A9DFA2`
+- 大小：1,708,891 bytes
+- SHA-256：`B0EBC9B2745C6852F55B867CF6D5CD9451C439104C24BD2A407F9D65E205393B`
 - API 24 模拟器覆盖安装：成功
 - `EntryAbility` 首次和二次启动：成功
-- 原生开场动效截图：`docs/evidence-screenshots/harmony-native-intro-20260920.jpeg`
-- 运行截图：`docs/evidence-screenshots/harmony-native-emulator-home-20260920.jpeg`
+- 原生开场动效截图：`docs/evidence-screenshots/harmony-native-intro-mature-20260921.jpeg`
+- 成熟化首页截图：`docs/evidence-screenshots/harmony-native-home-mature-20260921.jpeg`
+- 五页视觉回归：简历、岗位、面试和成长页截图已归档至 `docs/evidence-screenshots/`，系统 Symbol 导航与长文本布局均通过模拟器检查
+- 岗位空状态：`docs/evidence-screenshots/harmony-native-jobs-empty-mature-20260921.jpeg`，无结果时保留清晰说明和本机岗位录入路径
 - 真实岗位录入截图：`docs/evidence-screenshots/harmony-native-job-tracking-20260920.jpeg`
 - 岗位字段校验截图：`docs/evidence-screenshots/harmony-native-job-validation-20260920.jpeg`
 - 官方岗位列表截图：`docs/evidence-screenshots/harmony-native-official-jobs-20260920.jpeg`

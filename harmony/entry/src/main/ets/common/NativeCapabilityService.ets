@@ -28,6 +28,10 @@ interface ApplicationFormPayload {
   pendingCount?: number;
   nextAction?: string;
   jobTitle?: string;
+  empiricalCoverage?: number;
+  growthCompletedCount?: number;
+  growthTaskCount?: number;
+  routePage?: string;
   updatedAt?: string;
 }
 
@@ -331,6 +335,10 @@ export class NativeCapabilityService {
       data.pendingCount = typeof parsed.pendingCount === 'number' ? Math.max(0, parsed.pendingCount) : 0;
       data.nextAction = typeof parsed.nextAction === 'string' && parsed.nextAction.trim() ? parsed.nextAction.trim() : data.nextAction;
       data.jobTitle = typeof parsed.jobTitle === 'string' && parsed.jobTitle.trim() ? parsed.jobTitle.trim() : data.jobTitle;
+      data.empiricalCoverage = typeof parsed.empiricalCoverage === 'number' ? Math.min(100, Math.max(0, parsed.empiricalCoverage)) : 0;
+      data.growthCompletedCount = typeof parsed.growthCompletedCount === 'number' ? Math.max(0, parsed.growthCompletedCount) : 0;
+      data.growthTaskCount = typeof parsed.growthTaskCount === 'number' ? Math.max(0, parsed.growthTaskCount) : 0;
+      data.routePage = typeof parsed.routePage === 'string' && parsed.routePage.trim() ? parsed.routePage.trim() : data.routePage;
       data.updatedAt = typeof parsed.updatedAt === 'string' && parsed.updatedAt.trim() ? parsed.updatedAt.trim() : data.updatedAt;
       await saveCareerFormData(this.context, data);
       const updatedCount = await updateAllCareerForms(this.context);

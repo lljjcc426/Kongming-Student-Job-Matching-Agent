@@ -33,8 +33,15 @@
 | 模拟面试 | `docs/evidence-screenshots/app-interview-simulation-20260708.png` | AI 数字人面试官、面试模式和回答输入 | 已补充 |
 | AI 助手 | `docs/evidence-screenshots/app-ai-assistant-20260708.png` | 多轮求职问答入口和智能体上下文 | 已补充 |
 | HarmonyOS 模拟器首页 | `docs/evidence-screenshots/harmony-emulator-home-20260722.jpeg` | API 24 模拟器安装并二次启动后的当前首页 | 已补充 |
-| 当前原生 HarmonyOS 开场动效 | `docs/evidence-screenshots/harmony-native-intro-20260920.jpeg` | ArkUI/ArkTS 原生品牌开场，包含蓝青机器人、品牌线条和入场动效 | 已补充 |
-| 当前原生 HarmonyOS 模拟器首页 | `docs/evidence-screenshots/harmony-native-emulator-home-20260920.jpeg` | ArkUI/ArkTS 原生入口在 HarmonyOS 6.1.1(24) 模拟器中安装并启动后的首页 | 已补充 |
+| 上一版原生 HarmonyOS 开场动效 | `docs/evidence-screenshots/harmony-native-intro-20260920.jpeg` | ArkUI/ArkTS 原生品牌开场的上一版视觉证据 | 历史材料 |
+| 上一版原生 HarmonyOS 模拟器首页 | `docs/evidence-screenshots/harmony-native-emulator-home-20260920.jpeg` | 前端成熟化前的原生首页，用于界面对比 | 历史材料 |
+| 当前原生开场动效 | `docs/evidence-screenshots/harmony-native-intro-mature-20260921.jpeg` | 保留蓝青机器人品牌画风，移除面向用户的技术实现文案 | 已补充 |
+| 当前原生今日工作台 | `docs/evidence-screenshots/harmony-native-home-mature-20260921.jpeg` | 今日重点前置、三项关键指标、岗位证据和求职主线进入首屏 | 已补充 |
+| 当前原生简历与画像 | `docs/evidence-screenshots/harmony-native-resume-mature-20260921.jpeg` | 紧凑标题栏、统一输入控件、导入操作和简历版本入口 | 已补充 |
+| 当前原生岗位中心 | `docs/evidence-screenshots/harmony-native-jobs-mature-20260921.jpeg` | 官方岗位搜索、本机岗位与证据指标采用统一层级和状态色 | 已补充 |
+| 当前原生岗位空状态 | `docs/evidence-screenshots/harmony-native-jobs-empty-mature-20260921.jpeg` | 官方岗位无结果时显示完整空状态，并引导调整条件或继续本机录入 | 已补充 |
+| 当前原生面试训练 | `docs/evidence-screenshots/harmony-native-interview-mature-20260921.jpeg` | 面试模式分段选择、会话授权、问题与回答入口的原生页面 | 已补充 |
+| 当前原生成长计划 | `docs/evidence-screenshots/harmony-native-growth-mature-20260921.jpeg` | 当前覆盖、完成后预测、有效证据和待办任务的统一工作流 | 已补充 |
 | 当前原生真实岗位录入 | `docs/evidence-screenshots/harmony-native-job-tracking-20260920.jpeg` | 岗位、公司、来源链接和 JD 由 ArkUI 原生表单录入并保存到本机 | 已补充 |
 | 当前原生岗位字段校验 | `docs/evidence-screenshots/harmony-native-job-validation-20260920.jpeg` | 空提交显示明确错误，不生成虚构岗位数据 | 已补充 |
 | 当前原生官方岗位列表 | `docs/evidence-screenshots/harmony-native-official-jobs-20260920.jpeg` | Network Kit 读取官方招聘源并按目标岗位严格筛选，保留来源状态和验证标签 | 已补充 |
@@ -42,6 +49,10 @@
 | 当前原生岗位离线降级 | `docs/evidence-screenshots/harmony-native-job-offline-fallback-20260920.jpeg` | 服务不可用时明确提示并保留本机真实岗位录入，不展示伪造岗位 | 已补充 |
 | 当前原生投递阶段 | `docs/evidence-screenshots/harmony-native-application-stage-20260921.jpeg` | ArkUI 原生六阶段投递看板、截止/面试日程和阶段化下一行动 | 已补充 |
 | 当前原生投递时间线 | `docs/evidence-screenshots/harmony-native-application-timeline-20260921.jpeg` | 阶段变更追加本机事件，并已验证强制停止后二次启动恢复 | 已补充 |
+| Calendar Kit 系统提醒 | `docs/evidence-screenshots/harmony-native-calendar-editor-20260921.jpeg` | 模拟器打开系统新建日程编辑器，正确预填测试岗位、18:00–18:30、提前 1 天/1 小时提醒和下一行动；随后选择放弃，未保存事件 | 已补充 |
+| Form Kit 参数路由辅助证据 | `docs/evidence-screenshots/harmony-native-form-route-growth-20260921.jpeg` | 以卡片同结构的 `page=growth` Ability 参数验证前台路由接收和成长页切换 | 已补充 |
+| Form Kit 桌面卡片 | `docs/evidence-screenshots/harmony-native-form-desktop-20260921.jpeg` | 动态卡片在桌面显示下一行动、成长证据 `1/3` 和实证覆盖 `51%`；覆盖安装和应用进程终止后仍保留 | 已补充 |
+| Form Kit 冷启动精准路由 | `docs/evidence-screenshots/harmony-native-form-coldstart-growth-20260921.jpeg` | 应用被强制停止后真实点击桌面卡片，系统触发 `RouterEvent`，冷启动并直接进入成长页 | 已补充 |
 | 当前原生投递版本门禁 | `docs/evidence-screenshots/harmony-native-application-version-gate-20260921.jpeg` | 未绑定当前岗位的实际简历版本时，原生看板阻止进入已投递、面试和 Offer | 已补充 |
 | 当前原生简历版本绑定 | `docs/evidence-screenshots/harmony-native-resume-version-binding-20260921.jpeg` | ArkUI 原生保存两版完整简历、展示差异摘要、切换绑定并保护当前绑定版本 | 已补充 |
 | 当前原生 AI 会话授权 | `docs/evidence-screenshots/harmony-native-ai-consent-20260921.jpeg` | 外部模型默认未授权；授权说明包含发送前脱敏和服务端密钥边界 | 已补充 |
@@ -52,7 +63,7 @@
 | 当前原生 AI 重启恢复 | `docs/evidence-screenshots/harmony-native-ai-restored-20260921.jpeg` | 强制停止并启动后恢复第 2 轮问题和 1 轮回答，同时会话授权按设计重置 | 已补充 |
 | 当前原生成长证据账本 | `docs/evidence-screenshots/harmony-native-evidence-ledger-20260921.jpeg` | HTTPS 来源、用户确认、内容指纹和有效/已撤销记录；强制停止后有效记录与 `51%` 实证覆盖恢复 | 已补充 |
 | 当前原生成长证据撤销 | `docs/evidence-screenshots/harmony-native-evidence-revoked-20260921.jpeg` | 撤销后覆盖率回退到 `42%`，账本保留指纹、提交时间、撤销时间和审计记录 | 已补充 |
-| 当前原生成长来源核验 | `docs/evidence-screenshots/harmony-native-evidence-source-verified-20260921.jpeg` | Network Kit 对公开 GitHub HTTPS 来源返回 `HTTP 200`，页面保存主机、状态码和核验时间；强制停止后恢复 | 已补充 |
+| 当前原生成长来源核验 | `docs/evidence-screenshots/harmony-native-evidence-source-verified-20260921.jpeg` | Network Kit 对公开 GitHub HTTPS 来源执行 HEAD 并返回 `HTTP 200`，页面保存主机、方法、状态码和核验时间；强制停止后恢复。流式 Range GET 降级已编译并覆盖安装，待限制 HEAD 的公开站点补充成功截图 | 部分补充 |
 | 当前简历版本管理 | `docs/evidence-screenshots/resume-version-manager-20260722.png` | 保存两版、差异摘要、恢复、删除以及已绑定版本保护 | 已补充 |
 | 当前投递版本绑定 | `docs/evidence-screenshots/application-version-binding-20260722.png` | 具体简历版本与“已投递”阶段绑定 | 已补充 |
 
@@ -66,8 +77,8 @@
 | 核心可信性 | `npm run verify:evidence` | 已通过，含 20 组对抗样例和版本绑定测试 |
 | 旧评分退出检查 | `npm run verify:claims` | 已通过，同时扫描源码与 HAP 静态资源 |
 | UI 验证 | `npm run verify:ui` | 已通过，含版本保存、投递绑定和刷新恢复 |
-| HAP 构建 | `npm run build:harmony:local` | 已通过，2026-09-21，SHA-256 已记录 |
-| HAP 模拟器安装/启动 | `npm run run:harmony:emulator` | 本轮已通过，HAP 安装成功，`EntryAbility` 进入前台并完成原生首页、官方岗位、投递闭环、AI 面试降级、成长证据提交/撤销、审计账本和重启恢复截图 |
+| HAP 构建 | `npm run build:harmony` | 已通过，2026-09-21，SHA-256 已记录 |
+| HAP 模拟器安装/启动 | `npm run run:harmony:emulator` | 本轮已通过，HAP 安装成功，`EntryAbility` 进入前台，五个主页面与开场动效完成视觉回归 |
 | 真实模型调用耗时 | `docs/REAL_MODEL_CALL_EVIDENCE.md`；`docs/PERFORMANCE_TEST_REPORT.md` | 已补充 Gitee AI 控制台记录 |
 | 模型调用成功率 | `docs/REAL_MODEL_CALL_EVIDENCE.md`；`docs/PERFORMANCE_TEST_REPORT.md` | 已补充 200 状态调用记录 |
 

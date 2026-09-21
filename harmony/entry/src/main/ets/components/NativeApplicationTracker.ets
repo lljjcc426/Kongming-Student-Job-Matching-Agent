@@ -20,6 +20,8 @@ export struct NativeApplicationTracker {
   onDeadlineChange: (value: string) => void = () => {};
   onInterviewChange: (value: string) => void = () => {};
   onSaveSchedule: () => void = () => {};
+  onCreateDeadlineReminder: () => void = () => {};
+  onCreateInterviewReminder: () => void = () => {};
 
   private stageLabel(stageId: string): string {
     for (const stage of APPLICATION_STAGES) {
@@ -44,6 +46,21 @@ export struct NativeApplicationTracker {
     return '#DBEAFE';
   }
 
+  @Builder
+  private buildFieldLabel(label: string, hint: string): void {
+    Row() {
+      Text(label)
+        .fontSize(10)
+        .fontWeight(FontWeight.Medium)
+        .fontColor('#334155')
+      Blank()
+      Text(hint)
+        .fontSize(9)
+        .fontColor('#94A3B8')
+    }
+    .width('100%')
+  }
+
   build() {
     Column({ space: 10 }) {
       Row() {
@@ -64,7 +81,7 @@ export struct NativeApplicationTracker {
           .fontColor(this.stageColor(this.applicationStage))
           .padding({ left: 9, right: 9, top: 5, bottom: 5 })
           .backgroundColor(this.stageBackground(this.applicationStage))
-          .borderRadius(11)
+          .borderRadius(8)
       }
       .width('100%')
 
@@ -73,6 +90,9 @@ export struct NativeApplicationTracker {
         .fontColor('#334155')
         .lineHeight(19)
         .width('100%')
+        .padding(10)
+        .backgroundColor('#F8FAFC')
+        .borderRadius(8)
 
       Row() {
         Text('实际投递版本')
@@ -98,7 +118,7 @@ export struct NativeApplicationTracker {
               .fontWeight(stage.id === this.applicationStage ? FontWeight.Bold : FontWeight.Regular)
               .fontColor(stage.id === this.applicationStage ? this.stageColor(stage.id) : '#475569')
               .backgroundColor(stage.id === this.applicationStage ? this.stageBackground(stage.id) : '#F1F5F9')
-              .borderRadius(11)
+              .borderRadius(8)
               .onClick(() => { this.onStageChange(stage.id); })
           }
         }, (stage: NativeApplicationStageOption) => stage.id)
@@ -110,26 +130,61 @@ export struct NativeApplicationTracker {
       .width('100%')
 
       Column({ space: 8 }) {
-        TextInput({ placeholder: '投递截止，如 2026-09-30 18:00', text: this.applicationDeadline })
-          .height(40)
-          .fontSize(11)
-          .backgroundColor('#F8FAFC')
-          .borderRadius(11)
-          .onChange((value: string) => { this.onDeadlineChange(value); })
-        TextInput({ placeholder: '下一场面试，如 2026-10-08 14:30', text: this.nextInterviewAt })
-          .height(40)
-          .fontSize(11)
-          .backgroundColor('#F8FAFC')
-          .borderRadius(11)
-          .onChange((value: string) => { this.onInterviewChange(value); })
+        Column({ space: 5 }) {
+          this.buildFieldLabel('投递截止', '选填')
+          TextInput({ placeholder: '例如：2026-09-30 18:00', text: this.applicationDeadline })
+            .height(40)
+            .fontSize(11)
+            .backgroundColor('#F8FAFC')
+            .border({ width: 1, color: '#E2E8F0' })
+            .borderRadius(8)
+            .onChange((value: string) => { this.onDeadlineChange(value); })
+        }
+        .width('100%')
+        Column({ space: 5 }) {
+          this.buildFieldLabel('下一场面试', '选填')
+          TextInput({ placeholder: '例如：2026-10-08 14:30', text: this.nextInterviewAt })
+            .height(40)
+            .fontSize(11)
+            .backgroundColor('#F8FAFC')
+            .border({ width: 1, color: '#E2E8F0' })
+            .borderRadius(8)
+            .onChange((value: string) => { this.onInterviewChange(value); })
+        }
+        .width('100%')
         Button('保存投递日程')
           .width('100%')
           .height(38)
           .fontSize(11)
           .fontColor('#0F766E')
           .backgroundColor('#CCFBF1')
-          .borderRadius(11)
+          .borderRadius(8)
           .onClick(() => { this.onSaveSchedule(); })
+        if (this.applicationDeadline || this.nextInterviewAt) {
+          Row({ space: 8 }) {
+            if (this.applicationDeadline) {
+              Button('添加截止提醒')
+                .layoutWeight(1)
+                .height(38)
+                .fontSize(11)
+                .fontColor('#1D4ED8')
+                .backgroundColor('#DBEAFE')
+                .borderRadius(8)
+                .onClick(() => { this.onCreateDeadlineReminder(); })
+            }
+            if (this.nextInterviewAt) {
+              Button('添加面试提醒')
+                .layoutWeight(1)
+                .height(38)
+                .fontSize(11)
+                .fontColor('#7C3AED')
+                .backgroundColor('#EDE9FE')
+                .borderRadius(8)
+                .onClick(() => { this.onCreateInterviewReminder(); })
+            }
+          }
+          .width('100%')
+        }
       }
       .width('100%')
 
@@ -138,6 +193,10 @@ export struct NativeApplicationTracker {
         .fontColor('#64748B')
         .lineHeight(17)
         .width('100%')
+        .padding(9)
+        .backgroundColor('#F8FAFC')
+        .border({ width: 1, color: '#E2E8F0' })
+        .borderRadius(8)
 
       if (this.applicationEvents.length > 0) {
         Column({ space: 8 }) {

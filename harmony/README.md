@@ -44,12 +44,13 @@ harmony/
 | TTS | Core Speech `textToSpeech` | 原生失败时保持文本模式。 |
 | STT | Core Speech `speechRecognizer` + AudioCapturer | 最长 15 秒；原生启动失败时回退文字输入。 |
 | AI 面试 | Network Kit 请求 `/api/ark` | 只有本次会话明确授权后才发送；手机号、邮箱、身份证号和详细地址在请求前脱敏，模型密钥只在服务端保存。 |
-| 证据来源 | Network Kit `HEAD` 请求 | 只核验不含账号信息的公开 HTTPS 地址；阻止本机、内网和自定义端口，保存主机、HTTP 状态和核验时间，不判断内容归属。 |
-| 服务卡片 | Form Kit | 只保存岗位数、投递阶段、待办数、下一行动、岗位名称和更新时间，不保存简历正文。 |
+| 证据来源 | Network Kit DNS 公网校验、`HEAD` 优先、流式 Range GET 降级 | 只核验不含账号信息且解析结果均为公网地址的最终 HTTPS 地址；阻止本机、内网、自定义端口和自动重定向，保存主机、实际方法、HTTP 状态和核验时间，不判断内容归属。 |
+| 日历提醒 | Calendar Kit `editEvent` | 只把用户已填写的岗位、公司、截止/面试时间和下一行动预填到系统事件编辑器，由用户确认保存；应用不直接申请日历读写权限。 |
+| 服务卡片 | Form Kit `postCardAction` + `AppStorage` 路由 | 动态卡片保存岗位数、投递阶段、待办数、下一行动、成长任务计数、实证覆盖率、岗位名称、更新时间和目标页面，不保存简历正文；写入前清洗文本、数值、路由和 Form ID，后台失败不覆盖主工作区保存结果。 |
 
 系统能力由 ArkTS 原生页面调用，不向远程网页开放；Web 端的 `src/harmonyBridge.ts` 不属于默认 HarmonyOS 主入口。
 
-当前原生演示链路为：保存简历画像 → 搜索并追踪官方岗位 → 冻结并绑定当前岗位的实际投递版本 → 更新投递阶段与日程 → 查看追加式时间线 → 原生模拟面试 → 会话级外部模型授权 → Core Speech 朗读/语音输入 → 生成反馈和成长任务 → Network Kit 核验公开 HTTPS 证据来源 → 写入本机摘要、主机、HTTP 状态、核验时间和内容指纹 → 更新实证覆盖率 → 撤销验证并保留审计记录。未授权或服务不可用时，面试保持本机规则并明确显示来源；没有绑定当前岗位版本时，已投递、面试和 Offer 阶段会被原生门禁阻止。账号登录和进展分享也从原生页面直接调用 Account Kit 与 Share Kit。
+当前原生演示链路为：保存简历画像 → 搜索并追踪官方岗位 → 冻结并绑定当前岗位的实际投递版本 → 更新投递阶段与日程 → 通过 Calendar Kit 编辑系统提醒 → 查看追加式时间线 → 原生模拟面试 → 会话级外部模型授权 → Core Speech 朗读/语音输入 → 生成反馈和成长任务 → Network Kit 核验公开 HTTPS 证据来源 → 写入本机摘要、主机、HTTP 状态、核验时间和内容指纹 → 更新实证覆盖率与 Form Kit 服务卡片 → 点击卡片进入对应原生任务页面 → 撤销验证并保留审计记录。未授权或服务不可用时，面试保持本机规则并明确显示来源；没有绑定当前岗位版本时，已投递、面试和 Offer 阶段会被原生门禁阻止。账号登录和进展分享也从原生页面直接调用 Account Kit 与 Share Kit。
 
 ## 构建
 
@@ -171,16 +172,19 @@ npm run sync:harmony:web
 | unsigned HAP 模拟器安装 | 已通过，覆盖安装成功 |
 | 首次启动 | 已通过，`EntryAbility` 进入前台 |
 | 强制停止后二次启动 | 已通过，`EntryAbility` 可再次进入前台 |
-| 最新首页截图 | 已归档至 `docs/evidence-screenshots/harmony-native-emulator-home-20260920.jpeg` |
+| 最新首页截图 | 已归档至 `docs/evidence-screenshots/harmony-native-home-mature-20260921.jpeg` |
+| 核心页面视觉回归 | 开场、首页、简历、岗位、面试和成长页均已在 API 24 模拟器检查；系统 Symbol 正常，无文字重叠和底栏遮挡 |
 | Form Extension 注册 | `bm dump` 已确认 |
-| 服务卡片桌面动态刷新 | 待人工添加卡片和杀进程验证 |
+| 服务卡片成长摘要与精准路由 | 已通过；数据边界、Form ID 去重/限量、后台 Promise 拒绝和主保存失败隔离均有静态断言；模拟器已验证桌面添加、应用内数据刷新、覆盖安装保留、强制停止后存续，以及真实点击动态卡片冷启动并精准进入成长页 |
+| Calendar Kit 系统提醒 | 模拟器已打开系统事件编辑器并核对标题、时间、截止双提醒与说明，取消路径显示“未保存日历事件”；真机保存和不支持路径待验收 |
 | 华为账号 | 待正式签名/真机 |
 | OCR、分享、语音 | OCR 图库/文件选择和 URI 读取已在模拟器验证；Core Vision 识别、分享和语音仍需支持对应能力的真机完成交互验收 |
-| Network Kit 官方岗位 | 本机 API 已完成原生搜索、严格意图筛选、详情、系统投递入口和服务失败降级验收 |
+| Network Kit 官方岗位与证据核验 | 本机 API 已完成原生搜索、严格意图筛选、详情、系统投递入口和服务失败降级验收；证据来源采用 HEAD 优先、流式 Range GET 降级并记录实际核验方式 |
 | Network Kit 原生 AI 面试 | `/api/ark` 原生请求、会话授权、敏感字段脱敏、最多三轮问答和反馈协议已实现并通过编译；无 `ARK_API_KEY` 环境已验证明确回退、本机反馈、成长任务和强制停止后记录恢复 |
 | 原生 AI 面试证据 | `harmony-native-ai-consent-20260921.jpeg`、`harmony-native-ai-fallback-20260921.jpeg`、`harmony-native-ai-feedback-20260921.jpeg`、`harmony-native-ai-restored-20260921.jpeg` 已归档 |
-| 原生成长证据账本 | Network Kit `HEAD` 核验、私网地址拦截、用户确认、`KM-XXXXXXXX` 本机内容指纹、有效/已撤销状态和撤销时间已实现；模拟器已验证 GitHub `HTTP 200`、覆盖率 `42% → 51% → 42%` 和重启恢复 |
+| 原生成长证据账本 | Network Kit `HEAD` 优先、流式 Range GET 降级、私网地址拦截、用户确认、`KM-XXXXXXXX` 本机内容指纹、有效/已撤销状态和撤销时间已实现；模拟器已验证 GitHub HEAD `HTTP 200`、覆盖率 `42% → 51% → 42%` 和重启恢复，GET 降级仍待限制 HEAD 的公开站点补充运行截图 |
 | 原生成长账本证据 | `harmony-native-evidence-ledger-20260921.jpeg`、`harmony-native-evidence-revoked-20260921.jpeg`、`harmony-native-evidence-source-verified-20260921.jpeg` 已归档 |
+| Form Kit 桌面证据 | `harmony-native-form-desktop-20260921.jpeg`、`harmony-native-form-coldstart-growth-20260921.jpeg` 已归档 |
 | 原生投递闭环 | 六阶段切换、截止/面试日程、双版本冻结与切换、绑定门禁、追加式时间线和杀进程恢复均已通过模拟器验证 |
 | 原生版本证据 | `harmony-native-application-version-gate-20260921.jpeg`、`harmony-native-resume-version-binding-20260921.jpeg` 已归档 |
 | 正式 HTTPS 岗位/模型链路 | 待部署公网服务；当前原生 HAP 尚未取得真实模型成功调用证据 |

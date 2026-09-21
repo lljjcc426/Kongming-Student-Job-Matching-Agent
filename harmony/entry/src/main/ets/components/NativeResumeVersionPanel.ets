@@ -31,7 +31,7 @@ export struct NativeResumeVersionPanel {
           .fontColor('#1D4ED8')
           .padding({ left: 8, right: 8, top: 5, bottom: 5 })
           .backgroundColor('#DBEAFE')
-          .borderRadius(10)
+          .borderRadius(8)
       }
       .width('100%')
 
@@ -47,7 +47,7 @@ export struct NativeResumeVersionPanel {
         .fontSize(12)
         .fontColor('#FFFFFF')
         .backgroundColor(this.currentJobKey ? '#2563EB' : '#94A3B8')
-        .borderRadius(13)
+        .borderRadius(8)
         .enabled(Boolean(this.currentJobKey))
         .onClick(() => { this.onCreateVersion(); })
 
@@ -56,6 +56,10 @@ export struct NativeResumeVersionPanel {
         .fontColor('#64748B')
         .lineHeight(17)
         .width('100%')
+        .padding(9)
+        .backgroundColor('#F8FAFC')
+        .border({ width: 1, color: '#E2E8F0' })
+        .borderRadius(8)
 
       if (this.versions.length > 0) {
         ForEach(this.versions, (version: NativeResumeVersion) => {
@@ -80,7 +84,7 @@ export struct NativeResumeVersionPanel {
                   .fontColor('#047857')
                   .padding({ left: 7, right: 7, top: 4, bottom: 4 })
                   .backgroundColor('#D1FAE5')
-                  .borderRadius(9)
+                  .borderRadius(8)
               }
             }
             .width('100%')
@@ -104,7 +108,7 @@ export struct NativeResumeVersionPanel {
                   .fontSize(10)
                   .fontColor('#1D4ED8')
                   .backgroundColor('#DBEAFE')
-                  .borderRadius(11)
+                  .borderRadius(8)
                   .onClick(() => { this.onBindVersion(version.id); })
               }
               Button(version.id === this.boundVersionId ? '绑定中' : '删除版本')
@@ -113,7 +117,7 @@ export struct NativeResumeVersionPanel {
                 .fontSize(10)
                 .fontColor(version.id === this.boundVersionId ? '#64748B' : '#B91C1C')
                 .backgroundColor(version.id === this.boundVersionId ? '#E2E8F0' : '#FEE2E2')
-                .borderRadius(11)
+                .borderRadius(8)
                 .enabled(version.id !== this.boundVersionId)
                 .onClick(() => { this.onDeleteVersion(version.id); })
             }
@@ -123,7 +127,8 @@ export struct NativeResumeVersionPanel {
           .width('100%')
           .padding(13)
           .backgroundColor('#FFFFFF')
-          .borderRadius(14)
+          .border({ width: 1, color: '#E2E8F0' })
+          .borderRadius(8)
         }, (version: NativeResumeVersion) => version.id)
       }
     }

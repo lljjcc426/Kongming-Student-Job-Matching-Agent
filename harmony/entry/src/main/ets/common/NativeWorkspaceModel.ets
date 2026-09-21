@@ -37,6 +37,7 @@ export class NativeGrowthEvidenceRecord {
   sourceHost: string;
   sourceCheckedAt: string;
   sourceHttpStatus: number;
+  sourceCheckMethod: string;
 
   constructor(
     id: string,
@@ -52,6 +53,7 @@ export class NativeGrowthEvidenceRecord {
     sourceHost: string = '',
     sourceCheckedAt: string = '',
     sourceHttpStatus: number = 0,
+    sourceCheckMethod: string = 'HEAD',
   ) {
     this.id = id;
     this.taskId = taskId;
@@ -66,6 +68,7 @@ export class NativeGrowthEvidenceRecord {
     this.sourceHost = sourceHost;
     this.sourceCheckedAt = sourceCheckedAt;
     this.sourceHttpStatus = sourceHttpStatus;
+    this.sourceCheckMethod = sourceCheckMethod;
   }
 }
 

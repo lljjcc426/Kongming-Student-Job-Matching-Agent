@@ -46,7 +46,8 @@ export struct NativeEvidenceLedger {
 
   private sourceVerificationMeta(record: NativeGrowthEvidenceRecord | undefined): string {
     if (record && record.sourceVerification === 'reachable') {
-      return `来源可访问 · ${record.sourceHost} · HTTP ${record.sourceHttpStatus} · ${record.sourceCheckedAt}`;
+      const method = record.sourceCheckMethod === 'GET_RANGE' ? 'GET Range' : (record.sourceCheckMethod || 'HEAD');
+      return `来源可访问 · ${record.sourceHost} · ${method} · HTTP ${record.sourceHttpStatus} · ${record.sourceCheckedAt}`;
     }
     return '历史记录未保存来源在线核验结果';
   }
@@ -86,16 +87,28 @@ export struct NativeEvidenceLedger {
             .width('100%')
 
           if (task.status !== 'verified' && task.id === this.nextPendingTaskId()) {
+            Text('证据说明')
+              .fontSize(10)
+              .fontWeight(FontWeight.Medium)
+              .fontColor('#334155')
+              .width('100%')
             TextArea({ placeholder: '描述个人行动、产出物和结果数据。', text: this.evidenceDraft })
               .height(110)
               .backgroundColor('#F8FAFC')
-              .borderRadius(13)
+              .border({ width: 1, color: '#E2E8F0' })
+              .borderRadius(8)
               .onChange((value: string) => { this.onDraftChange(value); })
+            Text('来源链接')
+              .fontSize(10)
+              .fontWeight(FontWeight.Medium)
+              .fontColor('#334155')
+              .width('100%')
             TextInput({ placeholder: 'HTTPS 代码仓库、报告或演示链接', text: this.evidenceSourceUrl })
               .height(42)
               .fontSize(11)
               .backgroundColor('#F8FAFC')
-              .borderRadius(12)
+              .border({ width: 1, color: '#E2E8F0' })
+              .borderRadius(8)
               .onChange((value: string) => { this.onSourceChange(value); })
             Row({ space: 10 }) {
               Checkbox({ name: `growth-evidence-${task.id}`, group: 'growth-evidence-confirm' })
@@ -109,12 +122,12 @@ export struct NativeEvidenceLedger {
             }
             .alignItems(VerticalAlign.Center)
             .width('100%')
-            Button(this.evidenceChecking ? '正在核验 HTTPS 来源' : '核验来源并提交')
+            Button(this.evidenceChecking ? '正在核验 HTTPS 来源…' : '核验来源并提交')
               .width('100%')
               .height(42)
               .fontColor('#FFFFFF')
               .backgroundColor(this.evidenceChecking ? '#94A3B8' : '#2563EB')
-              .borderRadius(13)
+              .borderRadius(8)
               .enabled(!this.evidenceChecking)
               .onClick(() => { this.onSubmitEvidence(); })
           }
@@ -152,7 +165,7 @@ export struct NativeEvidenceLedger {
                   .fontSize(10)
                   .fontColor('#1D4ED8')
                   .backgroundColor('#DBEAFE')
-                  .borderRadius(11)
+                  .borderRadius(8)
                   .onClick(() => { this.onOpenSource(this.activeRecordSource(task.id)); })
               }
               Button('撤销验证')
@@ -161,7 +174,7 @@ export struct NativeEvidenceLedger {
                 .fontSize(10)
                 .fontColor('#B91C1C')
                 .backgroundColor('#FEE2E2')
-                .borderRadius(11)
+                .borderRadius(8)
                 .onClick(() => { this.onRevokeEvidence(task.id); })
             }
             .width('100%')
@@ -171,7 +184,8 @@ export struct NativeEvidenceLedger {
         .width('100%')
         .padding(16)
         .backgroundColor(task.status === 'verified' ? '#ECFDF5' : '#FFFFFF')
-        .borderRadius(17)
+        .border({ width: 1, color: task.status === 'verified' ? '#A7F3D0' : '#E2E8F0' })
+        .borderRadius(8)
       }, (task: NativeGrowthTask) => `${task.id}-${task.status}`)
 
       if (this.records.length > 0) {
@@ -187,7 +201,7 @@ export struct NativeEvidenceLedger {
               .fontColor('#0F766E')
           }
           .width('100%')
-          Text('Network Kit 只核验公开 HTTPS 来源可访问；账本保留核验时间和状态码，但不代表内容归属或第三方真实性认证。')
+          Text('Network Kit 使用 HEAD 优先、流式 Range GET 降级核验公开 HTTPS；账本保留方式、时间和状态码，但不代表内容归属或第三方真实性认证。')
             .fontSize(10)
             .fontColor('#64748B')
             .lineHeight(17)
@@ -230,7 +244,8 @@ export struct NativeEvidenceLedger {
         .width('100%')
         .padding(16)
         .backgroundColor('#F8FAFC')
-        .borderRadius(17)
+        .border({ width: 1, color: '#E2E8F0' })
+        .borderRadius(8)
       }
     }
     .width('100%')
