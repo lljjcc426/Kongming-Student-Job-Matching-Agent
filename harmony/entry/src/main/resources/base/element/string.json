@@ -5,6 +5,8 @@
     { "name": "camera_permission_reason", "value": "用于用户主动开启模拟面试时显示本机摄像头预览" },
     { "name": "microphone_permission_reason", "value": "用于用户主动录制模拟面试回答并在本机转写为文字" },
     { "name": "application_form_display_name", "value": "今日求职行动" },
-    { "name": "application_form_desc", "value": "查看待办数量、下一项行动和已追踪岗位" }
+    { "name": "application_form_desc", "value": "查看待办数量、下一项行动和已追踪岗位" },
+    { "name": "job_service_url", "value": "" },
+    { "name": "ark_service_url", "value": "" }
   ]
 }

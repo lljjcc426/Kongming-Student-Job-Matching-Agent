@@ -25,7 +25,7 @@
 | 简历优化 | 原文、建议文本、岗位要求、Evidence ID、风险和逐条接受/拒绝 | 缺失技能不写入当前技能栏，不编造数字与经历 |
 | 隐私 | 5 类敏感字段脱敏、会话级外部模型同意、清除本地数据 | 服务端密钥不进入前端；图片外发只作明确兜底 |
 | 工作区与求职追踪 | 简历版本、岗位阶段历史、投递版本绑定、今日行动建议 | 简历只在本机工作区保存；服务卡片不保存简历正文 |
-| 鸿蒙能力 | 华为账号、Core Vision、Share Kit、Core Speech、Form Kit、相机/麦克风权限 | 核心业务 UI 仍为 HAP 内置 ArkWeb 混合架构；Kit 真机能力单独验收 |
+| 鸿蒙能力 | 华为账号、Core Vision、Share Kit、Core Speech、Form Kit、相机/麦克风权限 | 核心业务 UI 已切换为 ArkUI/ArkTS 原生；Kit 真机能力单独验收 |
 | 性能 | 面试页与 3D AI 助手按需加载，PDF 解析模块动态加载 | 大型视频与模型资源仍占主要安装包体积 |
 
 ## 3. 架构任务链
@@ -33,7 +33,7 @@
 ### T0 基线审计（完成）
 
 - HarmonyOS 6.1.1(24)，包名 `cn.kongming.jobmatch`。
-- HAP 内置 React/Vite 静态资源，不依赖远程网页壳。
+- 默认 HAP 只包含 ArkUI/ArkTS 原生页面和系统资源，不包含 React/Vite 静态资源；旧 Web 资源仅通过显式兼容构建进入 HAP。
 - 手机、平板、2in1 声明已保留。
 - 当前工程没有正式发布签名配置。
 
@@ -68,10 +68,10 @@
 
 ### T4 鸿蒙构建与原生桥接（本轮完成）
 
-- 华为账号登录桥接仅允许 HAP 本地 `file://` 页面调用。
-- Core Vision OCR 与 Share Kit 通过同一受信 JS/native 桥接暴露。
-- 最新 HAP 已在 API 24 模拟器覆盖安装并成功启动。
-- 模拟器启动截图保存为 `docs/evidence-screenshots/harmony-emulator-home-20260722.jpeg`。
+- 华为账号、Core Vision OCR、Share Kit 和 Core Speech 已在 ArkTS 原生服务层接入，默认入口不再使用 JS/native 桥接。
+- DevEco Studio 6.1.1.290 已安装到 `D:\DevEco Studio`，ArkTS 编译和 unsigned HAP 打包通过。
+- 由于源码路径含中文，构建脚本使用 `D:\KongMing-Harmony-Build` ASCII staging 后回写 HAP。
+- 当前模拟器/真机安装截图仍待补齐，旧截图只作为迁移前参考。
 
 退出条件：ArkTS 编译成功，HAP 可安装，Ability 启动成功且画面为最新产品首页。
 
@@ -79,8 +79,8 @@
 
 - Core Speech：TTS、短语音识别、麦克风授权和文本降级已接入；继续补真机权限拒绝、中英混合、后台和网络异常。
 - Form Kit：今日行动数据层、卡片页面和 Extension 已接入并在安装信息中注册；继续补桌面动态刷新、杀进程存续和精准跳转。
-- 原生文件能力：仅在 ArkWeb 文件选择器无法满足真机兼容性时增加 Core File Kit 桥接。
-- ArkUI 原生化：优先迁移岗位卡、证据矩阵和追踪看板，而不是一次性重写全部 UI。
+- 原生文件能力：使用系统文件选择和 Core File Kit，数据直接进入 ArkTS 本机工作区。
+- ArkUI 原生化：主工作台已迁移；后续新增岗位详情、账号同步和模型交互都必须继续使用 ArkUI/ArkTS。
 
 退出条件：每个能力均有源码、真机或模拟器记录及失败降级，不以 SDK 存在代替功能完成。
 
@@ -95,11 +95,10 @@
 ## 4. 本轮构建结果
 
 - HAP：`harmony/entry/build/default/outputs/default/entry-default-unsigned.hap`
-- 大小：34,324,777 bytes
-- SHA-256：`728B5635495DB019DC5C9D34E72CB4745584D4FBAA98F78500C8D6AE7C265A28`
-- 模拟器：Pura 90 Pro，HarmonyOS 6.1.1(24)，software 6.1.0.125
-- 安装结果：冷启动后成功
-- Ability 启动结果：首次与二次启动成功
+- 大小：1,053,049 bytes
+- SHA-256：`8D5149587D2CFD5FC6293A183B556DB4F44B658C6D32907731EDE82D29895525`
+- 构建结果：ArkTS 编译、资源处理、HAP 打包和 unsigned 产物回写通过
+- 设备安装与 Ability 启动：待补本轮原生版本证据
 
 ## 5. 明确不做或不夸大
 
@@ -107,5 +106,5 @@
 - 不抓取或出售求职者个人信息。
 - 不把模型生成职业方向称为企业招聘岗位。
 - 不把证据覆盖率、模型面试评分称为企业录用概率。
-- 不宣称核心页面已全部 ArkUI 原生化。
+- 不宣称真机能力和正式签名已经完成，直到取得对应运行证据。
 - 不宣称 Core Speech 与 Form Kit 已完成真机全场景验收，也不宣称正式签名和上架已经完成。

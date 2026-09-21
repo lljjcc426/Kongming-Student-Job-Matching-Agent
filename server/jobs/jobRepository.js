@@ -87,14 +87,31 @@ const queryTerms = (query) => {
   return [...new Set(expanded)];
 };
 
-const scoreJob = (job, terms, city) => {
-  const title = `${job.title} ${job.department || ""}`.toLowerCase();
-  const haystack = `${job.title} ${job.company} ${job.summary} ${(job.keywords || []).join(" ")}`.toLowerCase();
+const queryIntentGroups = (query) => {
+  const normalized = sanitizeQuery(query).toLowerCase();
+  const groups = [];
+  if (/前端|front[- ]?end|frontend/.test(normalized)) groups.push(["前端", "frontend", "front-end", "front end"]);
+  if (/后端|back[- ]?end|backend/.test(normalized)) groups.push(["后端", "backend", "back-end", "back end", "server"]);
+  if (/实习|\bintern(?:ship)?\b/.test(normalized)) groups.push(["实习", "intern", "internship"]);
+  if (/校招|校园|应届|new grad|graduate|campus/.test(normalized)) groups.push(["校招", "校园", "应届", "new grad", "graduate", "campus"]);
+  return groups;
+};
+
+const intentTermMatches = (text, term) => {
+  if (!/^[a-z0-9 .-]+$/.test(term)) return text.includes(term);
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(text);
+};
+
+const scoreJob = (job, terms, intentGroups, city) => {
+  const title = `${job.title} ${job.department || ""} ${job.level || ""} ${job.employmentType || ""}`.toLowerCase();
+  const haystack = `${title} ${job.company} ${job.summary} ${(job.keywords || []).join(" ")}`.toLowerCase();
   const hits = terms.filter((term) => haystack.includes(term)).length;
   const titleHits = terms.filter((term) => title.includes(term)).length;
+  const intentTitleHits = intentGroups.filter((group) => group.some((term) => intentTermMatches(title, term))).length;
   const freshness = new Date(job.updatedAt || job.publishedAt || job.lastSeenAt || 0).getTime();
   const freshDays = Math.max(0, Math.min(14, (Date.now() - freshness) / 86_400_000));
-  return titleHits * 40 + hits * 8 + (city && String(job.city).includes(city) ? 10 : 0)
+  return intentTitleHits * 80 + titleHits * 40 + hits * 8 + (city && String(job.city).includes(city) ? 10 : 0)
     + Number(job.confidence || 0) * 10 - freshDays;
 };
 
@@ -115,6 +132,7 @@ export const queryJobs = async (filters = {}) => {
   const sourceType = sanitizeQuery(filters.sourceType || "").toLowerCase();
   const updatedAfter = filters.updatedAfter ? new Date(filters.updatedAfter).getTime() : Number.NaN;
   const terms = queryTerms(query);
+  const intentGroups = queryIntentGroups(query);
   const offset = decodeCursor(filters.cursor);
   const limit = Math.max(1, Math.min(100, Number(filters.limit) || 20));
   const deduped = new Map();
@@ -124,8 +142,10 @@ export const queryJobs = async (filters = {}) => {
     if (city && !String(job.city).includes(city) && !(job.locations || []).some((item) => String(item).includes(city))) continue;
     if (employmentType && String(job.employmentType).toLowerCase() !== employmentType) continue;
     if (sourceType && String(job.sourceType).toLowerCase() !== sourceType) continue;
-    const haystack = `${job.title} ${job.company} ${job.summary} ${(job.keywords || []).join(" ")}`.toLowerCase();
+    const haystack = `${job.title} ${job.company} ${job.summary} ${(job.keywords || []).join(" ")} ${job.level || ""} ${job.employmentType || ""}`.toLowerCase();
     if (terms.length && !terms.some((term) => haystack.includes(term))) continue;
+    if (intentGroups.length && !intentGroups.every((group) =>
+      group.some((term) => intentTermMatches(haystack, term)))) continue;
     if (!Number.isNaN(updatedAfter)) {
       const updatedAt = new Date(job.updatedAt || job.lastSeenAt || 0).getTime();
       if (updatedAt < updatedAfter) continue;
@@ -134,7 +154,8 @@ export const queryJobs = async (filters = {}) => {
     const previous = deduped.get(key);
     if (!previous || Number(job.confidence) > Number(previous.confidence)) deduped.set(key, job);
   }
-  const sorted = [...deduped.values()].sort((left, right) => scoreJob(right, terms, city) - scoreJob(left, terms, city));
+  const sorted = [...deduped.values()].sort((left, right) =>
+    scoreJob(right, terms, intentGroups, city) - scoreJob(left, terms, intentGroups, city));
   const jobs = sorted.slice(offset, offset + limit);
   const nextOffset = offset + jobs.length;
   return {

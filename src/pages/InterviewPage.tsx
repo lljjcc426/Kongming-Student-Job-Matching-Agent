@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUp, Brain, BriefcaseBusiness, Code2, Mic, MicOff, RotateCcw, SkipForward, Sparkles, Square, UsersRound, Video } from "lucide-react";
+import { ArrowUp, Brain, BriefcaseBusiness, Code2, Mic, MicOff, RotateCcw, SkipForward, Sparkles, Square, TrendingUp, UsersRound, Video } from "lucide-react";
 import type { Job, StudentProfile } from "../data";
 import { getInterviewModelProvider } from "../modelProviders/interviewProvider";
 import type { SpeechToTextAdapter } from "../speechToText/browserSpeechRecognitionAdapter";
 import { createSpeechRecognitionAdapter } from "../speechToText/harmonySpeechRecognitionAdapter";
 import { createTextToSpeechAdapter } from "../tts/harmonyTextToSpeechAdapter";
-import type { AvatarSpeechState, InterviewAssessmentLevel, InterviewFeedbackReport, InterviewInputMode, InterviewMessage, InterviewStatus, InterviewTurn, InterviewType } from "../types/interview";
+import type { AvatarSpeechState, InterviewAssessmentLevel, InterviewCompletion, InterviewFeedbackReport, InterviewInputMode, InterviewMessage, InterviewStatus, InterviewTurn, InterviewType } from "../types/interview";
 import InterviewerAvatar from "../components/interview/InterviewerAvatar";
 import StudentCameraPreview from "../components/interview/StudentCameraPreview";
 import { useStudentCamera } from "../components/interview/useStudentCamera";
@@ -16,6 +16,8 @@ type InterviewPageProps = {
   profile: StudentProfile;
   resumeText: string;
   hasAnalysis: boolean;
+  onComplete?: (completion: InterviewCompletion) => void;
+  onOpenGrowthPlan?: () => void;
 };
 
 const interviewTypes: Array<{ value: InterviewType; label: string; description: string; icon: typeof Brain }> = [
@@ -81,7 +83,7 @@ const firstOpeningOf = (type: InterviewType) => {
   return "你好，我是今天的 AI 面试官。接下来我会围绕你的目标岗位进行综合模拟面试，请尽量用真实面试的方式回答。";
 };
 
-export default function InterviewPage({ job, profile, resumeText, hasAnalysis }: InterviewPageProps) {
+export default function InterviewPage({ job, profile, resumeText, hasAnalysis, onComplete, onOpenGrowthPlan }: InterviewPageProps) {
   const [status, setStatus] = useState<InterviewStatus>("idle");
   const [messages, setMessages] = useState<InterviewMessage[]>([]);
   const [turns, setTurns] = useState<InterviewTurn[]>([]);
@@ -249,6 +251,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
       currentRound,
     });
     setFeedback(report);
+    onComplete?.({ interviewType, feedback: report, turns, completedAt: new Date().toISOString() });
     const summary = report.feedbackAvailable
       ? `本次模拟面试已结束。已生成分级复盘，重点建议是：${report.improvements[0] || "继续强化结构化表达。"}`
       : `本次模拟面试已结束，但模型反馈未通过结构校验。建议：${report.improvements[0] || "请根据真实回答记录人工复盘。"}`;
@@ -359,6 +362,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis }:
                   <ul>{feedback.improvements.map((item) => <li key={item}>{item}</li>)}</ul>
                   <strong>推荐优化回答</strong>
                   <p>{feedback.optimizedAnswer}</p>
+                  {onOpenGrowthPlan ? <button type="button" className="primary-action compact-action interview-growth-button" onClick={onOpenGrowthPlan}><TrendingUp size={15} />查看成长任务</button> : null}
                 </div>
               </div>
             ) : null}

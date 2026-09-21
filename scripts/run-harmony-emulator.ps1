@@ -1,15 +1,16 @@
 [CmdletBinding()]
 param(
-  [string]$DevEcoRoot = 'E:\Program Files\Huawei\DevEco Studio',
+  [string]$DevEcoRoot = 'D:\DevEco Studio',
   [string]$EmulatorName = 'KongMing_API24',
   [string]$InstancePath = 'D:\HarmonyOS-Emulator\instances',
   [string]$ImageRoot = 'D:\HarmonyOS-Emulator\images',
   [ValidateSet('coldboot', 'snapshot', 'reset')]
   [string]$BootMode = 'coldboot',
   [ValidateRange(10000, 16555)]
-  [int]$HdcPort = 15555,
+  [int]$HdcPort = 5555,
   [ValidateRange(1024, 65535)]
   [int]$LocalDevPort = 5173,
+  [string]$LocalDevHost = '10.0.2.2',
   [string]$BundleName = 'cn.kongming.jobmatch',
   [string]$AbilityName = 'EntryAbility'
 )
@@ -28,7 +29,7 @@ foreach ($requiredPath in @($emulator, $hdc, $hapPath, $InstancePath, $ImageRoot
   }
 }
 
-$instanceJson = & $emulator -list -details
+$instanceJson = & $emulator -list -details -instancePath $InstancePath
 if ($LASTEXITCODE -ne 0) {
   throw 'Unable to query HarmonyOS emulator instances.'
 }
@@ -45,10 +46,10 @@ if ([string]$instance.isRunning -eq 'true') {
   $runningConnected = $runningTargets | Where-Object { $_ -match '^127\.0\.0\.1:\d+\s+TCP\s+Connected' } | Select-Object -First 1
   if (-not $runningConnected) {
     Write-Output 'Running emulator has no connected HDC target; restarting it to recover the debug channel.'
-    & $emulator -stop $EmulatorName | Out-Null
+    & $emulator -stop $EmulatorName -instancePath $InstancePath | Out-Null
     for ($attempt = 1; $attempt -le 20; $attempt++) {
       Start-Sleep -Seconds 2
-      $stoppedState = (& $emulator -list -details | ConvertFrom-Json) |
+      $stoppedState = (& $emulator -list -details -instancePath $InstancePath | ConvertFrom-Json) |
         Where-Object { $_.name -eq $EmulatorName } |
         Select-Object -First 1
       if ([string]$stoppedState.isRunning -ne 'true') { break }
@@ -62,7 +63,6 @@ if ([string]$instance.isRunning -ne 'true') {
     '-start', $EmulatorName,
     '-instancePath', $InstancePath,
     '-imageRoot', $ImageRoot,
-    '-hdcPort', $HdcPort,
     '-bootmode', $BootMode
   )
   Start-Process -FilePath $emulator -ArgumentList $arguments | Out-Null
@@ -88,6 +88,21 @@ if (-not $connected) {
   throw "Emulator did not expose a connected local hdc target (preferred port: $HdcPort)."
 }
 
+$systemReady = $false
+for ($attempt = 1; $attempt -le 60; $attempt++) {
+  $bundleDump = @(& $hdc -t $target shell bm dump -a 2>&1)
+  $bundleDumpText = $bundleDump -join "`n"
+  if ($LASTEXITCODE -eq 0 -and $bundleDumpText -match 'ID:\s*\d+') {
+    $systemReady = $true
+    break
+  }
+  Start-Sleep -Seconds 3
+}
+
+if (-not $systemReady) {
+  throw 'Emulator HDC connected, but Bundle Manager did not become ready.'
+}
+
 $reverseResult = @(& $hdc -t $target rport "tcp:$LocalDevPort" "tcp:$LocalDevPort" 2>&1)
 $reverseText = $reverseResult -join "`n"
 if ($LASTEXITCODE -ne 0 -and $reverseText -notmatch 'Repeat|exist|already') {
@@ -101,14 +116,30 @@ if ($LASTEXITCODE -ne 0 -or $installText -match '\[Fail\]' -or $installText -not
   throw "HAP installation failed: $installText"
 }
 
-& $hdc -t $target shell power-shell wakeup 2>&1 | Out-Null
-& $hdc -t $target shell uinput -T -m 628 2400 628 700 800 2>&1 | Out-Null
-Start-Sleep -Seconds 2
-$launchResult = @(& $hdc -t $target shell aa start -a $AbilityName -b $BundleName 2>&1)
-$launchResult | Write-Output
-$launchText = $launchResult -join "`n"
-if ($LASTEXITCODE -ne 0 -or $launchText -match '\[Fail\]|failed to start ability' -or
-  $launchText -notmatch 'start ability successfully') {
+$launchResult = @()
+$launchExitCode = 1
+$launchText = ''
+$launchSucceeded = $false
+for ($attempt = 1; $attempt -le 3; $attempt++) {
+  & $hdc -t $target shell power-shell wakeup 2>&1 | Out-Null
+  & $hdc -t $target shell uinput -T -m 628 2400 628 700 800 2>&1 | Out-Null
+  Start-Sleep -Seconds 2
+  $launchResult = @(& $hdc -t $target shell aa start -a $AbilityName -b $BundleName 2>&1)
+  $launchExitCode = $LASTEXITCODE
+  $launchResult | Write-Output
+  $launchText = $launchResult -join "`n"
+  if ($launchExitCode -eq 0 -and $launchText -notmatch '\[Fail\]|failed to start ability' -and
+    $launchText -match 'start ability successfully') {
+    $launchSucceeded = $true
+    break
+  }
+  if ($launchText -notmatch '10106102|screen is locked|unlock screen failed') {
+    break
+  }
+  Start-Sleep -Seconds 5
+}
+
+if (-not $launchSucceeded) {
   throw "Ability launch failed: $launchText"
 }
 
@@ -118,5 +149,5 @@ if ($LASTEXITCODE -ne 0 -or $launchText -match '\[Fail\]|failed to start ability
   Target = $target
   Bundle = $BundleName
   HAP = $hapPath
-  LocalDevApi = "http://127.0.0.1:$LocalDevPort/api"
+  LocalDevApi = "http://${LocalDevHost}:$LocalDevPort/api"
 }

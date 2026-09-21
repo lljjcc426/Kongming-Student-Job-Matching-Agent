@@ -8,6 +8,7 @@ const FORM_IDS_KEY: string = 'form_ids';
 export class CareerFormData {
   trackedCount: number = 0;
   pendingCount: number = 0;
+  applicationStage: string = '待追踪';
   nextAction: string = '添加岗位后生成今日行动';
   jobTitle: string = '孔明职配';
   updatedAt: string = '尚未同步';
@@ -22,6 +23,7 @@ export async function loadCareerFormData(context: Context): Promise<CareerFormDa
   const data = new CareerFormData();
   data.trackedCount = await store.get('tracked_count', 0) as number;
   data.pendingCount = await store.get('pending_count', 0) as number;
+  data.applicationStage = await store.get('application_stage', data.applicationStage) as string;
   data.nextAction = await store.get('next_action', data.nextAction) as string;
   data.jobTitle = await store.get('job_title', data.jobTitle) as string;
   data.updatedAt = await store.get('updated_at', data.updatedAt) as string;
@@ -32,6 +34,7 @@ export async function saveCareerFormData(context: Context, data: CareerFormData)
   const store = await preferences.getPreferences(context, STORE_NAME);
   await store.put('tracked_count', Math.max(0, data.trackedCount));
   await store.put('pending_count', Math.max(0, data.pendingCount));
+  await store.put('application_stage', data.applicationStage.slice(0, 20));
   await store.put('next_action', data.nextAction.slice(0, 100));
   await store.put('job_title', data.jobTitle.slice(0, 60));
   await store.put('updated_at', data.updatedAt.slice(0, 40));

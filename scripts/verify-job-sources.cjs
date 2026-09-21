@@ -9,6 +9,7 @@ async function main() {
   const { collectAshbyJobs } = await import("../server/jobs/adapters/ashby.js");
   const { parseJsonLdJob } = await import("../server/jobs/adapters/searchDiscovery.js");
   const { queryJobs, resetJobRepositoryForTests, upsertJobs } = await import("../server/jobs/jobRepository.js");
+  const { inferEmploymentType, inferKeywords, inferLevel } = await import("../server/jobs/utils.js");
 
   resetJobRepositoryForTests();
   const common = { query: "前端 TypeScript", city: "上海", limit: 10 };
@@ -96,6 +97,9 @@ async function main() {
   });
   assert.equal(ashby[0].city, "Remote");
   assert.equal(ashby[0].department, "Product / Engineering");
+  assert.equal(inferLevel("Build a better Internet for everyone"), "社招");
+  assert.equal(inferEmploymentType("Build a better Internet for everyone"), "full-time");
+  assert.equal(inferKeywords("安全分析岗位", "前端开发实习生").includes("前端开发实习生"), false);
 
   const jsonLd = parseJsonLdJob(`<script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
@@ -106,6 +110,8 @@ async function main() {
   assert.equal(jsonLd.title, "算法工程师");
 
   await upsertJobs([...moka, ...greenhouse, ...lever, ...ashby]);
+  const internshipSearch = await queryJobs({ query: "前端开发实习生", limit: 10 });
+  assert.deepEqual(internshipSearch.jobs.map((job) => job.id), moka.map((job) => job.id));
   const firstPage = await queryJobs({ limit: 2 });
   assert.equal(firstPage.total, 4);
   assert.equal(firstPage.jobs.length, 2);

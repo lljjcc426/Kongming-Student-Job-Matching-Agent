@@ -15,7 +15,7 @@
         "icon": "$media:startIcon",
         "label": "$string:EntryAbility_label",
         "exported": true,
-        "startWindowIcon": "$media:startIcon",
+        "startWindowIcon": "$media:startIconNative",
         "startWindowBackground": "$color:start_window_background",
         "orientation": "auto_rotation",
         "skills": [

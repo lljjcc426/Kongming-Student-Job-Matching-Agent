@@ -104,7 +104,7 @@ flowchart TD
 1. 文本文件直接读取。
 2. PDF 使用 PDF.js 提取文本层，并计算文本质量和覆盖率。
 3. HarmonyOS 包内图片与扫描页优先通过 Core Vision 本机 OCR；本机失败且用户明确同意后，才交给 `resume-vision` 外部视觉任务兜底。
-4. 图片文件会在 Web 层压缩为 JPEG DataURL，再通过受信 JS/native 桥接传给本机 OCR。
+4. Web 产品使用受信 JS/native 桥接传递 JPEG DataURL；HarmonyOS 原生页面直接通过 `PhotoViewPicker` 或 `DocumentViewPicker` 获取 URI，再由 ArkTS `fileIo` 读取并传给 Core Vision，默认不经过 WebView。
 5. 外部模型调用前统一执行会话同意检查和敏感字段脱敏。
 6. 模型输出通过 `parseStructuredResume` 转成结构化画像，随后等待用户确认事实。
 
@@ -338,7 +338,7 @@ flowchart LR
 
 - 当前 HAP 未配置正式签名，也未注入可公网访问的模型和岗位 API。
 - Core Vision、Share Kit 与 Core Speech 已通过编译，但仍需要支持相应系统能力的真机完成交互复验。
-- 核心业务页面仍为 ArkWeb 混合实现，不是全 ArkUI 原生页面。
+- 核心 HarmonyOS 业务页面已迁移为 ArkUI/ArkTS 原生实现；Web 页面仅作为独立 Web 产品与迁移参考保留。
 - 没有生产数据库和跨设备同步；投递状态只保存在本机。
 - Core Speech 已接入 TTS 与短语音识别，并提供浏览器能力/文字输入降级；权限拒绝、中英混合、后台和网络异常仍待真机验收。
 - Form Kit 已实现今日行动卡片并注册 `ApplicationFormAbility`；桌面动态刷新、杀进程存续和精准跳转仍待人工验收。

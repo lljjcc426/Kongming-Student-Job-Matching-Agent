@@ -52,6 +52,9 @@ import {
 import { callArkAgent, configureArkPrivacy } from "./arkClient";
 import { defaultPrivacyPreferences, type PrivacyPreferences } from "./core/privacy/redaction";
 import { buildCareerOpsEvaluation } from "./careerOps";
+import { createGrowthPlan, createInterviewSnapshot, refreshGrowthPlanFromInterview, submitGrowthEvidence } from "./features/growth/growthEngine";
+import { loadGrowthPlan, normalizeGrowthPlan, saveGrowthPlan } from "./features/growth/growthRepository";
+import type { GrowthPlan } from "./features/growth/types";
 import { parseCustomJob } from "./jobParser";
 import { fetchPublicJobs } from "./jobApi";
 import {
@@ -70,7 +73,9 @@ import { parseJdAnalysis, parseModelJobs, parseStructuredResume, profileFromStru
 import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft, validateOptimizedResumeDraft } from "./resumeOptimizer";
 import { checkServiceHealth, initialServiceHealth } from "./serviceHealth";
+import type { InterviewCompletion } from "./types/interview";
 import HomePage from "./pages/HomePage";
+import GrowthPlanPage from "./pages/GrowthPlanPage";
 import LoadingScreen from "./LoadingScreen";
 import homeHeroVideo from "./assets/home-hero-video.mp4";
 
@@ -110,7 +115,7 @@ function ModelInsightMarkdown({ content }: { content: string }) {
 
 type PipelineStep = "idle" | "intake" | "structure" | "jobs" | "analysis" | "done" | "error";
 type JdPipelineStep = "idle" | "parse" | "evaluate" | "links" | "done" | "error";
-type ActivePage = "home" | "resume" | "jobs" | "interview" | "assistant";
+type ActivePage = "home" | "resume" | "jobs" | "interview" | "growth" | "assistant";
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -372,6 +377,11 @@ function App() {
   const [chatStatus, setChatStatus] = useState<"idle" | "listening" | "loading" | "ready" | "error">("idle");
   const [chatMessage, setChatMessage] = useState("");
   const [activePage, setActivePage] = useState<ActivePage>("home");
+  const [growthPlan, setGrowthPlan] = useState<GrowthPlan | null>(() => {
+    if (typeof window === "undefined") return null;
+    const stored = loadGrowthPlan(window.localStorage);
+    return stored ? normalizeGrowthPlan(stored) : null;
+  });
   const [uploadMessage, setUploadMessage] = useState(initialWorkspace.resumeText ? "已恢复本机工作区，可继续核对和修改。" : "请上传简历文本/图片，或直接粘贴简历内容开始分析。");
   const [resumeSource, setResumeSource] = useState(initialWorkspace.resumeSource);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -458,6 +468,15 @@ function App() {
   const selectedJob = rankedJobs.find((job) => job.id === selectedJobId) ?? rankedJobs[0] ?? emptyJob;
   const hasAnalysis = rankedJobs.length > 0;
   const result = useMemo(() => analyzeMatch(activeProfile, selectedJob, resumeText), [activeProfile, resumeText, selectedJob]);
+  const handleInterviewComplete = useCallback((completion: InterviewCompletion) => {
+    const interview = createInterviewSnapshot(completion.interviewType, completion.feedback, completion.turns);
+    setGrowthPlan((current) => current?.targetJobId === selectedJob.id
+      ? refreshGrowthPlanFromInterview(current, completion.feedback, completion.turns, completion.interviewType)
+      : createGrowthPlan({ job: selectedJob, matchResult: result, interview, previousPlan: current }));
+  }, [result, selectedJob]);
+  const handleSubmitGrowthEvidence = useCallback((taskId: string, evidenceText: string, evidenceUrl: string) => {
+    setGrowthPlan((current) => current ? submitGrowthEvidence(current, taskId, evidenceText, evidenceUrl) : current);
+  }, []);
   const optimizedDraft = useMemo(() => buildOptimizedResumeDraft(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
   const careerOpsEvaluation = useMemo(() => buildCareerOpsEvaluation(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
   const trackedApplication = applications.find((application) => application.jobId === selectedJob.id) ?? null;
@@ -503,16 +522,21 @@ function App() {
   }, [currentProposalContextKey, proposalContextKey]);
 
   useEffect(() => {
+    saveGrowthPlan(window.localStorage, growthPlan);
+  }, [growthPlan]);
+
+  useEffect(() => {
     saveApplicationRecords(window.localStorage, applications);
     const nextAction = dailyApplicationActions[0];
+    const nextGrowthTask = growthPlan?.tasks.find((task) => task.status !== "verified");
     void updateApplicationFormWithHarmony({
       trackedCount: applications.length,
-      pendingCount: dailyApplicationActions.length,
-      nextAction: nextAction?.action || "添加岗位后生成今日行动",
-      jobTitle: nextAction?.title || "孔明职配",
+      pendingCount: nextGrowthTask ? 1 : dailyApplicationActions.length,
+      nextAction: nextGrowthTask?.title || nextAction?.action || "添加岗位后生成今日行动",
+      jobTitle: growthPlan?.targetJobTitle || nextAction?.title || "孔明职配",
       updatedAt: new Date().toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
     });
-  }, [applications, dailyApplicationActions]);
+  }, [applications, dailyApplicationActions, growthPlan]);
 
   useEffect(() => {
     saveCareerWorkspace(window.localStorage, {
@@ -1872,8 +1896,23 @@ function App() {
 
       {activePage === "interview" ? (
         <Suspense fallback={<div className="page-loading">正在加载模拟面试…</div>}>
-          <InterviewPage job={selectedJob} profile={activeProfile} resumeText={resumeText} hasAnalysis={hasAnalysis} />
+          <InterviewPage
+            job={selectedJob}
+            profile={activeProfile}
+            resumeText={resumeText}
+            hasAnalysis={hasAnalysis}
+            onComplete={handleInterviewComplete}
+            onOpenGrowthPlan={() => setActivePage("growth")}
+          />
         </Suspense>
+      ) : null}
+
+      {activePage === "growth" ? (
+        <GrowthPlanPage
+          plan={growthPlan}
+          onSubmitEvidence={handleSubmitGrowthEvidence}
+          onOpenInterview={() => setActivePage("interview")}
+        />
       ) : null}
     </main>
   );
@@ -2201,6 +2240,7 @@ function AppNav({
     { id: "jobs", label: "岗位证据", icon: <BriefcaseBusiness size={16} /> },
     { id: "interview", label: "模拟面试", icon: <Video size={16} /> },
     { id: "assistant", label: "AI 助手", icon: <Bot size={16} /> },
+    { id: "growth", label: "成长任务", icon: <Sparkles size={16} /> },
   ];
 
   return (

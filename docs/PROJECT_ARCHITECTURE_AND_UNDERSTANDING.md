@@ -55,7 +55,7 @@
 | --- | --- | --- | --- |
 | `api/` | Vercel Serverless API 入口 | 生产环境 `/api/ark` 请求入口 | `api/ark.js` 的请求方法、安全头、body 限制 |
 | `server/` | 模型代理核心逻辑 | 本地 Vite 代理和 Vercel API 共同调用 | 任务校验、模型请求、搜索链接补充 |
-| `harmony/` | HarmonyOS Stage 工程 | HAP 构建、ArkWeb 本地包、账号/OCR/分享桥接 | API 版本、系统能力、权限与签名 |
+| `harmony/` | HarmonyOS Stage 工程 | ArkUI/ArkTS 原生工作台、HAP 构建、账号/OCR/分享/语音/Form 能力 | API 版本、系统能力、权限与签名 |
 | `src/` | 前端应用主代码 | 用户交互、状态流、智能体结果展示 | `App.tsx`、智能体、解析器、页面模块 |
 | `src/core/` | 业务基础设施 | 岗位仓储、隐私脱敏、本机追踪 | 数据边界、版本化持久化 |
 | `src/domain/` | 领域适配器 | 互联网岗位族、技能别名、硬条件与证据规则 | 新领域以适配器扩展 |
@@ -114,11 +114,13 @@ flowchart TD
     A[用户上传或粘贴简历] --> B{文件类型}
     B -->|文本| C[读取文本]
     B -->|PDF| D[PDF.js 读取文本层]
-    B -->|图片| E[压缩为图片 DataURL]
+    B -->|Web 图片| E[压缩为图片 DataURL]
+    B -->|HarmonyOS 原生图片| E0[PhotoViewPicker 或 DocumentViewPicker 返回 URI]
     D --> F{文本层质量是否足够}
     F -->|是| C
     F -->|否| E
     E --> G{鸿蒙本机 OCR 是否可用}
+    E0 --> G
     G -->|是| H1[Core Vision 本机识别]
     G -->|否且用户同意| H2[调用 resume-vision]
     C --> H[调用 resume-structure]

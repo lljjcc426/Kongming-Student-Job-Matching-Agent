@@ -34,3 +34,10 @@ export type InterviewFeedbackReport = {
   optimizedAnswer: string;
   summary: string;
 };
+
+export type InterviewCompletion = {
+  interviewType: InterviewType;
+  feedback: InterviewFeedbackReport;
+  turns: InterviewTurn[];
+  completedAt: string;
+};

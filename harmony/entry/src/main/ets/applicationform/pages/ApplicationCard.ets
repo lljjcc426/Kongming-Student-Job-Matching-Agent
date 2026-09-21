@@ -5,6 +5,7 @@ let applicationCardStorage = new LocalStorage();
 struct ApplicationCard {
   @LocalStorageProp('trackedCount') trackedCount: number = 0;
   @LocalStorageProp('pendingCount') pendingCount: number = 0;
+  @LocalStorageProp('applicationStage') applicationStage: string = '待追踪';
   @LocalStorageProp('nextAction') nextAction: string = '添加岗位后生成今日行动';
   @LocalStorageProp('jobTitle') jobTitle: string = '孔明职配';
   @LocalStorageProp('updatedAt') updatedAt: string = '尚未同步';
@@ -18,7 +19,7 @@ struct ApplicationCard {
             .fontWeight(FontWeight.Bold)
             .fontColor('#0F172A')
           Blank()
-          Text(`${this.pendingCount} 项待办`)
+          Text(`${this.applicationStage} · ${this.pendingCount} 项待办`)
             .fontSize(12)
             .fontWeight(FontWeight.Medium)
             .fontColor('#2563EB')

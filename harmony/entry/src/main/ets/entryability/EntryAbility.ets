@@ -20,7 +20,7 @@ export default class EntryAbility extends UIAbility {
     const values: PageStorage = { ShareUIAbilityWant: this.startupWant };
     const storage = new LocalStorage(values);
     try {
-      windowStage.loadContent('pages/Index', storage).catch((error: Error) => {
+      windowStage.loadContent('pages/NativeIndex', storage).catch((error: Error) => {
         console.error(`Failed to load the main page: ${error.message}`);
       });
     } catch (error) {

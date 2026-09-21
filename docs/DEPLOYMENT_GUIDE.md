@@ -189,6 +189,8 @@ npm run build:harmony:local
 npm run run:harmony:emulator
 ```
 
+本地调试 HAP 使用模拟器宿主网关 `http://10.0.2.2:5173/api/*`。源码中的 `job_service_url` 保持为空，构建脚本只在 D 盘 staging 工程中注入地址；未配置或服务不可用时，原生岗位页保留本机真实岗位录入。
+
 正式 HAP 必须使用公网 HTTPS API：
 
 ```powershell
@@ -198,7 +200,7 @@ npm run build:harmony:release -- `
 
 发布构建会拒绝非 HTTPS 地址。当前仓库没有签名证书和 Profile，生成的是 unsigned 调试 HAP；签名、App ID、包名和华为账号指纹需要在团队开发者账号下配置。
 
-本轮模拟器构建和安装证据见 `docs/RELEASE_EVIDENCE_20260722.md`。
+当前模拟器构建、安装和原生 OCR 文件选择证据见 `docs/RELEASE_EVIDENCE_20260920.md`；7 月报告仍作为历史基线保留。
 
 ## 10. 常见问题
 

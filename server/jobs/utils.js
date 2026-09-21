@@ -73,13 +73,13 @@ export const inferCity = (text, requestedCity = "") => CITY_NAMES.find((city) =>
   || "地点见原岗位页";
 
 export const inferLevel = (text) => {
-  if (/实习|intern/i.test(String(text))) return "实习";
+  if (/实习|\bintern(?:ship)?\b/i.test(String(text))) return "实习";
   if (/校招|校园|应届|graduate|campus|new grad/i.test(String(text))) return "校招";
   return "社招";
 };
 
 export const inferEmploymentType = (text) => {
-  if (/实习|intern/i.test(String(text))) return "intern";
+  if (/实习|\bintern(?:ship)?\b/i.test(String(text))) return "intern";
   if (/兼职|part[- ]?time/i.test(String(text))) return "part-time";
   if (/合同|contract/i.test(String(text))) return "contract";
   return "full-time";
@@ -88,7 +88,9 @@ export const inferEmploymentType = (text) => {
 export const inferKeywords = (text, query = "") => {
   const haystack = String(text).toLowerCase();
   const detected = KEYWORD_DICTIONARY.filter((keyword) => haystack.includes(keyword.toLowerCase()));
-  const queryTokens = sanitizeQuery(query).split(/\s+/).filter((item) => item.length >= 2);
+  const queryTokens = sanitizeQuery(query)
+    .split(/\s+/)
+    .filter((item) => item.length >= 2 && haystack.includes(item.toLowerCase()));
   return [...new Set([...detected, ...queryTokens])].slice(0, 12);
 };
 

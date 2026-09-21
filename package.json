@@ -10,8 +10,9 @@
     "build:web:harmony": "tsc -b && vite build --base ./",
     "sync:harmony:web": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-harmony-web.ps1",
     "build:harmony": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1",
+    "build:harmony:web-compat": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1 -IncludeWebCompatibility",
     "build:harmony:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1 -RequireOnlineServices",
-    "build:harmony:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1 -LocalDevApiBaseUrl http://127.0.0.1:5173",
+    "build:harmony:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1 -LocalDevApiBaseUrl http://10.0.2.2:5173",
     "run:harmony:emulator": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-harmony-emulator.ps1",
     "preview": "vite preview --host 0.0.0.0",
     "verify:parsers": "node scripts/verify-parsers.cjs",
@@ -19,9 +20,11 @@
     "verify:claims": "node scripts/verify-release-claims.cjs",
     "verify:jobs": "node scripts/verify-job-collector.cjs",
     "verify:job-sources": "node scripts/verify-job-sources.cjs",
+    "verify:growth": "node scripts/verify-growth.cjs",
+    "verify:growth:ui": "node scripts/verify-growth-ui.cjs",
     "verify:harmony": "node scripts/verify-harmony-project.cjs",
     "verify:ui": "node scripts/verify-ui.cjs",
-    "verify:core": "npm run verify:parsers && npm run verify:evidence && npm run verify:jobs && npm run verify:job-sources && npm run verify:harmony && npm run verify:claims"
+    "verify:core": "npm run verify:parsers && npm run verify:evidence && npm run verify:growth && npm run verify:jobs && npm run verify:job-sources && npm run verify:harmony && npm run verify:claims"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
