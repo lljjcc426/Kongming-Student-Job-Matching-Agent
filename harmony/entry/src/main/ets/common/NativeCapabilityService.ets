@@ -14,6 +14,10 @@ import { CareerFormData, saveCareerFormData, updateAllCareerForms } from '../com
 const CAMERA_PERMISSION: Permissions = 'ohos.permission.CAMERA';
 const MICROPHONE_PERMISSION: Permissions = 'ohos.permission.MICROPHONE';
 
+export type NativeSpeechLifecycleState = 'idle' | 'speaking' | 'stopped' | 'error';
+export type NativeSpeechLifecycleListener = (state: NativeSpeechLifecycleState, message: string) => void;
+export type NativeRecognitionErrorListener = (message: string) => void;
+
 interface HuaweiAuthPayload {
   nativeAvailable: boolean;
   signedIn: boolean;
@@ -49,9 +53,29 @@ export class NativeCapabilityService {
   private speechTranscript: string = '';
   private speechActive: boolean = false;
   private speechError: string = '';
+  private ttsRequestId: string = '';
+  private ttsLifecycleListener: NativeSpeechLifecycleListener | undefined = undefined;
+  private recognitionErrorListener: NativeRecognitionErrorListener | undefined = undefined;
 
   constructor(context: common.UIAbilityContext) {
     this.context = context;
+  }
+
+  setTtsLifecycleListener(listener: NativeSpeechLifecycleListener | undefined): void {
+    this.ttsLifecycleListener = listener;
+  }
+
+  setRecognitionErrorListener(listener: NativeRecognitionErrorListener | undefined): void {
+    this.recognitionErrorListener = listener;
+  }
+
+  private notifyTtsLifecycle(state: NativeSpeechLifecycleState, message: string): void {
+    this.ttsLifecycleListener?.(state, message);
+  }
+
+  private notifyRecognitionError(message: string): void {
+    this.speechActive = false;
+    this.recognitionErrorListener?.(message);
   }
 
   private serialize(message: string, errorCode?: number): string {
@@ -159,15 +183,19 @@ export class NativeCapabilityService {
     this.ttsEngine.setListener({
       onStart: (requestId: string, response: textToSpeech.StartResponse): void => {
         console.info(`Core Speech TTS started: ${requestId} ${response}`);
+        if (requestId === this.ttsRequestId) this.notifyTtsLifecycle('speaking', '面试官正在提问。');
       },
       onComplete: (requestId: string, response: textToSpeech.CompleteResponse): void => {
         console.info(`Core Speech TTS completed: ${requestId} ${response}`);
+        if (requestId === this.ttsRequestId) this.notifyTtsLifecycle('idle', '问题播报完成，可以开始回答。');
       },
       onStop: (requestId: string, response: textToSpeech.StopResponse): void => {
         console.info(`Core Speech TTS stopped: ${requestId} ${response}`);
+        if (requestId === this.ttsRequestId) this.notifyTtsLifecycle('stopped', '已停止问题播报。');
       },
       onError: (requestId: string, errorCode: number, errorMessage: string): void => {
         console.error(`Core Speech TTS failed: ${requestId} ${errorCode} ${errorMessage}`);
+        if (requestId === this.ttsRequestId) this.notifyTtsLifecycle('error', '语音播报失败，可继续阅读问题。');
       },
     });
     return this.ttsEngine;
@@ -185,7 +213,8 @@ export class NativeCapabilityService {
       }
       const engine = await this.getTextToSpeechEngine();
       engine.stop();
-      engine.speak(content, { requestId: `tts_${Date.now()}` });
+      this.ttsRequestId = `tts_${Date.now()}`;
+      engine.speak(content, { requestId: this.ttsRequestId });
       return JSON.stringify({ nativeAvailable: true, ok: true, message: '已使用 Core Speech 开始播报。' });
     } catch (error) {
       const businessError = error as BusinessError;
@@ -199,6 +228,7 @@ export class NativeCapabilityService {
       return JSON.stringify({ nativeAvailable: true, ok: false, message: '已拒绝非本地页面停止语音播报。' });
     }
     if (this.ttsEngine) this.ttsEngine.stop();
+    else this.notifyTtsLifecycle('stopped', '当前没有正在播报的问题。');
     return JSON.stringify({ nativeAvailable: true, ok: true, message: '已停止语音播报。' });
   }
 
@@ -231,6 +261,7 @@ export class NativeCapabilityService {
       const businessError = error as BusinessError;
       this.speechError = businessError.message || '本机语音识别过程中断。';
       console.error(`Core Speech recognition capture failed: ${businessError.code} ${businessError.message}`);
+      this.notifyRecognitionError('麦克风录音中断，请重试或改用文字输入。');
     } finally {
       if (this.audioCapturer) {
         await this.audioCapturer.release().catch(() => {});
@@ -279,6 +310,9 @@ export class NativeCapabilityService {
         onError: (sessionId: string, errorCode: number, errorMessage: string): void => {
           this.speechError = errorMessage;
           console.error(`Core Speech recognition failed: ${sessionId} ${errorCode} ${errorMessage}`);
+          if (sessionId === this.speechSessionId) {
+            this.notifyRecognitionError('语音识别中断，请重试或改用文字输入。');
+          }
         },
       });
       this.audioCapturer = await audio.createAudioCapturer({
@@ -305,6 +339,7 @@ export class NativeCapabilityService {
       const businessError = error as BusinessError;
       this.speechActive = false;
       console.error(`Core Speech recognition start failed: ${businessError.code} ${businessError.message}`);
+      this.notifyRecognitionError('Core Speech 语音识别无法启动，请改用文字输入。');
       return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: 'Core Speech 语音识别无法启动。', errorCode: businessError.code });
     }
   }

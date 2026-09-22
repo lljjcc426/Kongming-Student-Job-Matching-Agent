@@ -65,30 +65,65 @@ export struct NativeEvidenceLedger {
   build() {
     Column({ space: 12 }) {
       ForEach(this.tasks, (task: NativeGrowthTask) => {
-        Column({ space: 8 }) {
-          Row() {
-            Text(task.title)
-              .fontSize(16)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.km_text_primary'))
-              .layoutWeight(1)
-            Text(task.status === 'verified' ? '证据已通过' : `+${task.projectedGain}%`)
-              .fontSize(11)
+        Column({ space: 9 }) {
+          Row({ space: 10 }) {
+            Circle()
+              .width(8)
+              .height(8)
+              .fill(task.status === 'verified'
+                ? $r('app.color.km_success')
+                : (task.id === this.nextPendingTaskId() ? $r('app.color.km_primary_action') : $r('app.color.km_text_tertiary')))
+            Column({ space: 2 }) {
+              Text(task.title)
+                .fontSize(15)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.km_text_primary'))
+                .maxLines(2)
+              Text(task.status === 'verified'
+                ? '已形成可核验证据'
+                : (task.id === this.nextPendingTaskId() ? '当前行动任务' : '完成前序任务后开始'))
+                .fontSize(9)
+                .fontColor($r('app.color.km_text_secondary'))
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+            Text(task.status === 'verified' ? '已验证' : `预计 +${task.projectedGain}%`)
+              .fontSize(9)
+              .fontWeight(FontWeight.Medium)
               .fontColor(task.status === 'verified' ? $r('app.color.km_success') : $r('app.color.km_primary_action'))
+              .padding({ left: 8, right: 8, top: 5, bottom: 5 })
+              .backgroundColor(task.status === 'verified' ? $r('app.color.km_success_soft') : $r('app.color.km_primary_soft'))
+              .borderRadius(6)
           }
+          .alignItems(VerticalAlign.Center)
           .width('100%')
           Text(task.description)
-            .fontSize(12)
+            .fontSize(11)
             .fontColor($r('app.color.km_text_secondary'))
-            .lineHeight(19)
+            .lineHeight(18)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
             .width('100%')
-          Text(`证据要求：${task.evidenceRequirement}`)
-            .fontSize(12)
-            .fontColor($r('app.color.km_text_body'))
-            .lineHeight(19)
+          Row({ space: 7 }) {
+            SymbolGlyph($r('sys.symbol.info_circle'))
+              .fontSize(13)
+              .fontColor([$r('app.color.km_primary_action')])
+            Text(task.evidenceRequirement)
+              .fontSize(10)
+              .fontColor($r('app.color.km_text_body'))
+              .lineHeight(17)
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
+          }
+          .alignItems(VerticalAlign.Top)
             .width('100%')
+            .padding(9)
+            .backgroundColor($r('app.color.km_surface_subtle'))
+            .borderRadius(6)
 
           if (task.status !== 'verified' && task.id === this.nextPendingTaskId()) {
+            Divider().color($r('app.color.km_border'))
             Row() {
               Text('证据说明')
                 .fontSize(10)
@@ -101,11 +136,11 @@ export struct NativeEvidenceLedger {
             }
             .width('100%')
             TextArea({ placeholder: '描述个人行动、产出物和结果数据。', text: this.evidenceDraft })
-              .constraintSize({ minHeight: 110 })
+              .constraintSize({ minHeight: 96 })
               .maxLength(3000)
               .backgroundColor($r('app.color.km_surface_subtle'))
               .border({ width: 1, color: this.evidenceDraftError ? $r('app.color.km_danger') : $r('app.color.km_border') })
-              .borderRadius(8)
+              .borderRadius(6)
               .onChange((value: string) => { this.onDraftChange(value); })
             if (this.evidenceDraftError) {
               Text(this.evidenceDraftError)
@@ -126,7 +161,7 @@ export struct NativeEvidenceLedger {
               .enterKeyType(EnterKeyType.Done)
               .backgroundColor($r('app.color.km_surface_subtle'))
               .border({ width: 1, color: this.evidenceSourceError ? $r('app.color.km_danger') : $r('app.color.km_border') })
-              .borderRadius(8)
+              .borderRadius(6)
               .onChange((value: string) => { this.onSourceChange(value); })
             if (this.evidenceSourceError) {
               Text(this.evidenceSourceError)
@@ -158,30 +193,37 @@ export struct NativeEvidenceLedger {
           }
 
           if (task.status === 'verified') {
-            Divider().color($r('app.color.km_success_border'))
-            Text(this.activeRecordSummary(task.id))
-              .fontSize(11)
-              .fontColor($r('app.color.km_text_body'))
-              .lineHeight(18)
-              .maxLines(3)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .width('100%')
-            Text(this.activeRecordMeta(task.id))
-              .fontSize(9)
-              .fontColor($r('app.color.km_text_secondary'))
-              .width('100%')
-            Text(this.sourceVerificationMeta(this.activeRecord(task.id)))
-              .fontSize(9)
-              .fontColor(this.activeRecord(task.id)?.sourceVerification === 'reachable' ? $r('app.color.km_success') : $r('app.color.km_warning'))
-              .width('100%')
-            if (this.activeRecordSource(task.id)) {
-              Text(this.activeRecordSource(task.id))
+            Column({ space: 6 }) {
+              Row({ space: 6 }) {
+                SymbolGlyph($r('sys.symbol.checkmark_circle'))
+                  .fontSize(14)
+                  .fontColor([$r('app.color.km_success')])
+                Text('已验证证据摘要')
+                  .fontSize(10)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.km_success'))
+              }
+              Text(this.activeRecordSummary(task.id))
+                .fontSize(11)
+                .fontColor($r('app.color.km_text_body'))
+                .lineHeight(18)
+                .maxLines(2)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .width('100%')
+              Text(this.activeRecord(task.id)?.sourceVerification === 'reachable'
+                ? `来源可访问 · ${this.activeRecord(task.id)?.sourceHost}`
+                : '来源状态未记录')
                 .fontSize(9)
-                .fontColor($r('app.color.km_primary_action'))
+                .fontColor(this.activeRecord(task.id)?.sourceVerification === 'reachable' ? $r('app.color.km_success') : $r('app.color.km_warning'))
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .width('100%')
             }
+            .alignItems(HorizontalAlign.Start)
+            .width('100%')
+            .padding(10)
+            .backgroundColor($r('app.color.km_success_surface'))
+            .borderRadius(6)
             Row({ space: 8 }) {
               if (this.activeRecordSource(task.id)) {
                 Button('打开来源')
@@ -207,8 +249,8 @@ export struct NativeEvidenceLedger {
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
-        .padding(16)
-        .backgroundColor(task.status === 'verified' ? $r('app.color.km_success_surface') : $r('app.color.km_surface'))
+        .padding(14)
+        .backgroundColor($r('app.color.km_surface'))
         .border({ width: 1, color: task.status === 'verified' ? $r('app.color.km_success_border') : $r('app.color.km_border') })
         .borderRadius(8)
       }, (task: NativeGrowthTask) => `${task.id}-${task.status}`)
@@ -226,13 +268,14 @@ export struct NativeEvidenceLedger {
               .fontColor($r('app.color.km_teal'))
           }
           .width('100%')
-          Text('Network Kit 使用 HEAD 优先、流式 Range GET 降级核验公开 HTTPS；账本保留方式、时间和状态码，但不代表内容归属或第三方真实性认证。')
+          Text('账本保留公开 HTTPS 的核验方式、时间与状态码，不代表第三方真实性认证。')
             .fontSize(10)
             .fontColor($r('app.color.km_text_secondary'))
             .lineHeight(17)
+            .maxLines(2)
             .width('100%')
           ForEach(this.records.slice(0, 6), (record: NativeGrowthEvidenceRecord) => {
-            Column({ space: 3 }) {
+            Column({ space: 4 }) {
               Row() {
                 Text(record.taskTitle)
                   .fontSize(11)
@@ -250,9 +293,13 @@ export struct NativeEvidenceLedger {
                 .fontSize(9)
                 .fontColor($r('app.color.km_text_tertiary'))
                 .width('100%')
-              Text(this.sourceVerificationMeta(record))
+              Text(record.sourceVerification === 'reachable'
+                ? `来源可访问 · ${record.sourceHost} · HTTP ${record.sourceHttpStatus}`
+                : '来源状态未记录')
                 .fontSize(9)
                 .fontColor(record.sourceVerification === 'reachable' ? $r('app.color.km_success') : $r('app.color.km_warning'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .width('100%')
               if (record.revokedAt) {
                 Text(`撤销时间：${record.revokedAt}`)
@@ -262,7 +309,8 @@ export struct NativeEvidenceLedger {
               }
             }
             .width('100%')
-            .padding({ top: 5, bottom: 5 })
+            .padding({ top: 7, bottom: 7 })
+            .border({ width: { bottom: 1 }, color: $r('app.color.km_border') })
           }, (record: NativeGrowthEvidenceRecord) => `${record.id}-${record.status}`)
         }
         .alignItems(HorizontalAlign.Start)

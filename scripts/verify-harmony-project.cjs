@@ -14,12 +14,15 @@ const required = [
   "entry/src/main/ets/entryability/EntryAbility.ets",
   "entry/src/main/ets/pages/NativeIndex.ets",
   "entry/src/main/ets/common/NativeAiService.ets",
+  "entry/src/main/ets/common/NativeAvatarProfile.ets",
   "entry/src/main/ets/common/NativeCapabilityService.ets",
   "entry/src/main/ets/common/NativeCalendarService.ets",
   "entry/src/main/ets/common/NativeEvidenceService.ets",
+  "entry/src/main/ets/common/NativeInterviewSpeechProvider.ets",
   "entry/src/main/ets/common/NativeJobService.ets",
   "entry/src/main/ets/common/NativeWorkspaceModel.ets",
   "entry/src/main/ets/components/NativeApplicationTracker.ets",
+  "entry/src/main/ets/components/NativeDigitalInterviewer.ets",
   "entry/src/main/ets/components/NativeEvidenceLedger.ets",
   "entry/src/main/ets/components/NativeResumeVersionPanel.ets",
   "entry/src/main/ets/applicationformability/ApplicationFormAbility.ets",
@@ -29,6 +32,7 @@ const required = [
   "entry/src/main/resources/base/profile/form_config.json",
   "entry/src/main/resources/base/media/startIconNative.png",
   "entry/src/main/resources/dark/element/color.json",
+  "entry/src/main/resources/rawfile/avatar/kongming-interviewer.glb",
 ];
 
 required.forEach((relative) => {
@@ -50,12 +54,15 @@ const moduleProfile = readHarmonyFile("entry/src/main/module.json5");
 const entryAbility = readHarmonyFile("entry/src/main/ets/entryability/EntryAbility.ets");
 const page = readHarmonyFile("entry/src/main/ets/pages/NativeIndex.ets");
 const nativeAiService = readHarmonyFile("entry/src/main/ets/common/NativeAiService.ets");
+const nativeAvatarProfile = readHarmonyFile("entry/src/main/ets/common/NativeAvatarProfile.ets");
 const nativeService = readHarmonyFile("entry/src/main/ets/common/NativeCapabilityService.ets");
 const nativeCalendarService = readHarmonyFile("entry/src/main/ets/common/NativeCalendarService.ets");
 const nativeEvidenceService = readHarmonyFile("entry/src/main/ets/common/NativeEvidenceService.ets");
+const nativeInterviewSpeechProvider = readHarmonyFile("entry/src/main/ets/common/NativeInterviewSpeechProvider.ets");
 const nativeJobService = readHarmonyFile("entry/src/main/ets/common/NativeJobService.ets");
 const workspaceModel = readHarmonyFile("entry/src/main/ets/common/NativeWorkspaceModel.ets");
 const applicationTracker = readHarmonyFile("entry/src/main/ets/components/NativeApplicationTracker.ets");
+const nativeDigitalInterviewer = readHarmonyFile("entry/src/main/ets/components/NativeDigitalInterviewer.ets");
 const evidenceLedger = readHarmonyFile("entry/src/main/ets/components/NativeEvidenceLedger.ets");
 const resumeVersionPanel = readHarmonyFile("entry/src/main/ets/components/NativeResumeVersionPanel.ets");
 const careerFormStore = readHarmonyFile("entry/src/main/ets/common/CareerFormStore.ets");
@@ -109,7 +116,13 @@ assert.match(page, /private buildPublicJobCard\(job: NativePublicJob\)/);
 assert.match(page, /private buildPublicJobDetail\(job: NativePublicJob\)/);
 assert.match(page, /refreshPublicJobs/);
 assert.match(page, /openPublicJob/);
-assert.match(page, /Text\('今日重点'\)/);
+assert.match(page, /Text\('下一行动'\)/);
+assert.match(page, /private buildPageHeading\(section: string, title: string, detail: string\)/);
+assert.match(page, /this\.buildPageHeading\(\s*'今日概览'/);
+assert.match(page, /this\.buildPageHeading\('个人资料', '简历与画像'/);
+assert.match(page, /this\.buildPageHeading\('岗位情报', '岗位中心'/);
+assert.match(page, /this\.buildPageHeading\(\s*'能力训练'/);
+assert.match(page, /this\.buildPageHeading\('行动计划', '成长计划'/);
 assert.match(page, /private buildFieldLabel\(label: string/);
 assert.match(page, /struct NativeFieldError/);
 assert.match(page, /struct NativeStatusMessage/);
@@ -123,6 +136,10 @@ assert.match(page, /private requestClearWorkspaceData\(\)/);
 assert.match(page, /await store\.delete\('snapshot'\)/);
 assert.match(page, /华为账号登录状态和系统权限不会改变/);
 assert.match(page, /private buildTaskContinuityBar\(\)/);
+assert.match(page, /private buildUnsavedChangesBar\(\)/);
+assert.match(page, /private savePendingDraft\(\)/);
+assert.match(page, /this\.hasUnsavedChanges\(\)\) \{\s*this\.buildUnsavedChangesBar\(\)/);
+assert.match(page, /accessibilityText\(`保存\$\{this\.unsavedChangeLabel\(\)\}修改`\)/);
 assert.match(page, /private buildWorkspaceContent\(\)/);
 assert.match(page, /struct NativeGlobalNotice/);
 assert.match(page, /private showGlobalNotice\(message: string/);
@@ -130,6 +147,12 @@ assert.match(page, /private dismissGlobalNotice\(\)/);
 assert.match(page, /private buildGlobalNotice\(\)/);
 assert.match(page, /this\.buildGlobalNotice\(\)/);
 assert.match(page, /sys\.symbol\.xmark/);
+assert.match(page, /accessibilityText\('关闭操作提示'\)/);
+assert.match(page, /private navigationHasPendingAction\(tab: number\)/);
+assert.match(page, /private navigationAccessibilityText\(label: string, tab: number\)/);
+assert.match(page, /private buildNavigationIcon\(icon: Resource, tab: number\)/);
+assert.match(page, /position: \{ x: 21, y: -2 \}/);
+assert.match(page, /accessibilityText\(this\.navigationAccessibilityText\(label, tab\)\)/);
 assert.match(page, /private primaryActionDestinationLabel\(\)/);
 assert.match(page, /if \(!this\.resumeSummary\.trim\(\)\) return '导入或填写真实经历，建立求职画像'/);
 assert.match(page, /Text\(`下一行动 · \$\{this\.primaryActionDestinationLabel\(\)\}`\)/);
@@ -178,6 +201,29 @@ assert.match(nativeService, /async loginWithHuawei\(\)/);
 assert.match(nativeService, /async shareText\(/);
 assert.match(nativeService, /async speakText\(/);
 assert.match(nativeService, /async startSpeechRecognition\(\)/);
+assert.match(nativeService, /setTtsLifecycleListener\(/);
+assert.match(nativeService, /setRecognitionErrorListener\(/);
+assert.match(nativeService, /notifyTtsLifecycle\('speaking'/);
+assert.match(nativeService, /notifyTtsLifecycle\('idle'/);
+assert.match(nativeService, /notifyRecognitionError\('麦克风录音中断/);
+assert.match(nativeAvatarProfile, /export class NativeAvatarProfile/);
+assert.match(nativeAvatarProfile, /avatar\/kongming-interviewer\.glb/);
+assert.match(nativeAvatarProfile, /\['Talking1', 'Talking2', 'Talking3'\]/);
+assert.match(nativeInterviewSpeechProvider, /export interface NativeInterviewSpeechProvider/);
+assert.match(nativeInterviewSpeechProvider, /export class CoreSpeechInterviewProvider/);
+assert.match(nativeInterviewSpeechProvider, /providerId: string = 'huawei-core-speech'/);
+assert.match(nativeInterviewSpeechProvider, /setRecognitionErrorListener\(/);
+assert.match(nativeDigitalInterviewer, /@kit\.ArkGraphics3D/);
+assert.match(nativeDigitalInterviewer, /Scene\.load\(modelResource\)/);
+assert.match(nativeDigitalInterviewer, /type:\s*30000/);
+assert.match(nativeDigitalInterviewer, /modelType: ModelType\.TEXTURE/);
+assert.match(nativeDigitalInterviewer, /scene\.renderFrame\(\{ alwaysRender: true \}\)/);
+assert.match(nativeDigitalInterviewer, /Native avatar scene ready with/);
+assert.doesNotMatch(nativeDigitalInterviewer, /ArkWeb|WebviewController|Web\(\{/);
+assert.ok(
+  fs.statSync(path.join(harmonyRoot, "entry/src/main/resources/rawfile/avatar/kongming-interviewer.glb")).size > 10_000_000,
+  "native interviewer GLB should be packaged as a real model asset",
+);
 assert.match(nativeCalendarService, /@kit\.CalendarKit/);
 assert.match(nativeCalendarService, /calendarManager\.getCalendarManager/);
 assert.match(nativeCalendarService, /manager\.editEvent/);
@@ -243,6 +289,12 @@ assert.match(workspaceModel, /applicationResumeVersionId: string/);
 assert.match(workspaceModel, /resumeVersions: NativeResumeVersion\[\]/);
 assert.match(workspaceModel, /interviewTurns: NativeInterviewTurn\[\]/);
 assert.match(workspaceModel, /interviewFeedback: string/);
+assert.match(workspaceModel, /interviewDifficulty: string/);
+assert.match(workspaceModel, /interviewDurationMinutes: number/);
+assert.match(workspaceModel, /interviewElapsedSeconds: number/);
+assert.match(workspaceModel, /interviewSessionPhase: string/);
+assert.match(workspaceModel, /interviewSessionUpdatedAt: number/);
+assert.match(workspaceModel, /interviewTimeExpired: boolean/);
 assert.match(workspaceModel, /growthEvidenceRecords: NativeGrowthEvidenceRecord\[\]/);
 assert.match(workspaceModel, /growthBaselineCoverage: number/);
 assert.match(workspaceModel, /sourceVerification: string/);
@@ -255,6 +307,42 @@ assert.match(page, /buildNativeCapabilityCard/);
 assert.match(page, /loginHuawei/);
 assert.match(page, /shareProgress/);
 assert.match(page, /toggleSpeechInput/);
+assert.match(page, /NativeDigitalInterviewer\(\{/);
+assert.match(page, /CoreSpeechInterviewProvider/);
+assert.match(page, /KeyboardAvoidMode, mediaquery, window/);
+assert.match(page, /private isImmersiveInterviewSession\(\): boolean/);
+assert.match(page, /private async setInterviewWindowMode\(immersive: boolean\): Promise<void>/);
+assert.match(page, /window\.getLastWindow\(this\.hostContext\)/);
+assert.match(page, /window\.Orientation\.LANDSCAPE/);
+assert.match(page, /window\.Orientation\.PORTRAIT/);
+assert.match(page, /setWindowLayoutFullScreen\(true\)/);
+assert.match(page, /setWindowLayoutFullScreen\(false\)/);
+assert.match(page, /setWindowSystemBarEnable\(\[\]\)/);
+assert.match(page, /setWindowSystemBarEnable\(\['status', 'navigation'\]\)/);
+assert.match(page, /private buildImmersiveInterviewHeader\(\): void/);
+assert.match(page, /private buildImmersiveInterviewerStage\(\): void/);
+assert.match(page, /private buildImmersiveAnswerPanel\(\): void/);
+assert.match(page, /private buildImmersivePauseOverlay\(\): void/);
+assert.match(page, /private buildImmersiveInterview\(\): void/);
+assert.match(page, /viewportHeight: 220/);
+assert.match(page, /mainWindow\.on\('keyboardHeightChange'/);
+assert.match(page, /if \(height <= 0 && this\.interviewKeyboardVisible\) \{\s*this\.interviewKeyboardDismissedAt = Date\.now\(\);/);
+assert.match(page, /private dismissInterviewKeyboard\(\): void/);
+assert.match(page, /\.enableKeyboardOnFocus\(true\)/);
+assert.match(page, /if \(this\.interviewKeyboardVisible \|\| Date\.now\(\) - this\.interviewKeyboardDismissedAt < 800\) \{/);
+assert.match(page, /accessibilityText\('完成回答输入'\)/);
+assert.match(page, /if \(this\.isImmersiveInterviewSession\(\)\) \{\s*this\.requestEndInterview\(\)/);
+assert.match(page, /private async stopInterviewPrompt\(\)/);
+assert.match(page, /if \(this\.interviewSpeaking\) await this\.stopInterviewPrompt\(\)/);
+assert.match(page, /private startInterviewTimer\(\)/);
+assert.match(page, /private stopInterviewTimer\(\)/);
+assert.match(page, /private async pauseInterview\(\)/);
+assert.match(page, /private resumeInterview\(\)/);
+assert.match(page, /private requestEndInterview\(\)/);
+assert.match(page, /interviewDurationMinutes \+= 5/);
+assert.match(page, /this\.interviewSessionPhase === 'paused'/);
+assert.match(page, /accessibilityText\(this\.interviewSessionPhase === 'paused' \? '恢复面试' : '暂停面试'\)/);
+assert.match(page, /设定时长已到，已暂停会话/);
 assert.match(page, /saveTrackedJob/);
 assert.match(page, /applicationStage: this\.applicationStage/);
 assert.match(page, /applicationEvents: this\.applicationEvents/);
@@ -314,6 +402,8 @@ assert.match(applicationTracker, /nextInterviewAtError/);
 assert.match(applicationTracker, /添加截止提醒/);
 assert.match(applicationTracker, /添加面试提醒/);
 assert.doesNotMatch(applicationTracker, /ArkWeb|WebviewController|Web\(\{/);
+assert.match(nativeDigitalInterviewer, /@Prop viewportHeight: number = 0/);
+assert.match(nativeDigitalInterviewer, /this\.viewportHeight > 0 \? this\.viewportHeight/);
 assert.match(evidenceLedger, /export struct NativeEvidenceLedger/);
 assert.match(evidenceLedger, /Text\('证据说明'\)/);
 assert.match(evidenceLedger, /Text\('来源链接'\)/);
@@ -390,6 +480,7 @@ assert.match(harmonyBuildScript, /RequireOnlineServices/);
 assert.match(harmonyRunScript, /rport "tcp:\$LocalDevPort" "tcp:\$LocalDevPort"/);
 assert.match(harmonyRunScript, /LocalDevHost = '10\.0\.2\.2'/);
 assert.match(harmonyRunScript, /\[string\]\$BootMode = 'coldboot'/);
+assert.match(harmonyRunScript, /\[ValidateRange\(1024, 16555\)\]\s*\[int\]\$HdcPort = 5555/);
 assert.match(harmonyRunScript, /DevEcoRoot = 'D:\\DevEco Studio'/);
 assert.match(harmonyRunScript, /Running emulator has no connected HDC target/);
 assert.match(pdfSource, /import\.meta\.env\.BASE_URL\}vendor\/pdfjs\/cmaps\//);

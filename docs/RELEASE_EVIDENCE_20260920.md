@@ -28,12 +28,12 @@ npm run build:harmony:local
 | 项目 | 结果 |
 | --- | --- |
 | HAP | `harmony/entry/build/default/outputs/default/entry-default-unsigned.hap` |
-| 大小 | `2,005,411` bytes（2026-09-22 原生全局操作反馈 HAP） |
-| SHA-256 | `6AA9A90935DC4E44502D9580A4A8AD15D788CE8D3FF3F723D13FF4388B782069` |
+| 大小 | `15,267,137` bytes（2026-09-22 原生面试启动体验优化 HAP） |
+| SHA-256 | `0F1D3505AEB02A233774F68A5BA7F58B7A32FB65F734203147A61C89243DC925` |
 | ArkTS 编译 | 通过 |
 | HAP 打包 | 通过 |
 | 签名 | unsigned；项目尚未配置 `signingConfigs` |
-| Web 资源 | 未打包 `resources/resfile`；HAP 内共 15 个条目，未发现 `resfile` 或 `index.html` |
+| Web 资源 | 未打包 `resources/resfile`；HAP 内共 17 个条目，包含原生 GLB，未发现 `resfile` 或 `index.html` |
 
 ## 模拟器运行结果
 
@@ -44,12 +44,24 @@ npm run build:harmony:local
 | HDC 目标 | `127.0.0.1:5555`，TCP Connected |
 | HAP 安装 | 通过，`install bundle successfully` |
 | 原生入口启动 | 通过，`EntryAbility` 进入 `FOREGROUND` |
-| 最新包烟测 | 2026-09-22 原生全局操作反馈 HAP 覆盖安装并启动成功，`EntryAbility` 为 `FOREGROUND`；全局反馈横幅在深色模式和系统特大字号下完成视觉复测，自动消失与手动关闭均通过，且未遮挡底部导航 |
+| 最新包烟测 | 2026-09-22 原生核心页面产品化 HAP 覆盖安装并启动成功；简历、岗位、面试准备、面试启动区和成长页完成浅色标准字号视觉回归，原有横屏面试与键盘专注能力保留 |
 | 原生开场动效截图 | 已归档至 `docs/evidence-screenshots/harmony-native-intro-mature-20260921.jpeg` |
 | 原生首页截图 | 已归档至 `docs/evidence-screenshots/harmony-native-home-mature-20260921.jpeg` |
-| 核心页面截图 | `docs/evidence-screenshots/harmony-native-resume-mature-20260921.jpeg`、`harmony-native-jobs-mature-20260921.jpeg`、`harmony-native-interview-mature-20260921.jpeg`、`harmony-native-growth-mature-20260921.jpeg` |
+| 核心页面截图 | `docs/evidence-screenshots/harmony-native-resume-mature-20260921.jpeg`、`harmony-native-jobs-mature-20260921.jpeg`、`harmony-native-interview-mature-20260921.jpeg`、`harmony-native-digital-interviewer-20260922.jpeg`、`harmony-native-growth-mature-20260921.jpeg` |
 | 字段校验截图 | `docs/evidence-screenshots/harmony-native-validation-errors-20260921.jpeg`，空经历提交后红色边框、字段原因和页面级纠正提示同步显示 |
 | 全局操作反馈 | 简历、岗位、投递日程、投递阶段、简历版本和本机数据清除等关键操作统一显示原生语义横幅；成功、提醒、错误和信息状态使用不同语义色，横幅 4.2 秒自动消失并支持手动关闭。证据见 `docs/evidence-screenshots/harmony-native-global-feedback-20260922.jpeg` |
+| 原生导航与无障碍 | 手机底部栏、宽屏导航轨和首页求职主线均改为原生 `Button` 交互语义；下一行动对应页签使用动态待办 `Badge`，并为选中状态、待办数量、数据中心入口和反馈关闭按钮补充读屏文本。证据见 `docs/evidence-screenshots/harmony-native-navigation-polish-20260922.jpeg` |
+| 前端视觉成熟化 | 全局浅色与深色令牌改为中性灰底、靛蓝主操作、青绿成功态和琥珀待办态；收紧品牌栏、页面标题、指标卡和导航尺寸，首页由大面积品牌蓝改为工作台式下一行动面板，四段求职主线合并为单一进度区。五个主页面统一使用“场景标签 + 页面标题 + 说明”的标题结构，底部导航以顶部指示条替代整块选中背景。证据见 `docs/evidence-screenshots/harmony-native-workbench-polish-20260922.jpeg`、`docs/evidence-screenshots/harmony-native-jobs-polish-20260922.jpeg` |
+| 核心页面产品化 | 简历页新增资料完整度并按基础画像、经历证据分组；岗位页前置搜索、追踪、核对三步流程；面试准备页将配置置于数字人之前，手机预览收紧至 184vp，以原生开关管理智能增强，并新增真实语音试听状态和始终可见的固定启动栏；成长页新增行动进度并将验证记录收敛为状态头、摘要和来源状态。证据见 `docs/evidence-screenshots/harmony-native-resume-workspace-polish-20260922.jpeg`、`harmony-native-jobs-workflow-polish-20260922.jpeg`、`harmony-native-interview-setup-polish-20260922.jpeg`、`harmony-native-interview-launch-polish-20260922.jpeg`、`harmony-native-growth-queue-polish-20260922.jpeg` |
+| 草稿状态与就地保存 | 简历画像、岗位资料和投递日程继续按当前值与已保存基线的真实差异计算脏状态；存在修改时以顶部原生状态条明确未保存范围并提供就地保存入口，同时保留离开确认保护。保存仍进入各表单既有校验，不绕过真实性和来源约束。证据见 `docs/evidence-screenshots/harmony-native-draft-status-20260922.jpeg` |
+| 原生 3D 数字面试官 | `@kit.ArkGraphics3D` 直接加载 `rawfile/avatar/kongming-interviewer.glb`，人物配置、模型路径、动作索引和语音 Provider 均可替换；办公室背景由 ArkUI 原生绘制，不引入 ArkWeb。Idle、Waving、Listening 与三组 Talking 动画分别映射准备、问候、聆听和播报状态。证据见 `docs/evidence-screenshots/harmony-native-digital-interviewer-20260922.jpeg` |
+| 实时语音交互 | 当前 `CoreSpeechInterviewProvider` 封装 Core Speech TTS/ASR；播报开始切到 Talking，回答开始会先打断播报再切到 Listening，生成追问时切到 Thinking。Provider 接口隔离语音厂商，后续可替换讯飞实现。模拟器无麦克风输入返回 `6800301` 时会退出聆听态并提供文字降级，证据见 `docs/evidence-screenshots/harmony-native-digital-interviewer-recovery-20260922.jpeg` |
+| 完整面试会话配置 | 开始前可选择综合面、技术面或 HR 面，设置基础、标准或高压追问强度及 10/15/20 分钟训练时长；页面同时展示目标岗位、简历画像状态、语音与数字人准备状态。难度会进入本机题目和外部模型提示上下文。证据见 `docs/evidence-screenshots/harmony-native-interview-session-setup-20260922.jpeg` |
+| 面试计时与控制 | 会话中展示轮次、已用时、目标时长和进度；原生 Symbol 按钮支持暂停/恢复与提前结束确认。暂停或到时会停止 TTS/ASR 并禁用回答提交，到时可加时 5 分钟。证据见 `docs/evidence-screenshots/harmony-native-interview-session-active-20260922.jpeg`、`docs/evidence-screenshots/harmony-native-interview-session-paused-20260922.jpeg` |
+| 面试会话恢复 | Preferences 持久化难度、时长、已用时、会话阶段和更新时间；活动会话重启后补偿离线时长，暂停会话重启后保持计时冻结。已强制停止 `cn.kongming.jobmatch` 并验证暂停状态、轮次和回答入口恢复。证据见 `docs/evidence-screenshots/harmony-native-interview-session-recovery-20260922.jpeg` |
+| 横屏全屏正式面试 | 仅在活动或暂停会话中通过 ArkUI Window API 锁定横屏并隐藏状态栏、导航栏、应用品牌栏和底部导航；左侧为 ArkGraphics3D 面试官与语音状态，右侧固定展示问题、回答框及朗读、语音、追问、反馈操作。无软键盘时返回键和页签切换先触发结束确认。证据见 `docs/evidence-screenshots/harmony-native-interview-landscape-active-20260922.jpeg` |
+| 横屏回答专注模式 | ArkUI `keyboardHeightChange` 驱动紧凑布局；系统软键盘出现时隐藏顶部栏、数字人和工具栏，只保留当前问题、实时字数、回答框和完成按钮。完成按钮或系统返回键收起键盘后恢复双栏；返回事件在键盘关闭竞态窗口内被消费，不会误弹结束确认。证据见 `docs/evidence-screenshots/harmony-native-interview-keyboard-focus-20260922.jpeg` |
+| 横屏暂停与恢复 | 暂停态使用全屏遮罩，支持继续和结束；强制停止后重启会自动恢复横屏暂停态。结束无回答会话后已验证窗口恢复 `1216 x 2688` 竖屏准备页；输入 53 字有效回答并生成本机反馈后，也会恢复竖屏完成页。证据见 `docs/evidence-screenshots/harmony-native-interview-landscape-paused-20260922.jpeg`、`docs/evidence-screenshots/harmony-native-interview-landscape-recovery-20260922.jpeg`、`docs/evidence-screenshots/harmony-native-interview-feedback-portrait-20260922.jpeg` |
 | 编辑保护与键盘避让 | 简历、岗位和投递日程均按当前字段与已保存基线的真实差异计算脏状态，受控输入初始化不再误报未保存；存在真实修改时切换页签仍显示原生确认对话框。ArkUI `KeyboardAvoidMode.RESIZE` 下焦点输入框和底栏不被软键盘遮挡。证据见 `docs/evidence-screenshots/harmony-native-unsaved-dialog-20260921.jpeg`、`docs/evidence-screenshots/harmony-native-keyboard-avoid-20260921.jpeg` |
 | 系统显示适配 | `AppScope` 跟随系统字号并限制最大缩放为 `1.75`；深色资源限定目录与亮色语义令牌一一对应；`600vp` 起切换左侧导航轨，页面内容最大宽度为 `1040vp`；系统状态栏和底部手势区使用原生安全区扩展。证据见 `docs/evidence-screenshots/harmony-native-display-adaptation-20260921.jpeg`、`harmony-native-dark-mode-20260921.jpeg`、`harmony-native-wide-layout-20260921.jpeg`、`harmony-native-large-font-20260921.jpeg` |
 | 首次任务优先级 | 简历经历为空时，首页主任务、操作按钮、待处理计数与 Form Kit 路由统一优先指向简历页，不再跳过画像直接进入面试；证据见 `docs/evidence-screenshots/harmony-native-first-task-20260922.jpeg` |

@@ -6,7 +6,7 @@ param(
   [string]$ImageRoot = 'D:\HarmonyOS-Emulator\images',
   [ValidateSet('coldboot', 'snapshot', 'reset')]
   [string]$BootMode = 'coldboot',
-  [ValidateRange(10000, 16555)]
+  [ValidateRange(1024, 16555)]
   [int]$HdcPort = 5555,
   [ValidateRange(1024, 65535)]
   [int]$LocalDevPort = 5173,

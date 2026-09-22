@@ -1,15 +1,18 @@
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
-import { KeyboardAvoidMode, mediaquery } from '@kit.ArkUI';
+import { KeyboardAvoidMode, mediaquery, window } from '@kit.ArkUI';
 import { picker } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { loadCareerFormData, saveCareerFormData, updateAllCareerForms } from '../common/CareerFormStore';
 import { NativeAiResult, NativeAiService } from '../common/NativeAiService';
+import { NativeAvatarState } from '../common/NativeAvatarProfile';
 import { NativeCapabilityService } from '../common/NativeCapabilityService';
 import { NativeCalendarService } from '../common/NativeCalendarService';
 import { NativeEvidenceService, NativeEvidenceSourceResult } from '../common/NativeEvidenceService';
+import { CoreSpeechInterviewProvider, NativeInterviewSpeechProvider } from '../common/NativeInterviewSpeechProvider';
 import { NativeJobFeed, NativeJobService, NativePublicJob } from '../common/NativeJobService';
 import { NativeApplicationTracker } from '../components/NativeApplicationTracker';
+import { NativeDigitalInterviewer } from '../components/NativeDigitalInterviewer';
 import { NativeEvidenceLedger } from '../components/NativeEvidenceLedger';
 import { NativeResumeVersionPanel } from '../components/NativeResumeVersionPanel';
 import {
@@ -45,36 +48,37 @@ struct NativeMetricCard {
   @Prop accentColor: ResourceColor = $r('app.color.km_primary');
 
   build() {
-    Column({ space: 5 }) {
+    Column({ space: 6 }) {
       Row({ space: 6 }) {
-        Blank()
-          .width(4)
-          .height(14)
-          .backgroundColor(this.accentColor)
-          .borderRadius(2)
+        Circle()
+          .width(6)
+          .height(6)
+          .fill(this.accentColor)
         Text(this.label)
           .fontSize(10)
+          .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.km_text_secondary'))
           .maxLines(1)
       }
       .width('100%')
       Text(this.value)
-        .fontSize(22)
+        .fontSize(21)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.km_text_primary'))
       Text(this.detail)
         .fontSize(9)
         .fontColor($r('app.color.km_text_tertiary'))
+        .lineHeight(14)
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
     .alignItems(HorizontalAlign.Start)
     .layoutWeight(1)
-    .constraintSize({ minHeight: 92 })
-    .padding(11)
-    .backgroundColor($r('app.color.km_surface'))
+    .constraintSize({ minHeight: 84 })
+    .padding(12)
+    .backgroundColor($r('app.color.km_surface_elevated'))
     .border({ width: 1, color: $r('app.color.km_border') })
-    .borderRadius(8)
+    .borderRadius(6)
   }
 }
 
@@ -223,6 +227,8 @@ struct NativeGlobalNotice {
       .height(32)
       .backgroundColor($r('app.color.km_transparent'))
       .borderRadius(8)
+      .accessibilityText('关闭操作提示')
+      .accessibilityDescription(this.message)
       .onClick(() => { this.onDismiss(); })
     }
     .alignItems(VerticalAlign.Center)
@@ -309,6 +315,7 @@ struct Index {
   private uiContext: UIContext = this.getUIContext();
   private hostContext: common.UIAbilityContext = this.uiContext.getHostContext() as common.UIAbilityContext;
   private nativeService: NativeCapabilityService = new NativeCapabilityService(this.hostContext);
+  private speechProvider: NativeInterviewSpeechProvider = new CoreSpeechInterviewProvider(this.nativeService);
   private jobService: NativeJobService = new NativeJobService(this.hostContext);
   private aiService: NativeAiService = new NativeAiService(this.hostContext);
   private evidenceService: NativeEvidenceService = new NativeEvidenceService();
@@ -371,12 +378,22 @@ struct Index {
   @State interviewFeedback: string = '';
   @State interviewModelName: string = '本机规则';
   @State interviewLoading: boolean = false;
+  @State interviewDifficulty: string = '标准';
+  @State interviewDurationMinutes: number = 15;
+  @State interviewElapsedSeconds: number = 0;
+  @State interviewSessionPhase: string = 'setup';
+  @State interviewTimeExpired: boolean = false;
+  @State interviewKeyboardVisible: boolean = false;
   @State modelConsent: boolean = false;
   @State profileMessage: string = '数据默认保存在本机，可随时修改或清除。';
   @State authSignedIn: boolean = false;
   @State authDisplayName: string = '';
   @State nativeMessage: string = '正在检查账号和系统服务状态。';
   @State speechActive: boolean = false;
+  @State interviewSpeaking: boolean = false;
+  @State interviewAvatarState: NativeAvatarState = 'idle';
+  @State interviewSpeechMessage: string = '面试官已就绪';
+  @State interviewAudioChecked: boolean = false;
   @State ocrActive: boolean = false;
   @State showIntro: boolean = true;
   @State introPhase: number = 0;
@@ -421,9 +438,33 @@ struct Index {
   private editorJobCompany: string = '';
   private editorJobSource: string = '';
   private editorJobDescription: string = '';
+  private interviewTimer: number = -1;
+  private interviewSessionUpdatedAt: number = 0;
+  private interviewWindowImmersive: boolean = false;
+  private interviewMainWindow: window.Window | undefined = undefined;
+  private interviewKeyboardDismissedAt: number = 0;
 
   aboutToAppear(): void {
+    this.speechProvider.setLifecycleListener((state, message) => {
+      this.interviewSpeaking = state === 'speaking';
+      this.interviewSpeechMessage = message;
+      if (state === 'speaking') {
+        this.interviewAudioChecked = true;
+        this.interviewAvatarState = 'talking';
+      } else if (this.speechActive) {
+        this.interviewAvatarState = 'listening';
+      } else {
+        this.interviewAvatarState = 'idle';
+      }
+    });
+    this.speechProvider.setRecognitionErrorListener((message) => {
+      this.speechActive = false;
+      this.interviewAvatarState = 'idle';
+      this.interviewSpeechMessage = message;
+      this.nativeMessage = message;
+    });
     this.uiContext.setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    void this.bindInterviewWindowEvents();
     this.wideScreenQuery = this.uiContext.getMediaQuery().matchMediaSync('(600vp<=width)');
     this.isWideLayout = this.wideScreenQuery.matches;
     this.wideScreenQuery.on('change', (result: mediaquery.MediaQueryResult) => {
@@ -452,9 +493,23 @@ struct Index {
 
   aboutToDisappear(): void {
     this.wideScreenQuery?.off('change');
+    this.unbindInterviewWindowEvents();
+    this.stopInterviewTimer();
+    if (this.interviewSessionPhase === 'active') void this.saveWorkspace();
+    this.speechProvider.setLifecycleListener(undefined);
+    this.speechProvider.setRecognitionErrorListener(undefined);
+    void this.speechProvider.stopSpeaking();
   }
 
   onBackPress(): boolean {
+    if (this.interviewKeyboardVisible || Date.now() - this.interviewKeyboardDismissedAt < 800) {
+      this.dismissInterviewKeyboard();
+      return true;
+    }
+    if (this.isImmersiveInterviewSession()) {
+      this.requestEndInterview();
+      return true;
+    }
     if (this.showDataCenter) {
       this.showDataCenter = false;
       return true;
@@ -546,6 +601,32 @@ struct Index {
     return labels.join('、');
   }
 
+  private unsavedChangeCount(): number {
+    let count = 0;
+    if (this.resumeDirty) count += 1;
+    if (this.jobEditorDirty) count += 1;
+    if (this.applicationScheduleDirty) count += 1;
+    return count;
+  }
+
+  private savePendingDraft(): void {
+    if (this.activeTab === 1 && this.resumeDirty) {
+      this.saveResumeProfile();
+      return;
+    }
+    if (this.activeTab === 2 && this.jobEditorDirty) {
+      this.saveTrackedJob();
+      return;
+    }
+    if (this.activeTab === 2 && this.applicationScheduleDirty) {
+      this.saveApplicationSchedule();
+      return;
+    }
+    if (this.resumeDirty) this.saveResumeProfile();
+    else if (this.jobEditorDirty) this.saveTrackedJob();
+    else if (this.applicationScheduleDirty) this.saveApplicationSchedule();
+  }
+
   private discardUnsavedChanges(): void {
     if (this.resumeDirty) {
       this.resumeName = this.savedResumeName;
@@ -572,10 +653,15 @@ struct Index {
     if (tab === 2) this.selectedPublicJobIndex = -1;
     this.showDataCenter = false;
     this.activeTab = tab;
+    if (tab === 3 && this.isImmersiveInterviewSession()) void this.setInterviewWindowMode(true);
   }
 
   private requestTabChange(tab: number): void {
     if (tab === this.activeTab) return;
+    if (this.isImmersiveInterviewSession() && tab !== 3) {
+      this.requestEndInterview();
+      return;
+    }
     if (!this.hasUnsavedChanges()) {
       this.performTabChange(tab);
       return;
@@ -673,21 +759,60 @@ struct Index {
   }
 
   private async speakInterviewPrompt(): Promise<void> {
-    const result = this.parseNativeResult(await this.nativeService.speakText(JSON.stringify({
-      content: `${this.interviewType}。${this.interviewQuestion || this.fallbackInterviewQuestion(1)}`,
-    })));
+    if (this.interviewSessionPhase === 'paused') {
+      this.interviewSpeechMessage = '会话已暂停，恢复后可继续朗读。';
+      return;
+    }
+    if (this.interviewSessionPhase === 'completed') return;
+    if (this.speechActive) {
+      this.interviewSpeechMessage = '请先结束当前语音回答。';
+      return;
+    }
+    this.interviewAvatarState = 'thinking';
+    this.interviewSpeechMessage = '正在准备语音问题';
+    const result = this.parseNativeResult(await this.speechProvider.speak(
+      `${this.interviewType}。${this.interviewQuestion || this.fallbackInterviewQuestion(1)}`,
+    ));
+    this.nativeMessage = result.message;
+    if (result.ok !== true) {
+      this.interviewSpeaking = false;
+      this.interviewAvatarState = 'idle';
+      this.interviewSpeechMessage = result.message;
+    } else {
+      this.interviewAudioChecked = true;
+    }
+  }
+
+  private async stopInterviewPrompt(): Promise<void> {
+    this.interviewAvatarState = 'interrupted';
+    const result = this.parseNativeResult(await this.speechProvider.stopSpeaking());
+    this.interviewSpeaking = false;
+    this.interviewAvatarState = this.speechActive ? 'listening' : 'idle';
+    this.interviewSpeechMessage = result.message;
     this.nativeMessage = result.message;
   }
 
   private async toggleSpeechInput(): Promise<void> {
+    if (this.interviewSessionPhase === 'paused' || this.interviewSessionPhase === 'completed') {
+      this.interviewSpeechMessage = this.interviewSessionPhase === 'paused'
+        ? '会话已暂停，恢复后可继续回答。'
+        : '本轮面试已完成。';
+      return;
+    }
     if (!this.speechActive) {
-      const result = this.parseNativeResult(await this.nativeService.startSpeechRecognition());
+      if (this.interviewSpeaking) await this.stopInterviewPrompt();
+      this.interviewAvatarState = 'interrupted';
+      const result = this.parseNativeResult(await this.speechProvider.startListening());
       this.speechActive = result.ok === true;
+      this.interviewAvatarState = this.speechActive ? 'listening' : 'idle';
+      this.interviewSpeechMessage = this.speechActive ? '正在聆听你的回答' : result.message;
       this.nativeMessage = result.message;
       return;
     }
 
-    const result = this.parseNativeResult(await this.nativeService.stopSpeechRecognition());
+    this.interviewAvatarState = 'thinking';
+    this.interviewSpeechMessage = '正在整理语音回答';
+    const result = this.parseNativeResult(await this.speechProvider.stopListening());
     this.speechActive = false;
     if (result.text && result.text.trim()) {
       this.interviewAnswer = this.interviewAnswer.trim()
@@ -695,6 +820,8 @@ struct Index {
         : result.text.trim();
       if (this.interviewAnswerTouched) this.interviewAnswerError = this.validateInterviewAnswer(this.interviewAnswer);
     }
+    this.interviewAvatarState = 'idle';
+    this.interviewSpeechMessage = result.ok === true ? '语音已填入，可检查后提交' : result.message;
     this.nativeMessage = result.message;
   }
 
@@ -901,6 +1028,11 @@ struct Index {
     const restored = await this.loadWorkspace();
     this.workspaceLoadFailed = !restored;
     this.workspaceLoading = false;
+    if (restored && this.interviewStarted &&
+      (this.interviewSessionPhase === 'active' || this.interviewSessionPhase === 'paused')) {
+      this.activeTab = 3;
+      void this.setInterviewWindowMode(true);
+    }
   }
 
   private async loadWorkspace(): Promise<boolean> {
@@ -931,6 +1063,36 @@ struct Index {
         this.interviewTurns = parsed.interviewTurns || [];
         this.interviewFeedback = parsed.interviewFeedback || '';
         this.interviewModelName = parsed.interviewModelName || '本机规则';
+        this.interviewDifficulty = parsed.interviewDifficulty || '标准';
+        this.interviewDurationMinutes = typeof parsed.interviewDurationMinutes === 'number'
+          ? parsed.interviewDurationMinutes
+          : 15;
+        this.interviewElapsedSeconds = typeof parsed.interviewElapsedSeconds === 'number'
+          ? parsed.interviewElapsedSeconds
+          : 0;
+        this.interviewSessionUpdatedAt = typeof parsed.interviewSessionUpdatedAt === 'number'
+          ? parsed.interviewSessionUpdatedAt
+          : Date.now();
+        this.interviewTimeExpired = parsed.interviewTimeExpired === true;
+        if (parsed.interviewSessionPhase) {
+          this.interviewSessionPhase = parsed.interviewSessionPhase;
+        } else if (this.interviewStarted && this.interviewFeedback) {
+          this.interviewSessionPhase = 'completed';
+        } else if (this.interviewStarted) {
+          this.interviewSessionPhase = 'active';
+        } else {
+          this.interviewSessionPhase = 'setup';
+        }
+        if (this.interviewSessionPhase === 'active') {
+          const offlineSeconds = Math.max(0, Math.floor((Date.now() - this.interviewSessionUpdatedAt) / 1000));
+          this.interviewElapsedSeconds += offlineSeconds;
+          if (this.interviewElapsedSeconds >= this.interviewDurationMinutes * 60) {
+            this.interviewElapsedSeconds = this.interviewDurationMinutes * 60;
+            this.interviewSessionPhase = 'paused';
+            this.interviewTimeExpired = true;
+            this.interviewMessage = '设定时长已到，已暂停会话；可加时后继续或直接生成反馈。';
+          }
+        }
         if (this.interviewStarted && !this.interviewQuestion) {
           this.interviewQuestion = this.fallbackInterviewQuestion(Math.max(1, this.interviewRound));
         }
@@ -984,6 +1146,7 @@ struct Index {
       this.resumeDirty = false;
       this.jobEditorDirty = false;
       this.applicationScheduleDirty = false;
+      if (this.interviewSessionPhase === 'active') this.startInterviewTimer();
       await this.syncCareerFormData();
       return true;
     } catch (error) {
@@ -995,6 +1158,7 @@ struct Index {
   private async saveWorkspace(): Promise<void> {
     try {
       const store = await preferences.getPreferences(this.hostContext, NATIVE_STORE_NAME);
+      const snapshotTime = Date.now();
       const snapshot: NativeWorkspaceSnapshot = {
         resumeName: this.resumeDirty ? this.savedResumeName : this.resumeName,
         targetJob: this.resumeDirty ? this.savedTargetJob : this.targetJob,
@@ -1018,6 +1182,12 @@ struct Index {
         interviewTurns: this.interviewTurns,
         interviewFeedback: this.interviewFeedback,
         interviewModelName: this.interviewModelName,
+        interviewDifficulty: this.interviewDifficulty,
+        interviewDurationMinutes: this.interviewDurationMinutes,
+        interviewElapsedSeconds: this.interviewElapsedSeconds,
+        interviewSessionPhase: this.interviewSessionPhase,
+        interviewSessionUpdatedAt: snapshotTime,
+        interviewTimeExpired: this.interviewTimeExpired,
         evidenceCoverage: this.evidenceCoverage,
         empiricalCoverage: this.empiricalCoverage,
         growthBaselineCoverage: this.growthBaselineCoverage,
@@ -1030,6 +1200,7 @@ struct Index {
       };
       await store.put('snapshot', JSON.stringify(snapshot));
       await store.flush();
+      this.interviewSessionUpdatedAt = snapshotTime;
       this.workspaceSaveFailed = false;
       await this.syncCareerFormData();
     } catch (error) {
@@ -1101,6 +1272,13 @@ struct Index {
     this.interviewFeedback = '';
     this.interviewModelName = '本机规则';
     this.interviewLoading = false;
+    this.interviewDifficulty = '标准';
+    this.interviewDurationMinutes = 15;
+    this.interviewElapsedSeconds = 0;
+    this.interviewSessionPhase = 'setup';
+    this.interviewTimeExpired = false;
+    this.interviewSessionUpdatedAt = 0;
+    this.stopInterviewTimer();
     this.modelConsent = false;
     this.profileMessage = '数据默认保存在本机，可随时修改或清除。';
     this.resumeDirty = false;
@@ -1299,6 +1477,18 @@ struct Index {
       return profilePending + growthPending;
     }
     return profilePending + growthPending + 1;
+  }
+
+  private navigationHasPendingAction(tab: number): boolean {
+    return this.pendingActionCount() > 0 && this.primaryActionTab() === tab;
+  }
+
+  private navigationAccessibilityText(label: string, tab: number): string {
+    const currentState = this.activeTab === tab ? '，当前页面' : '，切换页面';
+    const pendingState = this.navigationHasPendingAction(tab)
+      ? `，下一行动入口，共 ${this.pendingActionCount()} 项待处理`
+      : '';
+    return `${label}${currentState}${pendingState}`;
   }
 
   private updateApplicationStage(stageId: string): void {
@@ -1808,7 +1998,199 @@ struct Index {
     let questions = comprehensive;
     if (this.interviewType === '技术面') questions = technical;
     if (this.interviewType === 'HR面') questions = hr;
-    return questions[Math.max(0, round - 1) % questions.length];
+    const question = questions[Math.max(0, round - 1) % questions.length];
+    if (this.interviewDifficulty === '基础') return `${question} 可以按“背景、任务、行动、结果”依次作答。`;
+    if (this.interviewDifficulty === '高压') return `${question} 请同时说明你的责任边界、反例或失败风险。`;
+    return question;
+  }
+
+  private interviewerPresenceLabel(): string {
+    if (this.interviewSessionPhase === 'paused') return '会话已暂停';
+    if (this.interviewSessionPhase === 'completed') return '面试已完成';
+    if (this.interviewAvatarState === 'talking') return '正在提问';
+    if (this.interviewAvatarState === 'listening') return '正在聆听';
+    if (this.interviewAvatarState === 'thinking') return '正在思考';
+    if (this.interviewAvatarState === 'greeting') return '正在问候';
+    if (this.interviewAvatarState === 'interrupted') return '已响应打断';
+    return this.interviewStarted ? '等待回答' : '准备就绪';
+  }
+
+  private isImmersiveInterviewSession(): boolean {
+    return this.activeTab === 3 && this.interviewStarted &&
+      (this.interviewSessionPhase === 'active' || this.interviewSessionPhase === 'paused');
+  }
+
+  private async bindInterviewWindowEvents(): Promise<void> {
+    try {
+      const mainWindow = await window.getLastWindow(this.hostContext);
+      this.interviewMainWindow = mainWindow;
+      mainWindow.on('keyboardHeightChange', (height: number) => {
+        if (height <= 0 && this.interviewKeyboardVisible) {
+          this.interviewKeyboardDismissedAt = Date.now();
+        }
+        this.interviewKeyboardVisible = height > 0 && this.isImmersiveInterviewSession();
+      });
+    } catch (error) {
+      console.error(`Interview keyboard event binding failed: ${String(error)}`);
+    }
+  }
+
+  private unbindInterviewWindowEvents(): void {
+    if (!this.interviewMainWindow) return;
+    try {
+      this.interviewMainWindow.off('keyboardHeightChange');
+    } catch (error) {
+      console.error(`Interview keyboard event unbinding failed: ${String(error)}`);
+    }
+    this.interviewMainWindow = undefined;
+    this.interviewKeyboardVisible = false;
+  }
+
+  private dismissInterviewKeyboard(): void {
+    this.uiContext.getFocusController().clearFocus();
+    this.interviewKeyboardDismissedAt = Date.now();
+    this.interviewKeyboardVisible = false;
+  }
+
+  private async setInterviewWindowMode(immersive: boolean): Promise<void> {
+    if (this.interviewWindowImmersive === immersive) return;
+    try {
+      const mainWindow = this.interviewMainWindow || await window.getLastWindow(this.hostContext);
+      this.interviewMainWindow = mainWindow;
+      if (immersive) {
+        await mainWindow.setPreferredOrientation(window.Orientation.LANDSCAPE);
+        await mainWindow.setWindowLayoutFullScreen(true);
+        await mainWindow.setWindowSystemBarEnable([]);
+      } else {
+        this.interviewKeyboardVisible = false;
+        await mainWindow.setWindowSystemBarEnable(['status', 'navigation']);
+        await mainWindow.setWindowLayoutFullScreen(false);
+        await mainWindow.setPreferredOrientation(window.Orientation.PORTRAIT);
+      }
+      this.interviewWindowImmersive = immersive;
+    } catch (error) {
+      console.error(`Interview window mode update failed: ${String(error)}`);
+      this.interviewMessage = immersive
+        ? '设备暂时无法进入横屏全屏，仍可继续当前面试。'
+        : '设备暂时无法恢复竖屏，请旋转设备后继续查看反馈。';
+    }
+  }
+
+  private startInterviewTimer(): void {
+    this.stopInterviewTimer();
+    if (!this.interviewStarted || this.interviewSessionPhase !== 'active') return;
+    this.interviewTimer = setInterval(() => {
+      if (this.interviewSessionPhase !== 'active') return;
+      this.interviewElapsedSeconds += 1;
+      if (this.interviewElapsedSeconds >= this.interviewDurationMinutes * 60) {
+        this.interviewElapsedSeconds = this.interviewDurationMinutes * 60;
+        void this.handleInterviewTimeout();
+      }
+    }, 1000);
+  }
+
+  private stopInterviewTimer(): void {
+    if (this.interviewTimer < 0) return;
+    clearInterval(this.interviewTimer);
+    this.interviewTimer = -1;
+  }
+
+  private formattedInterviewTime(): string {
+    const minutes = Math.floor(this.interviewElapsedSeconds / 60).toString().padStart(2, '0');
+    const seconds = (this.interviewElapsedSeconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  }
+
+  private interviewProgressValue(): number {
+    const totalSeconds = Math.max(1, this.interviewDurationMinutes * 60);
+    return Math.min(100, Math.round(this.interviewElapsedSeconds / totalSeconds * 100));
+  }
+
+  private interviewDifficultyHint(): string {
+    if (this.interviewDifficulty === '基础') return '以经历梳理和表达完整性为主';
+    if (this.interviewDifficulty === '高压') return '追问取舍、边界和证据细节';
+    return '兼顾岗位匹配与证据追问';
+  }
+
+  private async pauseInterview(): Promise<void> {
+    if (this.interviewLoading || this.interviewSessionPhase !== 'active') return;
+    this.interviewSessionPhase = 'paused';
+    this.interviewTimeExpired = false;
+    this.stopInterviewTimer();
+    this.uiContext.getFocusController().clearFocus();
+    if (this.interviewSpeaking) await this.speechProvider.stopSpeaking();
+    if (this.speechActive) await this.speechProvider.stopListening();
+    this.interviewSpeaking = false;
+    this.speechActive = false;
+    this.interviewAvatarState = 'idle';
+    this.interviewSpeechMessage = '会话已暂停';
+    this.interviewMessage = '计时与语音已暂停，恢复后可继续当前问题。';
+    void this.saveWorkspace();
+  }
+
+  private async handleInterviewTimeout(): Promise<void> {
+    if (this.interviewSessionPhase !== 'active') return;
+    this.interviewSessionPhase = 'paused';
+    this.interviewTimeExpired = true;
+    this.stopInterviewTimer();
+    if (this.interviewSpeaking) await this.speechProvider.stopSpeaking();
+    if (this.speechActive) await this.speechProvider.stopListening();
+    this.interviewSpeaking = false;
+    this.speechActive = false;
+    this.interviewAvatarState = 'idle';
+    this.interviewSpeechMessage = '设定时长已到';
+    this.interviewMessage = '设定时长已到，已暂停会话；可加时 5 分钟后继续或直接生成反馈。';
+    this.showGlobalNotice(this.interviewMessage, 'warning');
+    void this.saveWorkspace();
+  }
+
+  private resumeInterview(): void {
+    if (this.interviewSessionPhase !== 'paused') return;
+    if (this.interviewTimeExpired) this.interviewDurationMinutes += 5;
+    this.interviewSessionPhase = 'active';
+    this.interviewTimeExpired = false;
+    this.interviewAvatarState = 'idle';
+    this.interviewSpeechMessage = '会话已恢复，等待你的回答';
+    this.interviewMessage = '面试已恢复，计时继续。';
+    this.startInterviewTimer();
+    void this.saveWorkspace();
+  }
+
+  private endEmptyInterview(): void {
+    this.stopInterviewTimer();
+    void this.speechProvider.stopSpeaking();
+    if (this.speechActive) void this.speechProvider.stopListening();
+    this.interviewStarted = false;
+    this.interviewQuestion = '';
+    this.interviewRound = 0;
+    this.interviewAnswer = '';
+    this.interviewAnswerTouched = false;
+    this.interviewAnswerError = '';
+    this.interviewElapsedSeconds = 0;
+    this.interviewSessionPhase = 'setup';
+    this.interviewTimeExpired = false;
+    this.interviewSpeaking = false;
+    this.speechActive = false;
+    this.interviewAvatarState = 'idle';
+    this.interviewSpeechMessage = '面试官已就绪';
+    this.interviewMessage = '本轮会话已结束，未生成面试记录。';
+    void this.setInterviewWindowMode(false);
+    void this.saveWorkspace();
+  }
+
+  private requestEndInterview(): void {
+    const hasAnswer = this.interviewTurns.length > 0 || this.interviewAnswer.trim().length > 0;
+    this.showConfirmDialog(
+      hasAnswer ? '提前结束并生成反馈？' : '结束本轮面试？',
+      hasAnswer
+        ? '当前已完成的回答会用于生成本轮反馈，未完成的轮次将标记为提前结束。'
+        : '当前还没有可用于复盘的回答，结束后不会生成反馈。',
+      hasAnswer ? '结束并生成反馈' : '确认结束',
+      () => {
+        if (hasAnswer) void this.finishInterview();
+        else this.endEmptyInterview();
+      },
+    );
   }
 
   private localInterviewFeedback(turns: NativeInterviewTurn[]): string {
@@ -1844,14 +2226,38 @@ struct Index {
     this.interviewAnswerError = '';
     this.interviewFeedback = '';
     this.interviewModelName = '本机规则';
+    this.interviewElapsedSeconds = 0;
+    this.interviewSessionPhase = 'active';
+    this.interviewTimeExpired = false;
+    this.interviewSessionUpdatedAt = Date.now();
+    this.interviewSpeaking = false;
+    this.interviewAvatarState = 'greeting';
+    this.interviewSpeechMessage = '面试官正在向你问候';
     this.interviewMessage = this.modelConsent
       ? `${this.interviewType} 已开始；首题由本机准备，提交后由外部模型生成证据追问。`
       : `本机 ${this.interviewType} 已开始，请结合真实经历回答。`;
+    this.startInterviewTimer();
+    void this.setInterviewWindowMode(true);
     void this.saveWorkspace();
+    setTimeout(() => {
+      if (this.interviewSessionPhase === 'active' && this.interviewRound === 1 && this.interviewTurns.length === 0) {
+        void this.speakInterviewPrompt();
+      }
+    }, 1200);
   }
 
   private async submitInterviewAnswer(): Promise<void> {
     if (this.interviewLoading) return;
+    if (this.interviewSessionPhase === 'paused') {
+      this.interviewMessage = '请先恢复面试，再提交本轮回答。';
+      return;
+    }
+    if (this.interviewSessionPhase === 'completed') return;
+    if (this.speechActive) {
+      this.interviewMessage = '请先停止语音回答并检查识别内容。';
+      return;
+    }
+    if (this.interviewSpeaking) await this.stopInterviewPrompt();
     const answer = this.interviewAnswer.trim();
     this.interviewAnswerTouched = true;
     this.interviewAnswerError = this.validateInterviewAnswer(answer);
@@ -1868,6 +2274,8 @@ struct Index {
     this.interviewAnswerError = '';
     if (nextTurns.length >= 3) {
       this.interviewMessage = '已完成 3 轮回答，可以生成本轮反馈。';
+      this.interviewAvatarState = 'idle';
+      this.interviewSpeechMessage = '三轮回答已完成';
       void this.saveWorkspace();
       return;
     }
@@ -1879,14 +2287,17 @@ struct Index {
       this.interviewModelName = '本机规则';
       this.interviewMessage = '外部模型未授权，已生成本机规则追问。';
       void this.saveWorkspace();
+      void this.speakInterviewPrompt();
       return;
     }
 
     this.interviewLoading = true;
+    this.interviewAvatarState = 'thinking';
+    this.interviewSpeechMessage = '正在生成下一轮追问';
     this.interviewMessage = '已脱敏本轮内容，正在生成岗位化追问。';
     try {
       const result: NativeAiResult = await this.aiService.generateInterviewQuestion(
-        this.interviewType,
+        `${this.interviewType}（${this.interviewDifficulty}难度）`,
         nextRound,
         this.resumeSummary,
         this.trackedJobTitle || this.targetJob,
@@ -1913,10 +2324,17 @@ struct Index {
       this.interviewLoading = false;
     }
     void this.saveWorkspace();
+    void this.speakInterviewPrompt();
   }
 
   private async finishInterview(): Promise<void> {
     if (this.interviewLoading) return;
+    if (this.interviewSessionPhase === 'completed') return;
+    if (this.speechActive) {
+      this.interviewMessage = '请先停止语音回答并检查识别内容。';
+      return;
+    }
+    if (this.interviewSpeaking) await this.stopInterviewPrompt();
     let turns = this.interviewTurns;
     const answer = this.interviewAnswer.trim();
     if (answer.length > 0) {
@@ -1943,13 +2361,19 @@ struct Index {
     }
 
     this.uiContext.getFocusController().clearFocus();
+    this.stopInterviewTimer();
+    this.interviewSessionPhase = 'completed';
+    this.interviewTimeExpired = false;
+    await this.setInterviewWindowMode(false);
     this.interviewLoading = true;
+    this.interviewAvatarState = 'thinking';
+    this.interviewSpeechMessage = '正在复盘本轮面试';
     let feedback = '';
     if (this.modelConsent) {
       this.interviewMessage = '正在对已脱敏的面试记录生成岗位化反馈。';
       try {
         const result: NativeAiResult = await this.aiService.generateInterviewFeedback(
-          this.interviewType,
+          `${this.interviewType}（${this.interviewDifficulty}难度）`,
           this.resumeSummary,
           this.trackedJobTitle || this.targetJob,
           this.trackedJobDescription,
@@ -1976,7 +2400,10 @@ struct Index {
       this.interviewMessage = '外部模型未授权，已完成本机结构化反馈。';
     }
     this.interviewLoading = false;
+    this.interviewAvatarState = 'idle';
+    this.interviewSpeechMessage = '本轮面试已完成';
     this.interviewFeedback = feedback;
+    void this.saveWorkspace();
     if (this.growthTasks.length === 0) {
       this.createGrowthPlan(feedback);
     } else {
@@ -1986,6 +2413,9 @@ struct Index {
   }
 
   private resetInterview(): void {
+    this.stopInterviewTimer();
+    void this.speechProvider.stopSpeaking();
+    if (this.speechActive) void this.speechProvider.stopListening();
     this.interviewStarted = false;
     this.interviewQuestion = '';
     this.interviewRound = 0;
@@ -1995,7 +2425,16 @@ struct Index {
     this.interviewAnswerError = '';
     this.interviewFeedback = '';
     this.interviewModelName = '本机规则';
+    this.interviewElapsedSeconds = 0;
+    this.interviewSessionPhase = 'setup';
+    this.interviewTimeExpired = false;
+    this.interviewSessionUpdatedAt = 0;
+    this.speechActive = false;
+    this.interviewSpeaking = false;
+    this.interviewAvatarState = 'idle';
+    this.interviewSpeechMessage = '面试官已就绪';
     this.interviewMessage = '已清空本轮面试记录，可以重新选择面试类型。';
+    void this.setInterviewWindowMode(false);
     void this.saveWorkspace();
   }
 
@@ -2179,12 +2618,28 @@ struct Index {
     return this.growthGainForTasks(this.growthTasks);
   }
 
+  private verifiedGrowthTaskCount(): number {
+    let count = 0;
+    for (const task of this.growthTasks) {
+      if (task.status === 'verified') count += 1;
+    }
+    return count;
+  }
+
   private growthGainForTasks(tasks: NativeGrowthTask[]): number {
     let gain = 0;
     for (const task of tasks) {
       if (task.status === 'verified') gain += task.projectedGain;
     }
     return gain;
+  }
+
+  private resumeCompletionValue(): number {
+    let completion = 0;
+    if (this.resumeName.trim()) completion += 20;
+    if (this.targetJob.trim()) completion += 30;
+    if (this.resumeSummary.trim().length >= 30) completion += 50;
+    return completion;
   }
 
   @Builder
@@ -2205,21 +2660,62 @@ struct Index {
   }
 
   @Builder
+  private buildPageHeading(section: string, title: string, detail: string): void {
+    Column({ space: 4 }) {
+      Text(section)
+        .fontSize(9)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.km_primary'))
+        .maxLines(1)
+      Text(title)
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.km_text_primary'))
+        .maxLines(2)
+      Text(detail)
+        .fontSize(11)
+        .fontColor($r('app.color.km_text_secondary'))
+        .lineHeight(18)
+        .maxLines(3)
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+  }
+
+  @Builder
+  private buildSectionHeading(title: string, detail: string): void {
+    Column({ space: 3 }) {
+      Text(title)
+        .fontSize(15)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.km_text_primary'))
+      Text(detail)
+        .fontSize(10)
+        .fontColor($r('app.color.km_text_secondary'))
+        .lineHeight(16)
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+  }
+
+  @Builder
   private buildHeader(): void {
     Column() {
       Row() {
-        Row({ space: 9 }) {
+        Row({ space: 8 }) {
           Image($r('app.media.startIconNative'))
-            .width(34)
-            .height(34)
+            .width(30)
+            .height(30)
             .objectFit(ImageFit.Contain)
           Column({ space: 1 }) {
             Text('孔明职配')
-              .fontSize(18)
+              .fontSize(16)
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.km_text_primary'))
             Text('学生求职证据工作台')
-              .fontSize(10)
+              .fontSize(9)
               .fontColor($r('app.color.km_text_secondary'))
           }
           .alignItems(HorizontalAlign.Start)
@@ -2237,15 +2733,17 @@ struct Index {
               .textOverflow({ overflow: TextOverflow.Ellipsis })
           }
         }
-          .constraintSize({ minHeight: 34, maxWidth: this.isWideLayout ? 240 : 150 })
+          .constraintSize({ minHeight: 32, maxWidth: this.isWideLayout ? 220 : 140 })
           .padding({ left: 9, right: 9 })
           .backgroundColor(this.authSignedIn ? $r('app.color.km_teal_soft') : $r('app.color.km_surface_subtle'))
-          .borderRadius(8)
+          .border({ width: 1, color: $r('app.color.km_border') })
+          .borderRadius(6)
+          .accessibilityText(this.authSignedIn ? `${this.authDisplayName}，打开数据与隐私中心` : '打开数据与隐私中心')
           .onClick(() => { this.showDataCenter = !this.showDataCenter; })
       }
       .width('100%')
-      .constraintSize({ minHeight: 58 })
-      .padding({ left: 16, right: 16 })
+      .constraintSize({ minHeight: 54 })
+      .padding({ left: 16, right: 16, top: 2, bottom: 2 })
       Divider()
         .color($r('app.color.km_border'))
         .strokeWidth(1)
@@ -2325,17 +2823,7 @@ struct Index {
         }
         .width('100%')
 
-        Column({ space: 5 }) {
-          Text('数据与隐私')
-            .fontSize(22)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.km_text_primary'))
-          Text('查看本机记录范围，管理账号与数据操作。')
-            .fontSize(12)
-            .fontColor($r('app.color.km_text_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-        .width('100%')
+        this.buildPageHeading('设置', '数据与隐私', '查看本机记录范围，管理账号与数据操作。')
 
         Column({ space: 10 }) {
           Row() {
@@ -2611,37 +3099,40 @@ struct Index {
 
   @Builder
   private buildJourneyStep(title: string, detail: string, completed: boolean, targetTab: number): void {
-    Column({ space: 6 }) {
-      Circle()
-        .width(10)
-        .height(10)
-        .fill(completed ? $r('app.color.km_teal') : $r('app.color.km_border_strong'))
-      Text(title)
-        .fontSize(11)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.km_text_primary'))
-        .maxLines(1)
-      Text(detail)
-        .fontSize(9)
-        .fontColor(completed ? $r('app.color.km_teal') : $r('app.color.km_text_secondary'))
-        .maxLines(1)
+    Button() {
+      Column({ space: 6 }) {
+        Circle()
+          .width(8)
+          .height(8)
+          .fill(completed ? $r('app.color.km_teal') : $r('app.color.km_border_strong'))
+        Text(title)
+          .fontSize(10)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.km_text_primary'))
+          .maxLines(1)
+        Text(detail)
+          .fontSize(9)
+          .fontColor(completed ? $r('app.color.km_teal') : $r('app.color.km_text_secondary'))
+          .maxLines(1)
+      }
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
     }
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
     .layoutWeight(1)
-    .constraintSize({ minHeight: 68 })
-    .backgroundColor(completed ? $r('app.color.km_teal_soft') : $r('app.color.km_surface'))
-    .border({ width: 1, color: completed ? $r('app.color.km_success_border') : $r('app.color.km_border') })
-    .borderRadius(8)
+    .constraintSize({ minHeight: 58 })
+    .padding(0)
+    .backgroundColor($r('app.color.km_transparent'))
+    .borderRadius(6)
+    .accessibilityText(`${title}，${detail}，打开${title}页面`)
     .onClick(() => { this.requestTabChange(targetTab); })
   }
 
   @Builder
   private buildJourney(): void {
-    Column({ space: 10 }) {
+    Column({ space: 8 }) {
       Row() {
         Text('求职主线')
-          .fontSize(16)
+          .fontSize(14)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.km_text_primary'))
         Blank()
@@ -2660,7 +3151,10 @@ struct Index {
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .padding({ top: 4, bottom: 4 })
+    .padding(12)
+    .backgroundColor($r('app.color.km_surface'))
+    .border({ width: 1, color: $r('app.color.km_border') })
+    .borderRadius(6)
   }
 
   @Builder
@@ -2718,9 +3212,9 @@ struct Index {
         .width('100%')
         .constraintSize({ minHeight: 40 })
         .fontSize(12)
-        .fontColor($r('app.color.km_text_on_primary'))
-        .backgroundColor($r('app.color.km_primary'))
-        .borderRadius(8)
+        .fontColor($r('app.color.km_primary_emphasis'))
+        .backgroundColor($r('app.color.km_primary_soft'))
+        .borderRadius(6)
         .onClick(() => { this.openJobsTab(); })
     }
     .alignItems(HorizontalAlign.Start)
@@ -2728,7 +3222,7 @@ struct Index {
     .padding(15)
     .backgroundColor($r('app.color.km_surface'))
     .border({ width: 1, color: $r('app.color.km_border') })
-    .borderRadius(8)
+    .borderRadius(6)
   }
 
   @Builder
@@ -2756,41 +3250,53 @@ struct Index {
         .fontSize(11)
         .fontColor($r('app.color.km_info'))
         .backgroundColor($r('app.color.km_surface'))
-        .borderRadius(8)
+        .border({ width: 1, color: $r('app.color.km_border') })
+        .borderRadius(6)
         .onClick(() => { this.requestTabChange(this.guidanceTab()); })
     }
     .alignItems(VerticalAlign.Center)
     .width('100%')
     .padding(14)
-    .backgroundColor($r('app.color.km_primary_soft'))
-    .borderRadius(8)
+    .backgroundColor($r('app.color.km_primary_tint'))
+    .border({ width: 1, color: $r('app.color.km_border') })
+    .borderRadius(6)
   }
 
   @Builder
   private buildTodayAction(): void {
-    Column({ space: 10 }) {
+    Column({ space: 12 }) {
       Row() {
-        Text('今日重点')
-          .fontSize(10)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.km_text_on_primary_muted'))
+        Row({ space: 6 }) {
+          Circle()
+            .width(8)
+            .height(8)
+            .fill($r('app.color.km_primary'))
+          Text('下一行动')
+            .fontSize(10)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.km_primary_emphasis'))
+        }
         Blank()
         Text(`${this.pendingActionCount()} 项待处理`)
           .fontSize(10)
-          .fontColor($r('app.color.km_text_on_primary_muted'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.km_warning'))
+          .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+          .backgroundColor($r('app.color.km_warning_soft'))
+          .borderRadius(6)
       }
       .width('100%')
       Text(this.primaryNextAction())
-        .fontSize(18)
+        .fontSize(17)
         .fontWeight(FontWeight.Bold)
-        .fontColor($r('app.color.km_text_on_primary'))
-        .lineHeight(25)
+        .fontColor($r('app.color.km_text_primary'))
+        .lineHeight(24)
         .maxLines(3)
         .width('100%')
       Row({ space: 8 }) {
         Text(this.trackedJobs > 0 ? this.trackedJobTitle : this.targetJob)
           .fontSize(10)
-          .fontColor($r('app.color.km_text_on_primary_muted'))
+          .fontColor($r('app.color.km_text_secondary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1)
@@ -2799,16 +3305,16 @@ struct Index {
             Text(this.primaryActionLabel())
               .fontSize(11)
               .fontWeight(FontWeight.Medium)
-              .fontColor($r('app.color.km_primary_emphasis'))
+              .fontColor($r('app.color.km_text_on_primary'))
             SymbolGlyph($r('sys.symbol.chevron_right'))
               .fontSize(14)
-              .fontColor([$r('app.color.km_primary_emphasis')])
+              .fontColor([$r('app.color.km_text_on_primary')])
           }
         }
         .constraintSize({ minHeight: 34 })
         .padding({ left: 12, right: 10 })
-        .backgroundColor($r('app.color.km_surface'))
-        .borderRadius(8)
+        .backgroundColor($r('app.color.km_primary_action'))
+        .borderRadius(6)
         .onClick(() => { this.requestTabChange(this.primaryActionTab()); })
       }
       .width('100%')
@@ -2817,8 +3323,9 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .padding(16)
-    .backgroundColor($r('app.color.km_primary_hero'))
-    .borderRadius(8)
+    .backgroundColor($r('app.color.km_surface_elevated'))
+    .border({ width: 1, color: $r('app.color.km_border') })
+    .borderRadius(6)
   }
 
   @Builder
@@ -2841,7 +3348,7 @@ struct Index {
           .fontSize(12)
           .fontColor(this.authSignedIn ? $r('app.color.km_danger') : $r('app.color.km_info'))
           .backgroundColor(this.authSignedIn ? $r('app.color.km_danger_soft') : $r('app.color.km_info_soft'))
-          .borderRadius(12)
+          .borderRadius(6)
           .onClick(() => {
             void (this.authSignedIn ? this.logoutHuawei() : this.loginHuawei());
           })
@@ -2859,7 +3366,7 @@ struct Index {
           .fontSize(12)
           .fontColor($r('app.color.km_success'))
           .backgroundColor($r('app.color.km_success_soft'))
-          .borderRadius(12)
+          .borderRadius(6)
           .onClick(() => { void this.shareProgress(); })
         Button('打开面试语音')
           .layoutWeight(1)
@@ -2867,7 +3374,7 @@ struct Index {
           .fontSize(12)
           .fontColor($r('app.color.km_purple'))
           .backgroundColor($r('app.color.km_purple_soft'))
-          .borderRadius(12)
+          .borderRadius(6)
           .onClick(() => { this.requestTabChange(3); })
       }
       .width('100%')
@@ -2885,19 +3392,11 @@ struct Index {
   private buildHome(): void {
     Scroll() {
       Column({ space: 12 }) {
-        Column({ space: 5 }) {
-          Text(this.resumeName ? `你好，${this.resumeName}` : '从证据开始，建立你的求职优势')
-            .fontSize(22)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.km_text_primary'))
-            .width('100%')
-          Text(`目标岗位：${this.targetJob}`)
-            .fontSize(12)
-            .fontColor($r('app.color.km_text_secondary'))
-            .width('100%')
-        }
-        .alignItems(HorizontalAlign.Start)
-        .width('100%')
+        this.buildPageHeading(
+          '今日概览',
+          this.resumeName ? `你好，${this.resumeName}` : '求职工作台',
+          `目标岗位 · ${this.targetJob}`,
+        )
 
         this.buildTodayAction()
 
@@ -2960,106 +3459,179 @@ struct Index {
   private buildResume(): void {
     Scroll() {
       Column({ space: 14 }) {
-        Column({ space: 8 }) {
-          Text('简历与画像')
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.km_text_primary'))
-          Text('录入真实经历并维护目标岗位，后续匹配只引用你确认过的内容。')
-            .fontSize(12)
-            .fontColor($r('app.color.km_text_secondary'))
-            .lineHeight(20)
+        this.buildPageHeading('个人资料', '简历与画像', '录入真实经历并维护目标岗位，后续匹配只引用你确认过的内容。')
+
+        Column({ space: 10 }) {
+          Row({ space: 10 }) {
+            Stack({ alignContent: Alignment.Center }) {
+              Circle()
+                .width(38)
+                .height(38)
+                .fill($r('app.color.km_primary_soft'))
+              SymbolGlyph($r('sys.symbol.doc_text'))
+                .fontSize(18)
+                .fontColor([$r('app.color.km_primary_action')])
+            }
+            Column({ space: 2 }) {
+              Text('资料完整度')
+                .fontSize(10)
+                .fontColor($r('app.color.km_text_secondary'))
+              Text(this.resumeCompletionValue() === 100 ? '画像已可用于岗位匹配' : '补全真实经历，提升匹配可信度')
+                .fontSize(13)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.km_text_primary'))
+                .maxLines(2)
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+            Text(`${this.resumeCompletionValue()}%`)
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.km_primary_action'))
+          }
+          .width('100%')
+          Progress({ value: this.resumeCompletionValue(), total: 100, type: ProgressType.Linear })
+            .width('100%')
+            .height(5)
+            .color($r('app.color.km_primary_action'))
+            .backgroundColor($r('app.color.km_border'))
+          Text(this.resumeDirty ? '有尚未保存的修改' : '本机资料已保存')
+            .fontSize(9)
+            .fontColor(this.resumeDirty ? $r('app.color.km_warning') : $r('app.color.km_success'))
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
+        .padding(14)
+        .backgroundColor($r('app.color.km_surface'))
+        .border({ width: 1, color: $r('app.color.km_border') })
+        .borderRadius(8)
 
-        Column({ space: 6 }) {
-          this.buildFieldLabel('姓名', '选填')
-          TextInput({ placeholder: '填写你的姓名', text: this.resumeName })
-            .constraintSize({ minHeight: 48 })
-            .maxLength(40)
-            .enterKeyType(EnterKeyType.Next)
-            .backgroundColor($r('app.color.km_surface'))
-            .border({ width: 1, color: $r('app.color.km_border') })
-            .borderRadius(8)
-            .onChange((value: string) => {
-              this.resumeName = value;
-              this.updateResumeDirtyState();
-            })
+        Column({ space: 12 }) {
+          this.buildSectionHeading('基础画像', '姓名仅用于本机称呼，目标岗位决定后续匹配与训练方向。')
+          Column({ space: 6 }) {
+            this.buildFieldLabel('姓名', '选填')
+            TextInput({ placeholder: '填写你的姓名', text: this.resumeName })
+              .constraintSize({ minHeight: 44 })
+              .maxLength(40)
+              .enterKeyType(EnterKeyType.Next)
+              .backgroundColor($r('app.color.km_surface_subtle'))
+              .border({ width: 1, color: $r('app.color.km_border') })
+              .borderRadius(6)
+              .onChange((value: string) => {
+                this.resumeName = value;
+                this.updateResumeDirtyState();
+              })
+          }
+          .width('100%')
+          Column({ space: 6 }) {
+            this.buildFieldLabel('目标岗位', '必填 · 用于匹配')
+            TextInput({ placeholder: '例如：前端开发实习生', text: this.targetJob })
+              .constraintSize({ minHeight: 44 })
+              .maxLength(80)
+              .enterKeyType(EnterKeyType.Next)
+              .backgroundColor($r('app.color.km_surface_subtle'))
+              .border({ width: 1, color: this.resumeTargetError ? $r('app.color.km_danger') : $r('app.color.km_border') })
+              .borderRadius(6)
+              .onChange((value: string) => {
+                this.targetJob = value;
+                this.updateResumeDirtyState();
+                if (this.resumeTargetTouched) this.resumeTargetError = this.validateTargetJob(value);
+              })
+              .onBlur(() => {
+                this.resumeTargetTouched = true;
+                this.resumeTargetError = this.validateTargetJob(this.targetJob);
+              })
+            NativeFieldError({ message: this.resumeTargetError })
+          }
+          .width('100%')
         }
+        .alignItems(HorizontalAlign.Start)
         .width('100%')
-        Column({ space: 6 }) {
-          this.buildFieldLabel('目标岗位', '必填 · 用于匹配')
-          TextInput({ placeholder: '例如：前端开发实习生', text: this.targetJob })
-            .constraintSize({ minHeight: 48 })
-            .maxLength(80)
-            .enterKeyType(EnterKeyType.Next)
-            .backgroundColor($r('app.color.km_surface'))
-            .border({ width: 1, color: this.resumeTargetError ? $r('app.color.km_danger') : $r('app.color.km_border') })
-            .borderRadius(8)
-            .onChange((value: string) => {
-              this.targetJob = value;
-              this.updateResumeDirtyState();
-              if (this.resumeTargetTouched) this.resumeTargetError = this.validateTargetJob(value);
-            })
-            .onBlur(() => {
-              this.resumeTargetTouched = true;
-              this.resumeTargetError = this.validateTargetJob(this.targetJob);
-            })
-          NativeFieldError({ message: this.resumeTargetError })
-        }
-        .width('100%')
-        Column({ space: 6 }) {
-          this.buildFieldLabel('真实经历', `${this.resumeSummary.length}/4000 · 至少 30 字`)
-          TextArea({ placeholder: '粘贴真实项目、实习或校园经历，不要填写无法核验的数字。', text: this.resumeSummary })
-            .constraintSize({ minHeight: 150 })
-            .maxLength(4000)
-            .backgroundColor($r('app.color.km_surface'))
-            .border({ width: 1, color: this.resumeSummaryError ? $r('app.color.km_danger') : $r('app.color.km_border') })
-            .borderRadius(8)
-            .onChange((value: string) => {
-              this.resumeSummary = value;
-              this.updateResumeDirtyState();
-              if (this.resumeSummaryTouched) this.resumeSummaryError = this.validateResumeSummary(value);
-            })
-            .onBlur(() => {
-              this.resumeSummaryTouched = true;
-              this.resumeSummaryError = this.validateResumeSummary(this.resumeSummary);
-            })
-          NativeFieldError({ message: this.resumeSummaryError })
-        }
-        .width('100%')
-        Row({ space: 8 }) {
-          Button(this.ocrActive ? '本机 OCR 识别中…' : '从图库导入')
+        .padding(16)
+        .backgroundColor($r('app.color.km_surface'))
+        .border({ width: 1, color: $r('app.color.km_border') })
+        .borderRadius(8)
+
+        Column({ space: 12 }) {
+          this.buildSectionHeading('经历证据', '写清场景、个人动作与结果；导入内容也需要你最终确认。')
+          Column({ space: 6 }) {
+            this.buildFieldLabel('真实经历', `${this.resumeSummary.length}/4000 · 至少 30 字`)
+            TextArea({ placeholder: '填写项目、实习或校园经历，说明你具体做了什么。', text: this.resumeSummary })
+              .constraintSize({ minHeight: 132 })
+              .maxLength(4000)
+              .backgroundColor($r('app.color.km_surface_subtle'))
+              .border({ width: 1, color: this.resumeSummaryError ? $r('app.color.km_danger') : $r('app.color.km_border') })
+              .borderRadius(6)
+              .onChange((value: string) => {
+                this.resumeSummary = value;
+                this.updateResumeDirtyState();
+                if (this.resumeSummaryTouched) this.resumeSummaryError = this.validateResumeSummary(value);
+              })
+              .onBlur(() => {
+                this.resumeSummaryTouched = true;
+                this.resumeSummaryError = this.validateResumeSummary(this.resumeSummary);
+              })
+            NativeFieldError({ message: this.resumeSummaryError })
+          }
+          .width('100%')
+          Row({ space: 8 }) {
+            Button() {
+              Row({ space: 6 }) {
+                SymbolGlyph($r('sys.symbol.doc_text'))
+                  .fontSize(14)
+                  .fontColor([$r('app.color.km_info')])
+                Text(this.ocrActive ? '识别中…' : '图库导入')
+                  .fontSize(11)
+                  .fontColor($r('app.color.km_info'))
+              }
+            }
             .layoutWeight(1)
-            .constraintSize({ minHeight: 42 })
-            .fontSize(12)
-            .fontColor($r('app.color.km_info'))
+            .constraintSize({ minHeight: 40 })
             .backgroundColor($r('app.color.km_info_soft'))
-            .borderRadius(8)
+            .borderRadius(6)
             .enabled(!this.ocrActive)
             .onClick(() => { void this.importResumeImage(); })
-          Button(this.ocrActive ? '请稍候' : '从文件导入')
+            Button() {
+              Row({ space: 6 }) {
+                SymbolGlyph($r('sys.symbol.doc_text'))
+                  .fontSize(14)
+                  .fontColor([$r('app.color.km_teal')])
+                Text(this.ocrActive ? '请稍候' : '文件导入')
+                  .fontSize(11)
+                  .fontColor($r('app.color.km_teal'))
+              }
+            }
             .layoutWeight(1)
-            .constraintSize({ minHeight: 42 })
-            .fontSize(12)
-            .fontColor($r('app.color.km_teal'))
+            .constraintSize({ minHeight: 40 })
             .backgroundColor($r('app.color.km_teal_soft'))
-            .borderRadius(8)
+            .borderRadius(6)
             .enabled(!this.ocrActive)
             .onClick(() => { void this.importResumeFile(); })
-        }
-        .width('100%')
-        Text('图片只在本机读取，识别后仍需你确认。')
+          }
           .width('100%')
-          .fontSize(11)
-          .fontColor($r('app.color.km_text_secondary'))
-          .lineHeight(17)
-        Button('保存本机简历画像')
+          Row({ space: 6 }) {
+            SymbolGlyph($r('sys.symbol.checkmark_shield'))
+              .fontSize(13)
+              .fontColor([$r('app.color.km_success')])
+            Text('导入内容仅在本机读取，识别后由你确认。')
+              .fontSize(10)
+              .fontColor($r('app.color.km_text_secondary'))
+              .layoutWeight(1)
+          }
+          .width('100%')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .padding(16)
+        .backgroundColor($r('app.color.km_surface'))
+        .border({ width: 1, color: $r('app.color.km_border') })
+        .borderRadius(8)
+
+        Button(this.resumeDirty ? '保存本机简历画像' : '资料已保存')
           .width('100%')
           .constraintSize({ minHeight: 46 })
           .fontColor($r('app.color.km_text_on_primary'))
-          .backgroundColor($r('app.color.km_primary_action'))
+          .backgroundColor(this.resumeDirty ? $r('app.color.km_primary_action') : $r('app.color.km_disabled'))
           .borderRadius(8)
           .onClick(() => { this.saveResumeProfile(); })
         NativeStatusMessage({ message: this.profileMessage })
@@ -3073,19 +3645,26 @@ struct Index {
           onBindVersion: (versionId: string) => { this.bindNativeResumeVersion(versionId); },
           onDeleteVersion: (versionId: string) => { this.requestDeleteNativeResumeVersion(versionId); },
         })
-        Column({ space: 8 }) {
-          Text('隐私与识别')
-            .fontSize(15)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.km_text_primary'))
-          Text('导入的图片先在本机读取；识别结果、岗位信息和模型输出都需要你确认后才会进入求职资料。')
-            .fontSize(12)
-            .fontColor($r('app.color.km_text_secondary'))
-            .lineHeight(19)
+        Row({ space: 10 }) {
+          SymbolGlyph($r('sys.symbol.checkmark_shield'))
+            .fontSize(18)
+            .fontColor([$r('app.color.km_primary_action')])
+          Column({ space: 3 }) {
+            Text('隐私与识别')
+              .fontSize(13)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.km_text_primary'))
+            Text('识别结果、岗位信息和模型输出都需要你确认后才会进入求职资料。')
+              .fontSize(10)
+              .fontColor($r('app.color.km_text_secondary'))
+              .lineHeight(17)
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
         }
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(VerticalAlign.Top)
         .width('100%')
-        .padding(16)
+        .padding(14)
         .backgroundColor($r('app.color.km_primary_soft'))
         .borderRadius(8)
       }
@@ -3607,18 +4186,59 @@ struct Index {
     } else {
       Scroll() {
         Column({ space: 12 }) {
-          Column({ space: 6 }) {
-            Text('岗位中心')
-              .fontSize(20)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.km_text_primary'))
-            Text(`围绕“${this.targetJob}”发现真实岗位，并核对要求与个人证据。`)
-              .fontSize(12)
-              .fontColor($r('app.color.km_text_secondary'))
-          }
-          .alignItems(HorizontalAlign.Start)
-          .width('100%')
+          this.buildPageHeading('岗位情报', '岗位中心', `围绕“${this.targetJob}”发现真实岗位，并核对要求与个人证据。`)
 
+          Row({ space: 4 }) {
+            Column({ space: 4 }) {
+              Text('01')
+                .fontSize(9)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.km_primary_action'))
+              Text('搜索来源')
+                .fontSize(10)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.km_text_primary'))
+            }
+            .alignItems(HorizontalAlign.Center)
+            .layoutWeight(1)
+            Divider()
+              .width(20)
+              .color($r('app.color.km_border_strong'))
+            Column({ space: 4 }) {
+              Text('02')
+                .fontSize(9)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.km_teal'))
+              Text('保存追踪')
+                .fontSize(10)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.km_text_primary'))
+            }
+            .alignItems(HorizontalAlign.Center)
+            .layoutWeight(1)
+            Divider()
+              .width(20)
+              .color($r('app.color.km_border_strong'))
+            Column({ space: 4 }) {
+              Text('03')
+                .fontSize(9)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.km_warning'))
+              Text('核对证据')
+                .fontSize(10)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.km_text_primary'))
+            }
+            .alignItems(HorizontalAlign.Center)
+            .layoutWeight(1)
+          }
+          .alignItems(VerticalAlign.Center)
+          .width('100%')
+          .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+          .backgroundColor($r('app.color.km_surface_subtle'))
+          .borderRadius(8)
+
+          this.buildSectionHeading('发现岗位', '搜索可追溯来源，确认详情后再保存到本机工作区。')
           this.buildPublicJobSearch()
 
           if (this.publicJobs.length > 0) {
@@ -3658,11 +4278,7 @@ struct Index {
             })
           }
 
-          Text('本机岗位与证据')
-            .fontSize(16)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.km_text_primary'))
-            .width('100%')
+          this.buildSectionHeading('本机岗位与证据', '围绕已追踪岗位查看要求覆盖，并把缺口带入模拟面试。')
 
           Row({ space: 10 }) {
             NativeMetricCard({ label: '证据覆盖', value: `${this.evidenceCoverage}%`, detail: '岗位要求可追溯度' })
@@ -3726,80 +4342,811 @@ struct Index {
   }
 
   @Builder
-  private buildInterview(): void {
-    Scroll() {
-      Column({ space: 14 }) {
-        Column({ space: 8 }) {
-          Text('模拟面试')
-            .fontSize(20)
+  private buildImmersiveInterviewHeader(): void {
+    Row({ space: 10 }) {
+      Image($r('app.media.startIconNative'))
+        .width(28)
+        .height(28)
+        .objectFit(ImageFit.Contain)
+      Column({ space: 1 }) {
+        Text('孔明模拟面试')
+          .fontSize(14)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.km_text_primary'))
+        Text(`${this.trackedJobTitle || this.targetJob} · ${this.interviewType} · ${this.interviewDifficulty}难度`)
+          .fontSize(9)
+          .fontColor($r('app.color.km_text_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .constraintSize({ maxWidth: 360 })
+      Blank()
+      Column({ space: 4 }) {
+        Row({ space: 6 }) {
+          Text(`第 ${Math.max(1, this.interviewRound)} 轮 / 3`)
+            .fontSize(9)
+            .fontColor($r('app.color.km_text_secondary'))
+          SymbolGlyph($r('sys.symbol.clock'))
+            .fontSize(12)
+            .fontColor([this.interviewTimeExpired ? $r('app.color.km_warning') : $r('app.color.km_primary_action')])
+          Text(`${this.formattedInterviewTime()} / ${this.interviewDurationMinutes}:00`)
+            .fontSize(11)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.interviewTimeExpired ? $r('app.color.km_warning') : $r('app.color.km_text_primary'))
+        }
+        Progress({ value: this.interviewProgressValue(), total: 100, type: ProgressType.Linear })
+          .width(190)
+          .height(3)
+          .color(this.interviewTimeExpired ? $r('app.color.km_warning') : $r('app.color.km_primary_action'))
+          .backgroundColor($r('app.color.km_border'))
+      }
+      .alignItems(HorizontalAlign.End)
+      Button() {
+        SymbolGlyph($r('sys.symbol.pause'))
+          .fontSize(17)
+          .fontColor([$r('app.color.km_primary_action')])
+      }
+      .width(38)
+      .height(38)
+      .backgroundColor($r('app.color.km_primary_tint'))
+      .borderRadius(8)
+      .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active')
+      .accessibilityText('暂停面试')
+      .onClick(() => { void this.pauseInterview(); })
+      Button() {
+        SymbolGlyph($r('sys.symbol.stop_circle'))
+          .fontSize(18)
+          .fontColor([$r('app.color.km_danger')])
+      }
+      .width(38)
+      .height(38)
+      .backgroundColor($r('app.color.km_danger_soft'))
+      .borderRadius(8)
+      .enabled(!this.interviewLoading)
+      .accessibilityText('提前结束面试')
+      .onClick(() => { this.requestEndInterview(); })
+    }
+    .alignItems(VerticalAlign.Center)
+    .width('100%')
+    .constraintSize({ minHeight: 50 })
+    .padding({ left: 12, right: 8, top: 6, bottom: 6 })
+    .backgroundColor($r('app.color.km_surface'))
+    .border({ width: 1, color: $r('app.color.km_border') })
+    .borderRadius(8)
+  }
+
+  @Builder
+  private buildImmersiveInterviewerStage(): void {
+    Column({ space: 10 }) {
+      NativeDigitalInterviewer({
+        avatarState: this.interviewAvatarState,
+        compact: true,
+        viewportHeight: 220,
+      })
+      Row({ space: 9 }) {
+        SymbolGlyph(this.interviewSpeaking ? $r('sys.symbol.waveform') : $r('sys.symbol.person_crop_circle_fill'))
+          .fontSize(17)
+          .fontColor([$r('app.color.km_primary_action')])
+        Column({ space: 2 }) {
+          Text(this.interviewerPresenceLabel())
+            .fontSize(12)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('app.color.km_text_primary'))
-          Text('围绕目标岗位完成三轮回答，复盘证据表达、职责边界和结果说明。')
-            .fontSize(12)
+          Text(`${this.interviewSpeechMessage} · ${this.speechProvider.providerName}`)
+            .fontSize(9)
             .fontColor($r('app.color.km_text_secondary'))
-            .lineHeight(20)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         .alignItems(HorizontalAlign.Start)
-        .width('100%')
-        Row({ space: 8 }) {
-          Button('综合面').layoutWeight(1).constraintSize({ minHeight: 40 }).backgroundColor(this.interviewType === '综合面' ? $r('app.color.km_primary_action') : $r('app.color.km_border')).fontColor(this.interviewType === '综合面' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body')).borderRadius(8).onClick(() => { this.interviewType = '综合面'; })
-          Button('技术面').layoutWeight(1).constraintSize({ minHeight: 40 }).backgroundColor(this.interviewType === '技术面' ? $r('app.color.km_primary_action') : $r('app.color.km_border')).fontColor(this.interviewType === '技术面' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body')).borderRadius(8).onClick(() => { this.interviewType = '技术面'; })
-          Button('HR 面').layoutWeight(1).constraintSize({ minHeight: 40 }).backgroundColor(this.interviewType === 'HR面' ? $r('app.color.km_primary_action') : $r('app.color.km_border')).fontColor(this.interviewType === 'HR面' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body')).borderRadius(8).onClick(() => { this.interviewType = 'HR面'; })
-        }
-        .width('100%')
-
-        Row({ space: 12 }) {
-          Checkbox({ name: 'native-model-consent', group: 'interview-privacy' })
-            .select(this.modelConsent)
-            .selectedColor($r('app.color.km_primary_action'))
-            .onChange((value: boolean) => { this.updateModelConsent(value); })
-          Column({ space: 3 }) {
-            Text('本次训练使用智能增强')
-              .fontSize(14)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.km_text_primary'))
-            Text('发送前隐藏手机号、邮箱、身份证号和详细地址；模型密钥仅保存在服务端。')
-              .fontSize(11)
-              .fontColor($r('app.color.km_text_secondary'))
-              .lineHeight(18)
+        .layoutWeight(1)
+        if (this.interviewSpeaking) {
+          Button() {
+            SymbolGlyph($r('sys.symbol.stop_circle'))
+              .fontSize(16)
+              .fontColor([$r('app.color.km_danger')])
           }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1)
+          .width(36)
+          .height(36)
+          .backgroundColor($r('app.color.km_danger_soft'))
+          .borderRadius(8)
+          .accessibilityText('停止播报')
+          .onClick(() => { void this.stopInterviewPrompt(); })
         }
-        .alignItems(VerticalAlign.Top)
+      }
+      .alignItems(VerticalAlign.Center)
+      .width('100%')
+      .padding({ left: 12, right: 9, top: 8, bottom: 8 })
+      .backgroundColor($r('app.color.km_surface'))
+      .border({ width: 1, color: $r('app.color.km_border') })
+      .borderRadius(8)
+    }
+    .layoutWeight(11)
+    .height('100%')
+  }
+
+  @Builder
+  private buildImmersiveAnswerPanel(): void {
+    Column({ space: this.interviewKeyboardVisible ? 4 : 6 }) {
+      if (this.interviewKeyboardVisible) {
+        Row({ space: 6 }) {
+          Text(`第 ${Math.max(1, this.interviewRound)} 轮`)
+            .fontSize(9)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.km_primary_action'))
+            .padding({ left: 7, right: 7, top: 4, bottom: 4 })
+            .backgroundColor($r('app.color.km_primary_tint'))
+            .borderRadius(7)
+          Text(this.interviewQuestion || this.fallbackInterviewQuestion(1))
+            .fontSize(10)
+            .fontColor($r('app.color.km_text_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+          Text(`${this.interviewAnswer.length}/3000`)
+            .fontSize(9)
+            .fontColor($r('app.color.km_text_tertiary'))
+          Button() {
+            SymbolGlyph($r('sys.symbol.checkmark_circle'))
+              .fontSize(15)
+              .fontColor([$r('app.color.km_text_on_primary')])
+          }
+          .width(34)
+          .height(30)
+          .backgroundColor($r('app.color.km_primary_action'))
+          .borderRadius(7)
+          .accessibilityText('完成回答输入')
+          .onClick(() => { this.dismissInterviewKeyboard(); })
+        }
+        .alignItems(VerticalAlign.Center)
         .width('100%')
-        .padding(14)
-        .backgroundColor(this.modelConsent ? $r('app.color.km_primary_tint') : $r('app.color.km_surface_subtle'))
+        .constraintSize({ minHeight: 30, maxHeight: 30 })
+      } else {
+        Row() {
+          Text(`${this.interviewType} · 第 ${Math.max(1, this.interviewRound)} 轮`)
+            .fontSize(10)
+            .fontColor($r('app.color.km_primary_action'))
+          Blank()
+          Text(this.interviewModelName)
+            .fontSize(9)
+            .fontColor(this.interviewModelName === '本机规则' ? $r('app.color.km_text_muted') : $r('app.color.km_success'))
+            .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+            .backgroundColor(this.interviewModelName === '本机规则' ? $r('app.color.km_border') : $r('app.color.km_success_soft'))
+            .borderRadius(8)
+        }
+        .width('100%')
+        Scroll() {
+          Text(this.interviewQuestion || this.fallbackInterviewQuestion(1))
+            .fontSize(13)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.km_text_primary'))
+            .lineHeight(18)
+            .width('100%')
+        }
+        .width('100%')
+        .constraintSize({ minHeight: 48, maxHeight: 64 })
+        .scrollBar(BarState.Off)
+        Row() {
+          Text('本轮回答')
+            .fontSize(11)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.km_text_primary'))
+          if (this.interviewTurns.length > 0) {
+            Text(` · 已保留 ${this.interviewTurns.length} 轮`)
+              .fontSize(9)
+              .fontColor($r('app.color.km_text_secondary'))
+          }
+          Blank()
+          Text(`${this.interviewAnswer.length}/3000 · 至少 20 字`)
+            .fontSize(9)
+            .fontColor($r('app.color.km_text_tertiary'))
+        }
+        .width('100%')
+      }
+      TextArea({ placeholder: '输入真实回答，不要填写无法核验的成果。', text: this.interviewAnswer })
+        .layoutWeight(1)
+        .constraintSize({ minHeight: this.interviewKeyboardVisible ? 52 : 64, maxHeight: this.interviewKeyboardVisible ? 84 : 96 })
+        .maxLength(3000)
+        .backgroundColor($r('app.color.km_surface_subtle'))
+        .border({ width: 1, color: this.interviewAnswerError ? $r('app.color.km_danger') : $r('app.color.km_border') })
         .borderRadius(8)
+        .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active' && this.interviewTurns.length < 3)
+        .enableKeyboardOnFocus(true)
+        .onChange((value: string) => {
+          this.interviewAnswer = value;
+          if (this.interviewAnswerTouched) this.interviewAnswerError = this.validateInterviewAnswer(value);
+        })
+        .onBlur(() => {
+          this.interviewKeyboardVisible = false;
+          if (this.interviewAnswer.trim()) {
+            this.interviewAnswerTouched = true;
+            this.interviewAnswerError = this.validateInterviewAnswer(this.interviewAnswer);
+          }
+        })
+      if (!this.interviewKeyboardVisible) {
+        NativeFieldError({ message: this.interviewAnswerError })
+        Row({ space: 6 }) {
+          Button() {
+            Row({ space: 4 }) {
+              SymbolGlyph(this.interviewSpeaking ? $r('sys.symbol.stop_circle') : $r('sys.symbol.waveform'))
+                .fontSize(13)
+                .fontColor([this.interviewSpeaking ? $r('app.color.km_danger') : $r('app.color.km_purple')])
+              Text(this.interviewSpeaking ? '停止播报' : '朗读问题')
+                .fontSize(9)
+                .fontColor(this.interviewSpeaking ? $r('app.color.km_danger') : $r('app.color.km_purple'))
+            }
+          }
+          .layoutWeight(1)
+          .constraintSize({ minHeight: 38, maxHeight: 38 })
+          .backgroundColor(this.interviewSpeaking ? $r('app.color.km_danger_soft') : $r('app.color.km_purple_soft'))
+          .borderRadius(8)
+          .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active')
+          .onClick(() => {
+            if (this.interviewSpeaking) void this.stopInterviewPrompt();
+            else void this.speakInterviewPrompt();
+          })
+          Button() {
+            Row({ space: 4 }) {
+              SymbolGlyph($r('sys.symbol.mic'))
+                .fontSize(13)
+                .fontColor([this.speechActive ? $r('app.color.km_text_on_primary') : $r('app.color.km_info')])
+              Text(this.speechActive ? '停止并填入' : '语音回答')
+                .fontSize(9)
+                .fontColor(this.speechActive ? $r('app.color.km_text_on_primary') : $r('app.color.km_info'))
+            }
+          }
+          .layoutWeight(1)
+          .constraintSize({ minHeight: 38, maxHeight: 38 })
+          .backgroundColor(this.speechActive ? $r('app.color.km_danger_active') : $r('app.color.km_info_soft'))
+          .borderRadius(8)
+          .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active' && this.interviewTurns.length < 3)
+          .onClick(() => { void this.toggleSpeechInput(); })
+          if (this.interviewTurns.length < 3) {
+            Button() {
+              Row({ space: 4 }) {
+                if (this.interviewLoading) {
+                  LoadingProgress().width(13).height(13).color($r('app.color.km_text_on_primary'))
+                } else {
+                  SymbolGlyph($r('sys.symbol.paperplane_fill'))
+                    .fontSize(13)
+                    .fontColor([$r('app.color.km_text_on_primary')])
+                }
+                Text(this.interviewLoading ? '生成追问中' : '提交并追问')
+                  .fontSize(9)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.km_text_on_primary'))
+              }
+            }
+            .layoutWeight(1)
+            .constraintSize({ minHeight: 38, maxHeight: 38 })
+            .backgroundColor($r('app.color.km_primary_action'))
+            .borderRadius(8)
+            .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active')
+            .onClick(() => { void this.submitInterviewAnswer(); })
+          }
+          Button() {
+            Text('生成反馈')
+              .fontSize(9)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.km_success'))
+          }
+            .layoutWeight(1)
+            .constraintSize({ minHeight: 38, maxHeight: 38 })
+            .padding({ left: 4, right: 4 })
+            .backgroundColor($r('app.color.km_success_soft'))
+            .borderRadius(8)
+            .enabled(!this.interviewLoading)
+            .onClick(() => { void this.finishInterview(); })
+        }
+        .width('100%')
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+    .layoutWeight(9)
+    .height('100%')
+    .padding(this.interviewKeyboardVisible ? 6 : 10)
+    .backgroundColor($r('app.color.km_surface'))
+    .border({ width: 1, color: $r('app.color.km_border') })
+    .borderRadius(8)
+  }
+
+  @Builder
+  private buildImmersivePauseOverlay(): void {
+    Column({ space: 14 }) {
+      SymbolGlyph(this.interviewTimeExpired ? $r('sys.symbol.clock_fill') : $r('sys.symbol.pause_circle'))
+        .fontSize(36)
+        .fontColor([this.interviewTimeExpired ? $r('app.color.km_warning') : $r('app.color.km_primary_action')])
+      Text(this.interviewTimeExpired ? '设定时长已到' : '面试已暂停')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.km_text_primary'))
+      Text(this.interviewTimeExpired
+        ? '加时 5 分钟后可继续当前问题，也可以直接结束并生成反馈。'
+        : '计时和语音均已停止，当前回答草稿会保留。')
+        .fontSize(11)
+        .fontColor($r('app.color.km_text_secondary'))
+        .lineHeight(18)
+        .textAlign(TextAlign.Center)
+      Row({ space: 10 }) {
+        Button() {
+          Row({ space: 6 }) {
+            SymbolGlyph($r('sys.symbol.play_fill'))
+              .fontSize(15)
+              .fontColor([$r('app.color.km_text_on_primary')])
+            Text(this.interviewTimeExpired ? '加时 5 分钟' : '继续面试')
+              .fontSize(11)
+              .fontColor($r('app.color.km_text_on_primary'))
+          }
+        }
+        .layoutWeight(1)
+        .constraintSize({ minHeight: 42 })
+        .backgroundColor($r('app.color.km_primary_action'))
+        .borderRadius(8)
+        .onClick(() => { this.resumeInterview(); })
+        Button('结束面试')
+          .layoutWeight(1)
+          .constraintSize({ minHeight: 42 })
+          .fontSize(11)
+          .fontColor($r('app.color.km_danger'))
+          .backgroundColor($r('app.color.km_danger_soft'))
+          .borderRadius(8)
+          .onClick(() => { this.requestEndInterview(); })
+      }
+      .width('100%')
+    }
+    .width(410)
+    .padding(22)
+    .backgroundColor($r('app.color.km_surface_elevated'))
+    .border({ width: 1, color: this.interviewTimeExpired ? $r('app.color.km_warning') : $r('app.color.km_primary_action') })
+    .borderRadius(8)
+    .shadow({ radius: 24, color: '#66000000', offsetY: 8 })
+  }
+
+  @Builder
+  private buildImmersiveInterview(): void {
+    Stack({ alignContent: Alignment.Center }) {
+      Column({ space: this.interviewKeyboardVisible ? 0 : 10 }) {
+        if (!this.interviewKeyboardVisible) {
+          this.buildImmersiveInterviewHeader()
+        }
+        Row({ space: this.interviewKeyboardVisible ? 0 : 12 }) {
+          if (!this.interviewKeyboardVisible) {
+            this.buildImmersiveInterviewerStage()
+          }
+          this.buildImmersiveAnswerPanel()
+        }
+        .width('100%')
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .height('100%')
+      .padding(this.interviewKeyboardVisible ? 6 : 12)
+      if (this.interviewSessionPhase === 'paused') {
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('#99050A12')
+        this.buildImmersivePauseOverlay()
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.km_page_background'))
+  }
+
+  @Builder
+  private buildInterviewReadinessItem(label: string, ready: boolean): void {
+    Row({ space: 6 }) {
+      Circle()
+        .width(6)
+        .height(6)
+        .fill(ready ? $r('app.color.km_success') : $r('app.color.km_warning'))
+      Text(label)
+        .fontSize(9)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(ready ? $r('app.color.km_success') : $r('app.color.km_warning'))
+        .maxLines(1)
+    }
+    .justifyContent(FlexAlign.Center)
+    .layoutWeight(1)
+    .constraintSize({ minHeight: 28 })
+    .backgroundColor(ready ? $r('app.color.km_success_soft') : $r('app.color.km_warning_soft'))
+    .borderRadius(6)
+  }
+
+  @Builder
+  private buildInterviewAudioReadinessItem(): void {
+    Row({ space: 6 }) {
+      Circle()
+        .width(6)
+        .height(6)
+        .fill(this.interviewAudioChecked ? $r('app.color.km_success') : $r('app.color.km_warning'))
+      Text(this.interviewAudioChecked ? '音频已试听' : '建议试听音频')
+        .fontSize(9)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.interviewAudioChecked ? $r('app.color.km_success') : $r('app.color.km_warning'))
+        .maxLines(1)
+    }
+    .justifyContent(FlexAlign.Center)
+    .layoutWeight(1)
+    .constraintSize({ minHeight: 28 })
+    .backgroundColor(this.interviewAudioChecked ? $r('app.color.km_success_soft') : $r('app.color.km_warning_soft'))
+    .borderRadius(6)
+  }
+
+  @Builder
+  private buildInterviewLaunchBar(): void {
+    Row({ space: 12 }) {
+      Column({ space: 2 }) {
+        Text(`${this.interviewType} · ${this.interviewDifficulty} · ${this.interviewDurationMinutes} 分钟`)
+          .fontSize(11)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.km_text_primary'))
+          .maxLines(1)
+        Text(this.modelConsent ? '智能增强 · 发送前自动脱敏' : '本机规则 · 回答不离开设备')
+          .fontSize(9)
+          .fontColor(this.modelConsent ? $r('app.color.km_primary_action') : $r('app.color.km_text_secondary'))
+          .maxLines(1)
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      Button() {
+        Row({ space: 6 }) {
+          SymbolGlyph($r('sys.symbol.play_fill'))
+            .fontSize(14)
+            .fontColor([$r('app.color.km_text_on_primary')])
+          Text('开始面试')
+            .fontSize(11)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.km_text_on_primary'))
+        }
+      }
+      .constraintSize({ minWidth: 112, minHeight: 42 })
+      .backgroundColor($r('app.color.km_primary_action'))
+      .borderRadius(8)
+      .accessibilityText(this.modelConsent ? '开始 AI 增强面试' : '开始本机面试')
+      .onClick(() => { this.startInterview(); })
+    }
+    .alignItems(VerticalAlign.Center)
+    .width('100%')
+    .constraintSize({ maxWidth: this.isWideLayout ? 1040 : '100%' })
+  }
+
+  @Builder
+  private buildInterview(): void {
+    Column() {
+      Scroll() {
+        Column({ space: 14 }) {
+        this.buildPageHeading(
+          '能力训练',
+          '模拟面试',
+          this.interviewStarted
+            ? (this.interviewSessionPhase === 'completed'
+              ? `${this.interviewType}已完成，可查看反馈或重新开始。`
+              : `正在进行 ${this.interviewType}，问题与回答仅在当前工作区留存。`)
+            : '配置一场完整的岗位模拟面试，练习表达、追问应对和证据说明。',
+        )
 
         if (!this.interviewStarted) {
-          Column({ space: 12 }) {
-            Text('围绕真实项目回答，不自动编造经历。')
-              .fontSize(16)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.km_text_primary'))
-            Text(this.modelConsent
-              ? '首题由本机准备；提交回答后，模型只基于已脱敏内容生成下一轮证据追问。'
-              : '当前使用本机规则生成问题和反馈，不会发送简历或回答。')
-              .fontSize(13)
-              .fontColor($r('app.color.km_text_secondary'))
-              .lineHeight(21)
-            Button(this.modelConsent ? '开始 AI 增强面试' : '开始本机面试')
-              .width('100%')
-              .constraintSize({ minHeight: 46 })
-              .fontColor($r('app.color.km_text_on_primary'))
-              .backgroundColor($r('app.color.km_primary_action'))
-              .borderRadius(8)
-              .onClick(() => { this.startInterview(); })
+          Column({ space: 14 }) {
+            this.buildSectionHeading('本轮设置', '先选择训练模式，再进入横屏全屏面试。')
+            this.buildFieldLabel('面试类型', '每轮最多 3 次核心追问')
+            Row({ space: 6 }) {
+              Button('综合面')
+                .layoutWeight(1)
+                .constraintSize({ minHeight: 38 })
+                .fontSize(11)
+                .fontColor(this.interviewType === '综合面' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body'))
+                .backgroundColor(this.interviewType === '综合面' ? $r('app.color.km_primary_action') : $r('app.color.km_surface_subtle'))
+                .border({ width: 1, color: this.interviewType === '综合面' ? $r('app.color.km_primary_action') : $r('app.color.km_border') })
+                .borderRadius(6)
+                .onClick(() => { this.interviewType = '综合面'; })
+              Button('技术面')
+                .layoutWeight(1)
+                .constraintSize({ minHeight: 38 })
+                .fontSize(11)
+                .fontColor(this.interviewType === '技术面' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body'))
+                .backgroundColor(this.interviewType === '技术面' ? $r('app.color.km_primary_action') : $r('app.color.km_surface_subtle'))
+                .border({ width: 1, color: this.interviewType === '技术面' ? $r('app.color.km_primary_action') : $r('app.color.km_border') })
+                .borderRadius(6)
+                .onClick(() => { this.interviewType = '技术面'; })
+              Button('HR 面')
+                .layoutWeight(1)
+                .constraintSize({ minHeight: 38 })
+                .fontSize(11)
+                .fontColor(this.interviewType === 'HR面' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body'))
+                .backgroundColor(this.interviewType === 'HR面' ? $r('app.color.km_primary_action') : $r('app.color.km_surface_subtle'))
+                .border({ width: 1, color: this.interviewType === 'HR面' ? $r('app.color.km_primary_action') : $r('app.color.km_border') })
+                .borderRadius(6)
+                .onClick(() => { this.interviewType = 'HR面'; })
+            }
+            .width('100%')
+
+            Row({ space: 10 }) {
+              SymbolGlyph($r('sys.symbol.briefcase'))
+                .fontSize(20)
+                .fontColor([$r('app.color.km_primary_action')])
+              Column({ space: 3 }) {
+                Text('本轮目标岗位')
+                  .fontSize(10)
+                  .fontColor($r('app.color.km_text_tertiary'))
+                Text(this.trackedJobTitle || this.targetJob)
+                  .fontSize(15)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.km_text_primary'))
+                  .maxLines(2)
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              Text(this.resumeSummary.trim() ? '简历画像已就绪' : '使用基础岗位画像')
+                .fontSize(9)
+                .fontColor(this.resumeSummary.trim() ? $r('app.color.km_success') : $r('app.color.km_warning'))
+                .padding({ left: 8, right: 8, top: 5, bottom: 5 })
+                .backgroundColor(this.resumeSummary.trim() ? $r('app.color.km_success_soft') : $r('app.color.km_warning_soft'))
+                .borderRadius(8)
+            }
+            .width('100%')
+
+            this.buildFieldLabel('追问强度', this.interviewDifficultyHint())
+            Row({ space: 8 }) {
+              Button('基础')
+                .layoutWeight(1)
+                .constraintSize({ minHeight: 38 })
+                .fontSize(12)
+                .fontColor(this.interviewDifficulty === '基础' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body'))
+                .backgroundColor(this.interviewDifficulty === '基础' ? $r('app.color.km_primary_action') : $r('app.color.km_surface_subtle'))
+                .border({ width: 1, color: this.interviewDifficulty === '基础' ? $r('app.color.km_primary_action') : $r('app.color.km_border') })
+                .borderRadius(6)
+                .onClick(() => { this.interviewDifficulty = '基础'; })
+              Button('标准')
+                .layoutWeight(1)
+                .constraintSize({ minHeight: 38 })
+                .fontSize(12)
+                .fontColor(this.interviewDifficulty === '标准' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body'))
+                .backgroundColor(this.interviewDifficulty === '标准' ? $r('app.color.km_primary_action') : $r('app.color.km_surface_subtle'))
+                .border({ width: 1, color: this.interviewDifficulty === '标准' ? $r('app.color.km_primary_action') : $r('app.color.km_border') })
+                .borderRadius(6)
+                .onClick(() => { this.interviewDifficulty = '标准'; })
+              Button('高压')
+                .layoutWeight(1)
+                .constraintSize({ minHeight: 38 })
+                .fontSize(12)
+                .fontColor(this.interviewDifficulty === '高压' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body'))
+                .backgroundColor(this.interviewDifficulty === '高压' ? $r('app.color.km_primary_action') : $r('app.color.km_surface_subtle'))
+                .border({ width: 1, color: this.interviewDifficulty === '高压' ? $r('app.color.km_primary_action') : $r('app.color.km_border') })
+                .borderRadius(6)
+                .onClick(() => { this.interviewDifficulty = '高压'; })
+            }
+            .width('100%')
+
+            this.buildFieldLabel('训练时长', '到时自动暂停，可继续加时')
+            Row({ space: 8 }) {
+              Button('10 分钟').layoutWeight(1).constraintSize({ minHeight: 38 }).fontSize(11).fontColor(this.interviewDurationMinutes === 10 ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body')).backgroundColor(this.interviewDurationMinutes === 10 ? $r('app.color.km_primary_action') : $r('app.color.km_surface_subtle')).border({ width: 1, color: this.interviewDurationMinutes === 10 ? $r('app.color.km_primary_action') : $r('app.color.km_border') }).borderRadius(6).onClick(() => { this.interviewDurationMinutes = 10; })
+              Button('15 分钟').layoutWeight(1).constraintSize({ minHeight: 38 }).fontSize(11).fontColor(this.interviewDurationMinutes === 15 ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body')).backgroundColor(this.interviewDurationMinutes === 15 ? $r('app.color.km_primary_action') : $r('app.color.km_surface_subtle')).border({ width: 1, color: this.interviewDurationMinutes === 15 ? $r('app.color.km_primary_action') : $r('app.color.km_border') }).borderRadius(6).onClick(() => { this.interviewDurationMinutes = 15; })
+              Button('20 分钟').layoutWeight(1).constraintSize({ minHeight: 38 }).fontSize(11).fontColor(this.interviewDurationMinutes === 20 ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body')).backgroundColor(this.interviewDurationMinutes === 20 ? $r('app.color.km_primary_action') : $r('app.color.km_surface_subtle')).border({ width: 1, color: this.interviewDurationMinutes === 20 ? $r('app.color.km_primary_action') : $r('app.color.km_border') }).borderRadius(6).onClick(() => { this.interviewDurationMinutes = 20; })
+            }
+            .width('100%')
+
+            Row({ space: 6 }) {
+              this.buildInterviewReadinessItem('岗位已确认', this.targetJob.trim().length > 0)
+              this.buildInterviewReadinessItem(
+                this.resumeSummary.trim().length >= 30 ? '画像已就绪' : '使用基础画像',
+                this.resumeSummary.trim().length >= 30,
+              )
+              this.buildInterviewAudioReadinessItem()
+            }
+            .width('100%')
           }
           .alignItems(HorizontalAlign.Start)
           .width('100%')
-          .padding(18)
+          .padding(16)
           .backgroundColor($r('app.color.km_surface'))
           .border({ width: 1, color: $r('app.color.km_border') })
           .borderRadius(8)
-        } else {
+        }
+
+        NativeDigitalInterviewer({
+          avatarState: this.interviewAvatarState,
+          compact: !this.isWideLayout,
+          viewportHeight: this.isWideLayout ? 260 : (this.interviewStarted ? 220 : 184),
+        })
+
+        Row({ space: 10 }) {
+          SymbolGlyph(this.interviewSpeaking ? $r('sys.symbol.waveform') : $r('sys.symbol.person_crop_circle_fill'))
+            .fontSize(18)
+            .fontColor([$r('app.color.km_primary_action')])
+          Column({ space: 2 }) {
+            Text(this.interviewerPresenceLabel())
+              .fontSize(13)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.km_text_primary'))
+            Text(`${this.interviewSpeechMessage} · ${this.speechProvider.providerName}`)
+              .fontSize(10)
+              .fontColor($r('app.color.km_text_secondary'))
+              .maxLines(2)
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+          if (this.interviewSpeaking) {
+            Button('停止播报')
+              .constraintSize({ minHeight: 34 })
+              .fontSize(11)
+              .fontColor($r('app.color.km_danger'))
+              .backgroundColor($r('app.color.km_danger_soft'))
+              .borderRadius(7)
+              .onClick(() => { void this.stopInterviewPrompt(); })
+          } else if (!this.interviewStarted) {
+            Button() {
+              Row({ space: 5 }) {
+                SymbolGlyph($r('sys.symbol.waveform'))
+                  .fontSize(13)
+                  .fontColor([$r('app.color.km_primary_action')])
+                Text(this.interviewAudioChecked ? '再次试听' : '试听声音')
+                  .fontSize(10)
+                  .fontColor($r('app.color.km_primary_action'))
+              }
+            }
+            .constraintSize({ minHeight: 34 })
+            .padding({ left: 10, right: 10 })
+            .backgroundColor($r('app.color.km_primary_soft'))
+            .borderRadius(7)
+            .onClick(() => { void this.speakInterviewPrompt(); })
+          }
+        }
+        .width('100%')
+        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+        .backgroundColor($r('app.color.km_surface_subtle'))
+        .border({ width: 1, color: $r('app.color.km_border') })
+        .borderRadius(8)
+
+        if (!this.interviewStarted) {
+          Row({ space: 12 }) {
+            Toggle({ type: ToggleType.Switch, isOn: this.modelConsent })
+              .selectedColor($r('app.color.km_primary_action'))
+              .onChange((value: boolean) => { this.updateModelConsent(value); })
+            Column({ space: 3 }) {
+              Text('本次训练使用智能增强')
+                .fontSize(14)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.km_text_primary'))
+              Text('发送前隐藏手机号、邮箱、身份证号和详细地址；模型密钥仅保存在服务端。')
+                .fontSize(11)
+                .fontColor($r('app.color.km_text_secondary'))
+                .lineHeight(18)
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+          }
+          .alignItems(VerticalAlign.Top)
+          .width('100%')
+          .padding(14)
+          .backgroundColor(this.modelConsent ? $r('app.color.km_primary_tint') : $r('app.color.km_surface_subtle'))
+          .borderRadius(8)
+        }
+
+        if (!this.interviewStarted) {
+          Row({ space: 8 }) {
+            SymbolGlyph($r('sys.symbol.checkmark_shield'))
+              .fontSize(14)
+              .fontColor([$r('app.color.km_success')])
+            Text(this.modelConsent
+              ? '回答发送前自动脱敏，外部模型只用于生成岗位化追问。'
+              : '当前使用本机规则，简历与回答不会发送到外部服务。')
+              .fontSize(10)
+              .fontColor($r('app.color.km_text_secondary'))
+              .lineHeight(17)
+              .layoutWeight(1)
+          }
+          .alignItems(VerticalAlign.Top)
+          .width('100%')
+          .padding(12)
+          .backgroundColor($r('app.color.km_success_surface'))
+          .borderRadius(8)
+        }
+
+        if (this.interviewStarted) {
           Column({ space: 10 }) {
+            Column({ space: 8 }) {
+              Row({ space: 8 }) {
+                Text(`${this.interviewType} · ${this.interviewDifficulty}难度`)
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.km_primary_action'))
+                Blank()
+                Row({ space: 5 }) {
+                  SymbolGlyph($r('sys.symbol.clock'))
+                    .fontSize(13)
+                    .fontColor([this.interviewTimeExpired ? $r('app.color.km_warning') : $r('app.color.km_text_secondary')])
+                  Text(`${this.formattedInterviewTime()} / ${this.interviewDurationMinutes}:00`)
+                    .fontSize(11)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor(this.interviewTimeExpired ? $r('app.color.km_warning') : $r('app.color.km_text_primary'))
+                }
+              }
+              .width('100%')
+              Progress({ value: this.interviewProgressValue(), total: 100, type: ProgressType.Linear })
+                .width('100%')
+                .height(4)
+                .color(this.interviewTimeExpired ? $r('app.color.km_warning') : $r('app.color.km_primary_action'))
+                .backgroundColor($r('app.color.km_border'))
+              Row({ space: 8 }) {
+                Text(`第 ${Math.max(1, this.interviewRound)} 轮 / 3`)
+                  .fontSize(10)
+                  .fontColor($r('app.color.km_text_secondary'))
+                Blank()
+                if (this.interviewSessionPhase !== 'completed') {
+                  Button() {
+                    SymbolGlyph(this.interviewSessionPhase === 'paused'
+                      ? $r('sys.symbol.play_fill')
+                      : $r('sys.symbol.pause'))
+                      .fontSize(17)
+                      .fontColor([$r('app.color.km_primary_action')])
+                  }
+                  .width(38)
+                  .height(38)
+                  .backgroundColor($r('app.color.km_primary_tint'))
+                  .borderRadius(8)
+                  .enabled(!this.interviewLoading)
+                  .accessibilityText(this.interviewSessionPhase === 'paused' ? '恢复面试' : '暂停面试')
+                  .onClick(() => {
+                    if (this.interviewSessionPhase === 'paused') this.resumeInterview();
+                    else void this.pauseInterview();
+                  })
+                  Button() {
+                    SymbolGlyph($r('sys.symbol.stop_circle'))
+                      .fontSize(18)
+                      .fontColor([$r('app.color.km_danger')])
+                  }
+                  .width(38)
+                  .height(38)
+                  .backgroundColor($r('app.color.km_danger_soft'))
+                  .borderRadius(8)
+                  .enabled(!this.interviewLoading)
+                  .accessibilityText('提前结束面试')
+                  .onClick(() => { this.requestEndInterview(); })
+                }
+              }
+              .width('100%')
+            }
+            .alignItems(HorizontalAlign.Start)
+            .width('100%')
+            .padding(12)
+            .backgroundColor($r('app.color.km_surface_subtle'))
+            .borderRadius(8)
+
+            if (this.interviewSessionPhase === 'paused') {
+              Row({ space: 10 }) {
+                SymbolGlyph(this.interviewTimeExpired ? $r('sys.symbol.clock_fill') : $r('sys.symbol.pause_circle'))
+                  .fontSize(23)
+                  .fontColor([this.interviewTimeExpired ? $r('app.color.km_warning') : $r('app.color.km_primary_action')])
+                Column({ space: 3 }) {
+                  Text(this.interviewTimeExpired ? '设定时长已到' : '面试已暂停')
+                    .fontSize(14)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor($r('app.color.km_text_primary'))
+                  Text(this.interviewTimeExpired ? '加时 5 分钟后可继续当前问题，也可以直接结束并生成反馈。' : '计时和语音均已停止，当前回答草稿会保留。')
+                    .fontSize(10)
+                    .fontColor($r('app.color.km_text_secondary'))
+                    .lineHeight(17)
+                }
+                .alignItems(HorizontalAlign.Start)
+                .layoutWeight(1)
+                Button(this.interviewTimeExpired ? '加时 5 分钟' : '继续')
+                  .constraintSize({ minHeight: 36 })
+                  .fontSize(11)
+                  .fontColor($r('app.color.km_text_on_primary'))
+                  .backgroundColor($r('app.color.km_primary_action'))
+                  .borderRadius(8)
+                  .onClick(() => { this.resumeInterview(); })
+              }
+              .alignItems(VerticalAlign.Center)
+              .width('100%')
+              .padding(13)
+              .backgroundColor(this.interviewTimeExpired ? $r('app.color.km_warning_soft') : $r('app.color.km_primary_tint'))
+              .borderRadius(8)
+            }
+
             Row() {
               Text(`${this.interviewType} · 第 ${Math.max(1, this.interviewRound)} 轮 / 3`)
                 .fontSize(12)
@@ -3830,7 +5177,7 @@ struct Index {
               .backgroundColor($r('app.color.km_surface_subtle'))
               .border({ width: 1, color: this.interviewAnswerError ? $r('app.color.km_danger') : $r('app.color.km_border') })
               .borderRadius(8)
-              .enabled(!this.interviewLoading && this.interviewTurns.length < 3)
+              .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active' && this.interviewTurns.length < 3)
               .onChange((value: string) => {
                 this.interviewAnswer = value;
                 if (this.interviewAnswerTouched) this.interviewAnswerError = this.validateInterviewAnswer(value);
@@ -3842,45 +5189,52 @@ struct Index {
                 }
               })
             NativeFieldError({ message: this.interviewAnswerError })
-            Row({ space: 8 }) {
-              Button('朗读问题')
+            if (this.interviewSessionPhase !== 'completed') {
+              Row({ space: 8 }) {
+                Button(this.interviewSpeaking ? '停止播报' : '朗读问题')
                 .layoutWeight(1)
                 .constraintSize({ minHeight: 40 })
                 .fontSize(12)
-                .fontColor($r('app.color.km_purple'))
-                .backgroundColor($r('app.color.km_purple_soft'))
+                .fontColor(this.interviewSpeaking ? $r('app.color.km_danger') : $r('app.color.km_purple'))
+                .backgroundColor(this.interviewSpeaking ? $r('app.color.km_danger_soft') : $r('app.color.km_purple_soft'))
                 .borderRadius(8)
-                .enabled(!this.interviewLoading)
-                .onClick(() => { void this.speakInterviewPrompt(); })
-              Button(this.speechActive ? '停止并填入语音' : '语音回答')
+                .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active')
+                .onClick(() => {
+                  if (this.interviewSpeaking) void this.stopInterviewPrompt();
+                  else void this.speakInterviewPrompt();
+                })
+                Button(this.speechActive ? '停止并填入语音' : '语音回答')
                 .layoutWeight(1)
                 .constraintSize({ minHeight: 40 })
                 .fontSize(12)
                 .fontColor(this.speechActive ? $r('app.color.km_text_on_primary') : $r('app.color.km_info'))
                 .backgroundColor(this.speechActive ? $r('app.color.km_danger_active') : $r('app.color.km_info_soft'))
                 .borderRadius(8)
-                .enabled(!this.interviewLoading && this.interviewTurns.length < 3)
+                .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active' && this.interviewTurns.length < 3)
                 .onClick(() => { void this.toggleSpeechInput(); })
+              }
+              .width('100%')
             }
-            .width('100%')
-            if (this.interviewTurns.length < 3) {
+            if (this.interviewSessionPhase !== 'completed' && this.interviewTurns.length < 3) {
               Button(this.interviewLoading ? '正在生成岗位化追问…' : '提交回答并生成追问')
                 .width('100%')
                 .constraintSize({ minHeight: 46 })
                 .fontColor($r('app.color.km_info'))
                 .backgroundColor($r('app.color.km_info_soft'))
                 .borderRadius(8)
-                .enabled(!this.interviewLoading)
+                .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active')
                 .onClick(() => { void this.submitInterviewAnswer(); })
             }
-            Button(this.interviewLoading ? '正在生成反馈…' : '完成面试并生成反馈')
-              .width('100%')
-              .constraintSize({ minHeight: 46 })
-              .fontColor($r('app.color.km_text_on_primary'))
-              .backgroundColor($r('app.color.km_primary_action'))
-              .borderRadius(8)
-              .enabled(!this.interviewLoading)
-              .onClick(() => { void this.finishInterview(); })
+            if (this.interviewSessionPhase !== 'completed') {
+              Button(this.interviewLoading ? '正在生成反馈…' : '完成面试并生成反馈')
+                .width('100%')
+                .constraintSize({ minHeight: 46 })
+                .fontColor($r('app.color.km_text_on_primary'))
+                .backgroundColor($r('app.color.km_primary_action'))
+                .borderRadius(8)
+                .enabled(!this.interviewLoading)
+                .onClick(() => { void this.finishInterview(); })
+            }
             NativeStatusMessage({ message: this.interviewMessage })
             if (this.interviewFeedback) {
               Divider().color($r('app.color.km_border_strong'))
@@ -3921,37 +5275,74 @@ struct Index {
           .border({ width: 1, color: $r('app.color.km_border') })
           .borderRadius(8)
         }
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 14, bottom: 18 })
+        .constraintSize({ maxWidth: this.isWideLayout ? 1040 : '100%' })
+        .alignSelf(ItemAlign.Center)
       }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 14, bottom: 24 })
-      .constraintSize({ maxWidth: this.isWideLayout ? 1040 : '100%' })
-      .alignSelf(ItemAlign.Center)
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+
+      if (!this.interviewStarted) {
+        Column() {
+          this.buildInterviewLaunchBar()
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 9, bottom: 9 })
+        .backgroundColor($r('app.color.km_surface'))
+        .border({ width: { top: 1 }, color: $r('app.color.km_border') })
+      }
     }
+    .width('100%')
     .layoutWeight(1)
-    .scrollBar(BarState.Off)
   }
 
   @Builder
   private buildGrowth(): void {
     Scroll() {
       Column({ space: 12 }) {
-        Column({ space: 6 }) {
-          Text('成长计划')
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.km_text_primary'))
-          Text(`围绕“${this.targetJob}”把岗位缺口拆成可执行、可提交、可复盘的任务。`)
-            .fontSize(12)
-            .fontColor($r('app.color.km_text_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-        .width('100%')
+        this.buildPageHeading('行动计划', '成长计划', `围绕“${this.targetJob}”把岗位缺口拆成可执行、可提交、可复盘的任务。`)
 
         Row({ space: 10 }) {
           NativeMetricCard({ label: '当前实证覆盖', value: `${this.empiricalCoverage}%`, detail: '通过审核后更新' })
           NativeMetricCard({ label: '完成后预测', value: `${this.projectedCoverage}%`, detail: '预测不等于掌握' })
         }
         .width('100%')
+
+        if (this.growthTasks.length > 0) {
+          Column({ space: 8 }) {
+            Row() {
+              Column({ space: 2 }) {
+                Text('行动进度')
+                  .fontSize(13)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.km_text_primary'))
+                Text('一次只推进一个任务，提交可访问来源后进入下一项。')
+                  .fontSize(9)
+                  .fontColor($r('app.color.km_text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              Text(`${this.verifiedGrowthTaskCount()} / ${this.growthTasks.length}`)
+                .fontSize(13)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.km_primary_action'))
+            }
+            .width('100%')
+            Progress({ value: this.verifiedGrowthTaskCount(), total: this.growthTasks.length, type: ProgressType.Linear })
+              .width('100%')
+              .height(5)
+              .color($r('app.color.km_success'))
+              .backgroundColor($r('app.color.km_border'))
+          }
+          .alignItems(HorizontalAlign.Start)
+          .width('100%')
+          .padding(13)
+          .backgroundColor($r('app.color.km_surface'))
+          .border({ width: 1, color: $r('app.color.km_border') })
+          .borderRadius(8)
+        }
 
         if (this.growthTasks.length === 0) {
           Column({ space: 10 }) {
@@ -3978,6 +5369,7 @@ struct Index {
           .border({ width: 1, color: $r('app.color.km_border') })
           .borderRadius(8)
         } else {
+          this.buildSectionHeading('行动队列', '先完成当前任务并核验证据，后续任务会按顺序解锁。')
           NativeEvidenceLedger({
             tasks: this.growthTasks,
             records: this.growthEvidenceRecords,
@@ -4034,23 +5426,59 @@ struct Index {
   }
 
   @Builder
-  private buildNavigationItem(icon: Resource, label: string, tab: number): void {
-    Column({ space: 3 }) {
-      SymbolGlyph(icon)
-        .fontSize(20)
-        .fontColor([this.activeTab === tab ? $r('app.color.km_primary') : $r('app.color.km_text_secondary')])
-      Text(label)
-        .fontSize(10)
-        .fontWeight(this.activeTab === tab ? FontWeight.Medium : FontWeight.Regular)
-        .fontColor(this.activeTab === tab ? $r('app.color.km_primary') : $r('app.color.km_text_secondary'))
-        .maxLines(1)
+  private buildNavigationIcon(icon: Resource, tab: number): void {
+    Badge({
+      count: this.navigationHasPendingAction(tab) ? this.pendingActionCount() : 0,
+      maxCount: 9,
+      position: { x: 21, y: -2 },
+      style: {
+        color: $r('app.color.km_text_on_primary'),
+        fontSize: 7,
+        badgeSize: 15,
+        badgeColor: $r('app.color.km_warning'),
+      },
+    }) {
+      Stack() {
+        SymbolGlyph(icon)
+          .fontSize(19)
+          .maxFontScale(1.35)
+          .fontColor([this.activeTab === tab ? $r('app.color.km_primary_emphasis') : $r('app.color.km_text_secondary')])
+      }
+      .width(28)
+      .height(25)
+      .alignContent(Alignment.Center)
     }
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private buildNavigationItem(icon: Resource, label: string, tab: number): void {
+    Button() {
+      Column({ space: 2 }) {
+        Blank()
+          .width(24)
+          .height(3)
+          .backgroundColor(this.activeTab === tab ? $r('app.color.km_primary') : $r('app.color.km_transparent'))
+          .borderRadius(2)
+        this.buildNavigationIcon(icon, tab)
+        Text(label)
+          .fontSize(9)
+          .fontWeight(this.activeTab === tab ? FontWeight.Medium : FontWeight.Regular)
+          .fontColor(this.activeTab === tab ? $r('app.color.km_primary_emphasis') : $r('app.color.km_text_secondary'))
+          .maxLines(1)
+      }
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+      .width('100%')
+      .height(54)
+      .padding({ left: 6, right: 6, top: 2, bottom: 3 })
+    }
     .layoutWeight(1)
-    .constraintSize({ minHeight: 52 })
-    .backgroundColor(this.activeTab === tab ? $r('app.color.km_primary_soft') : $r('app.color.km_transparent'))
-    .borderRadius(8)
+    .height(54)
+    .padding(0)
+    .backgroundColor($r('app.color.km_transparent'))
+    .borderRadius(0)
+    .accessibilityText(this.navigationAccessibilityText(label, tab))
+    .animation({ duration: 180, curve: Curve.EaseOut })
     .onClick(() => { this.requestTabChange(tab); })
   }
 
@@ -4060,7 +5488,7 @@ struct Index {
       Divider()
         .color($r('app.color.km_border'))
         .strokeWidth(1)
-      Row({ space: 4 }) {
+      Row({ space: 2 }) {
         this.buildNavigationItem($r('sys.symbol.house'), '首页', 0)
         this.buildNavigationItem($r('sys.symbol.doc_text'), '简历', 1)
         this.buildNavigationItem($r('sys.symbol.briefcase'), '岗位', 2)
@@ -4068,7 +5496,7 @@ struct Index {
         this.buildNavigationItem($r('sys.symbol.ranking'), '成长', 4)
       }
       .width('100%')
-      .padding({ left: 8, right: 8, top: 6, bottom: 8 })
+      .padding({ left: 8, right: 8, top: 2, bottom: 7 })
     }
     .width('100%')
     .backgroundColor($r('app.color.km_surface'))
@@ -4076,21 +5504,31 @@ struct Index {
 
   @Builder
   private buildRailNavigationItem(icon: Resource, label: string, tab: number): void {
-    Row({ space: 10 }) {
-      SymbolGlyph(icon)
-        .fontSize(21)
-        .fontColor([this.activeTab === tab ? $r('app.color.km_primary') : $r('app.color.km_text_secondary')])
-      Text(label)
-        .fontSize(11)
-        .fontWeight(this.activeTab === tab ? FontWeight.Medium : FontWeight.Regular)
-        .fontColor(this.activeTab === tab ? $r('app.color.km_primary') : $r('app.color.km_text_secondary'))
-        .maxFontScale(1.6)
+    Button() {
+      Row({ space: 8 }) {
+        Blank()
+          .width(3)
+          .height(28)
+          .backgroundColor(this.activeTab === tab ? $r('app.color.km_primary') : $r('app.color.km_transparent'))
+          .borderRadius(2)
+        this.buildNavigationIcon(icon, tab)
+        Text(label)
+          .fontSize(11)
+          .fontWeight(this.activeTab === tab ? FontWeight.Medium : FontWeight.Regular)
+          .fontColor(this.activeTab === tab ? $r('app.color.km_primary') : $r('app.color.km_text_secondary'))
+          .maxFontScale(1.6)
+          .layoutWeight(1)
+      }
+      .width('100%')
     }
     .width('100%')
     .constraintSize({ minHeight: 52 })
-    .padding({ left: 12, right: 10 })
-    .backgroundColor(this.activeTab === tab ? $r('app.color.km_primary_soft') : $r('app.color.km_transparent'))
-    .borderRadius(8)
+    .padding(0)
+    .padding({ left: 8, right: 10 })
+    .backgroundColor(this.activeTab === tab ? $r('app.color.km_primary_tint') : $r('app.color.km_transparent'))
+    .borderRadius(6)
+    .accessibilityText(this.navigationAccessibilityText(label, tab))
+    .animation({ duration: 180, curve: Curve.EaseOut })
     .onClick(() => { this.requestTabChange(tab); })
   }
 
@@ -4114,6 +5552,53 @@ struct Index {
     .padding({ left: 10, right: 10, top: 14, bottom: 14 })
     .backgroundColor($r('app.color.km_surface'))
     .border({ width: { right: 1 }, color: $r('app.color.km_border') })
+  }
+
+  @Builder
+  private buildUnsavedChangesBar(): void {
+    Row({ space: 10 }) {
+      Column()
+        .width(3)
+        .height(38)
+        .backgroundColor($r('app.color.km_warning'))
+        .borderRadius(2)
+      SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
+        .fontSize(17)
+        .maxFontScale(1.35)
+        .fontColor([$r('app.color.km_warning')])
+      Column({ space: 3 }) {
+        Text('未保存修改')
+          .fontSize(9)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.km_warning'))
+          .width('100%')
+        Text(`${this.unsavedChangeLabel()}尚未写入本机`)
+          .fontSize(11)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.km_text_primary'))
+          .lineHeight(17)
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      Button(this.unsavedChangeCount() > 1 ? '逐项保存' : '保存')
+        .constraintSize({ minHeight: 36 })
+        .padding({ left: 12, right: 12 })
+        .fontSize(10)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.km_text_on_primary'))
+        .backgroundColor($r('app.color.km_warning'))
+        .borderRadius(8)
+        .accessibilityText(`保存${this.unsavedChangeLabel()}修改`)
+        .onClick(() => { this.savePendingDraft(); })
+    }
+    .alignItems(VerticalAlign.Center)
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 9, bottom: 9 })
+    .backgroundColor($r('app.color.km_warning_soft'))
+    .border({ width: { bottom: 1 }, color: $r('app.color.km_warning') })
   }
 
   @Builder
@@ -4184,7 +5669,9 @@ struct Index {
   @Builder
   private buildWorkspaceContent(): void {
     Column() {
-      if (this.activeTab !== 0 && this.activeTab !== this.primaryActionTab()) {
+      if (this.hasUnsavedChanges()) {
+        this.buildUnsavedChangesBar()
+      } else if (this.activeTab !== 0 && this.activeTab !== this.primaryActionTab()) {
         this.buildTaskContinuityBar()
       }
       this.buildActivePage()
@@ -4218,6 +5705,8 @@ struct Index {
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       if (this.showIntro) {
         this.buildIntro()
+      } else if (this.isImmersiveInterviewSession()) {
+        this.buildImmersiveInterview()
       } else {
         Column() {
           this.buildHeader()

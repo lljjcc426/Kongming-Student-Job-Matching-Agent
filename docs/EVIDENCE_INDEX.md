@@ -49,12 +49,32 @@
 | 当前原生简历与画像 | `docs/evidence-screenshots/harmony-native-resume-mature-20260921.jpeg` | 紧凑标题栏、统一输入控件、导入操作和简历版本入口 | 已补充 |
 | 当前原生字段即时校验 | `docs/evidence-screenshots/harmony-native-validation-errors-20260921.jpeg` | 空简历经历提交后同步显示红色边框、字段原因和页面级纠正提示 | 已补充 |
 | 当前原生全局操作反馈 | `docs/evidence-screenshots/harmony-native-global-feedback-20260922.jpeg` | 深色模式与系统“特大”字号下，关键保存、校验和状态操作使用原生语义横幅反馈；支持手动关闭并自动消失，且不遮挡底部导航 | 已补充 |
+| 当前原生导航与待办角标 | `docs/evidence-screenshots/harmony-native-navigation-polish-20260922.jpeg` | 五个主入口使用原生按钮语义，下一行动所在页签显示动态待办角标；深色模式与系统“特大”字号下选中态、图标、标签和角标均保持完整 | 已补充 |
+| 当前原生成熟工作台 | `docs/evidence-screenshots/harmony-native-workbench-polish-20260922.jpeg` | 中性灰底、克制靛蓝与多语义状态色组成新的原生视觉体系；首页下一行动、指标、岗位快照和求职主线形成紧凑工作台层级 | 已补充 |
+| 当前原生成熟岗位页 | `docs/evidence-screenshots/harmony-native-jobs-polish-20260922.jpeg` | 岗位中心统一使用紧凑页面标题、专业表单层级、轻量卡片边界和顶部指示式导航，浅色标准字号下无裁切或重叠 | 已补充 |
+| 当前原生简历资料中心 | `docs/evidence-screenshots/harmony-native-resume-workspace-polish-20260922.jpeg` | 资料完整度、基础画像和经历证据分组清晰，输入控件与本机保存状态可在首屏快速扫描 | 已补充 |
+| 当前原生岗位工作流 | `docs/evidence-screenshots/harmony-native-jobs-workflow-polish-20260922.jpeg` | 搜索来源、保存追踪、核对证据三步主线前置，官方岗位搜索与本机证据区层级明确 | 已补充 |
+| 当前原生面试设置页 | `docs/evidence-screenshots/harmony-native-interview-setup-polish-20260922.jpeg` | 面试类型、目标岗位、追问强度和时长先于数字人预览展示；岗位、画像和真实语音试听状态集中反馈 | 已补充 |
+| 当前原生面试启动区 | `docs/evidence-screenshots/harmony-native-interview-launch-polish-20260922.jpeg` | 浏览数字人、语音状态和智能增强开关时，固定启动栏持续展示当前配置与开始按钮，且不遮挡底部导航 | 已补充 |
+| 当前原生成长行动队列 | `docs/evidence-screenshots/harmony-native-growth-queue-polish-20260922.jpeg` | 覆盖率、行动进度、任务状态和验证摘要按优先级组织，长证据文本收敛为可扫描摘要 | 已补充 |
+| 当前原生草稿状态条 | `docs/evidence-screenshots/harmony-native-draft-status-20260922.jpeg` | 简历、岗位或投递日程出现真实修改时，页面顶部显示未保存范围与就地保存按钮；深色模式和系统“特大”字号下完整可读 | 已补充 |
 | 当前原生键盘避让 | `docs/evidence-screenshots/harmony-native-keyboard-avoid-20260921.jpeg` | ArkUI `RESIZE` 模式下焦点输入框、底部导航和系统软键盘均保持可见 | 已补充 |
 | 当前原生未保存离开保护 | `docs/evidence-screenshots/harmony-native-unsaved-dialog-20260921.jpeg` | 简历草稿变更后切换页面会显示原生确认对话框，并明确恢复上次保存内容 | 已补充 |
 | 当前原生岗位中心 | `docs/evidence-screenshots/harmony-native-jobs-mature-20260921.jpeg` | 官方岗位搜索、本机岗位与证据指标采用统一层级和状态色 | 已补充 |
 | 当前原生岗位空状态 | `docs/evidence-screenshots/harmony-native-jobs-empty-mature-20260921.jpeg` | 官方岗位无结果时显示完整空状态，并引导调整条件或继续本机录入 | 已补充 |
 | 当前原生岗位服务状态 | `docs/evidence-screenshots/harmony-native-job-service-state-20260922.jpeg` | 在线岗位服务未连接时显示独立失败态，不误报为搜索无结果，并继续衔接本机真实岗位录入 | 已补充 |
 | 当前原生面试训练 | `docs/evidence-screenshots/harmony-native-interview-mature-20260921.jpeg` | 面试模式分段选择、会话授权、问题与回答入口的原生页面 | 已补充 |
+| 当前原生 3D 数字面试官 | `docs/evidence-screenshots/harmony-native-digital-interviewer-20260922.jpeg` | ArkGraphics3D 原生加载可替换 GLB，办公室场景中展示职业面试官，并由 Core Speech 状态驱动动作 | 已补充 |
+| 当前原生语音异常收口 | `docs/evidence-screenshots/harmony-native-digital-interviewer-recovery-20260922.jpeg` | 模拟器无可用麦克风输入时退出聆听态，人物回到待机并明确提供重试或文字输入路径 | 已补充 |
+| 当前原生面试会话配置 | `docs/evidence-screenshots/harmony-native-interview-session-setup-20260922.jpeg` | 面试类型、追问强度、训练时长、岗位上下文、语音状态和智能增强授权集中配置 | 已补充 |
+| 当前原生面试会话控制 | `docs/evidence-screenshots/harmony-native-interview-session-active-20260922.jpeg` | 手机宽度下展示轮次、已用时、时长进度、暂停与提前结束控制，无文字或按钮重叠 | 已补充 |
+| 当前原生面试暂停态 | `docs/evidence-screenshots/harmony-native-interview-session-paused-20260922.jpeg` | 暂停后计时与语音停止，回答草稿保留，可继续当前问题或提前结束 | 已补充 |
+| 当前原生面试暂停恢复 | `docs/evidence-screenshots/harmony-native-interview-session-recovery-20260922.jpeg` | 强制停止应用并重新启动后恢复暂停状态、当前轮次、已用时和回答入口 | 已补充 |
+| 当前原生横屏全屏面试 | `docs/evidence-screenshots/harmony-native-interview-landscape-active-20260922.jpeg` | 正式会话自动进入横屏沉浸模式，系统栏、品牌栏和底部导航隐藏；数字人、问题、回答与四项操作均在首屏完整可见 | 已补充 |
+| 当前原生横屏回答专注模式 | `docs/evidence-screenshots/harmony-native-interview-keyboard-focus-20260922.jpeg` | 系统软键盘弹出后仅保留问题、字数、回答框和完成按钮；关闭键盘恢复双栏，系统返回键不会误触发结束面试 | 已补充 |
+| 当前原生横屏暂停态 | `docs/evidence-screenshots/harmony-native-interview-landscape-paused-20260922.jpeg` | 横屏全屏暂停遮罩提供继续和结束入口，背景会话上下文保留且无控件裁切 | 已补充 |
+| 当前原生横屏恢复 | `docs/evidence-screenshots/harmony-native-interview-landscape-recovery-20260922.jpeg` | 强制停止并重新启动后自动恢复横屏暂停态、轮次、计时和回答入口 | 已补充 |
+| 当前原生反馈竖屏回退 | `docs/evidence-screenshots/harmony-native-interview-feedback-portrait-20260922.jpeg` | 横屏正式会话输入有效回答并生成本机反馈后，自动恢复竖屏完成页与标准应用导航 | 已补充 |
 | 当前原生成长计划 | `docs/evidence-screenshots/harmony-native-growth-mature-20260921.jpeg` | 当前覆盖、完成后预测、有效证据和待办任务的统一工作流 | 已补充 |
 | 当前原生真实岗位录入 | `docs/evidence-screenshots/harmony-native-job-tracking-20260920.jpeg` | 岗位、公司、来源链接和 JD 由 ArkUI 原生表单录入并保存到本机 | 已补充 |
 | 当前原生岗位字段校验 | `docs/evidence-screenshots/harmony-native-job-validation-20260920.jpeg` | 空提交显示明确错误，不生成虚构岗位数据 | 已补充 |

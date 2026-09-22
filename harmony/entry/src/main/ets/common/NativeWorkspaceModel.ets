@@ -182,6 +182,12 @@ export interface NativeWorkspaceSnapshot {
   interviewTurns: NativeInterviewTurn[];
   interviewFeedback: string;
   interviewModelName: string;
+  interviewDifficulty: string;
+  interviewDurationMinutes: number;
+  interviewElapsedSeconds: number;
+  interviewSessionPhase: string;
+  interviewSessionUpdatedAt: number;
+  interviewTimeExpired: boolean;
   evidenceCoverage: number;
   empiricalCoverage: number;
   growthBaselineCoverage: number;
