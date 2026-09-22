@@ -172,6 +172,70 @@ struct NativeStatusMessage {
 }
 
 @Component
+struct NativeGlobalNotice {
+  @Prop message: string = '';
+  @Prop tone: string = 'info';
+  onDismiss: () => void = () => {};
+
+  private accentColor(): ResourceColor {
+    if (this.tone === 'success') return $r('app.color.km_success');
+    if (this.tone === 'warning') return $r('app.color.km_warning');
+    if (this.tone === 'error') return $r('app.color.km_danger');
+    return $r('app.color.km_info');
+  }
+
+  private surfaceColor(): ResourceColor {
+    if (this.tone === 'success') return $r('app.color.km_success_surface');
+    if (this.tone === 'warning') return $r('app.color.km_warning_soft');
+    if (this.tone === 'error') return $r('app.color.km_danger_soft');
+    return $r('app.color.km_info_soft');
+  }
+
+  build() {
+    Row({ space: 9 }) {
+      if (this.tone === 'success') {
+        SymbolGlyph($r('sys.symbol.checkmark_circle'))
+          .fontSize(17)
+          .fontColor([this.accentColor()])
+      } else if (this.tone === 'warning' || this.tone === 'error') {
+        SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+          .fontSize(17)
+          .fontColor([this.accentColor()])
+      } else {
+        SymbolGlyph($r('sys.symbol.info_circle'))
+          .fontSize(17)
+          .fontColor([this.accentColor()])
+      }
+      Text(this.message)
+        .fontSize(11)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.km_text_primary'))
+        .lineHeight(18)
+        .maxLines(3)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .layoutWeight(1)
+      Button() {
+        SymbolGlyph($r('sys.symbol.xmark'))
+          .fontSize(14)
+          .fontColor([$r('app.color.km_text_secondary')])
+      }
+      .width(32)
+      .height(32)
+      .backgroundColor($r('app.color.km_transparent'))
+      .borderRadius(8)
+      .onClick(() => { this.onDismiss(); })
+    }
+    .alignItems(VerticalAlign.Center)
+    .width('100%')
+    .constraintSize({ minHeight: 50 })
+    .padding({ left: 13, right: 8, top: 8, bottom: 8 })
+    .backgroundColor(this.surfaceColor())
+    .border({ width: 1, color: this.accentColor() })
+    .borderRadius(8)
+  }
+}
+
+@Component
 struct NativeAsyncStatePanel {
   @Prop state: string = 'loading';
   @Prop title: string = '';
@@ -321,6 +385,8 @@ struct Index {
   @State showDataCenter: boolean = false;
   @State dataClearInProgress: boolean = false;
   @State dataCenterMessage: string = '';
+  @State globalNoticeMessage: string = '';
+  @State globalNoticeTone: string = 'info';
   @State resumeDirty: boolean = false;
   @State jobEditorDirty: boolean = false;
   @State applicationScheduleDirty: boolean = false;
@@ -350,6 +416,7 @@ struct Index {
   private savedResumeSummary: string = '';
   private savedApplicationDeadline: string = '';
   private savedNextInterviewAt: string = '';
+  private globalNoticeSequence: number = 0;
   private editorJobTitle: string = '';
   private editorJobCompany: string = '';
   private editorJobSource: string = '';
@@ -432,6 +499,23 @@ struct Index {
         action,
       },
     });
+  }
+
+  private showGlobalNotice(message: string, tone: string = 'info'): void {
+    const normalized = message.trim();
+    if (!normalized) return;
+    this.globalNoticeMessage = normalized;
+    this.globalNoticeTone = tone;
+    this.globalNoticeSequence += 1;
+    const currentSequence = this.globalNoticeSequence;
+    setTimeout(() => {
+      if (currentSequence === this.globalNoticeSequence) this.globalNoticeMessage = '';
+    }, 4200);
+  }
+
+  private dismissGlobalNotice(): void {
+    this.globalNoticeSequence += 1;
+    this.globalNoticeMessage = '';
   }
 
   private hasUnsavedChanges(): boolean {
@@ -699,6 +783,7 @@ struct Index {
     this.resumeSummaryError = this.validateResumeSummary(this.resumeSummary);
     if (this.resumeTargetError || this.resumeSummaryError) {
       this.profileMessage = '请先修正标出的简历字段。';
+      this.showGlobalNotice(this.profileMessage, 'warning');
       return;
     }
     this.resumeName = this.resumeName.trim();
@@ -711,6 +796,7 @@ struct Index {
     this.uiContext.getFocusController().clearFocus();
     this.rebuildEvidenceMatrix();
     this.profileMessage = '简历画像已保存到本机。';
+    this.showGlobalNotice(this.profileMessage, 'success');
     void this.saveWorkspace();
   }
 
@@ -949,6 +1035,7 @@ struct Index {
     } catch (error) {
       this.workspaceSaveFailed = true;
       this.profileMessage = '本机保存失败，请稍后重试。';
+      this.showGlobalNotice(this.profileMessage, 'error');
       console.error(`Native workspace save failed: ${String(error)}`);
     }
   }
@@ -1055,6 +1142,7 @@ struct Index {
   private requestClearWorkspaceData(): void {
     if (this.hasActiveDataOperation()) {
       this.dataCenterMessage = '请等待当前识别、语音或网络任务完成后再清除数据。';
+      this.showGlobalNotice(this.dataCenterMessage, 'warning');
       return;
     }
     this.showConfirmDialog(
@@ -1076,8 +1164,10 @@ struct Index {
       this.resetWorkspaceState();
       await this.syncCareerFormData();
       this.dataCenterMessage = '本机工作区已清除，账号登录状态和系统权限未改变。';
+      this.showGlobalNotice(this.dataCenterMessage, 'success');
     } catch (error) {
       this.dataCenterMessage = '本机工作区清除失败，请稍后重试。';
+      this.showGlobalNotice(this.dataCenterMessage, 'error');
       console.error(`Native workspace clear failed: ${String(error)}`);
     } finally {
       this.dataClearInProgress = false;
@@ -1214,6 +1304,7 @@ struct Index {
   private updateApplicationStage(stageId: string): void {
     if (this.trackedJobs === 0) {
       this.applicationMessage = '请先保存可追溯的真实岗位，再更新投递阶段。';
+      this.showGlobalNotice(this.applicationMessage, 'warning');
       return;
     }
     if (stageId === this.applicationStage) {
@@ -1222,6 +1313,7 @@ struct Index {
     }
     if (this.requiresResumeVersion(stageId) && !this.boundResumeVersion()) {
       this.applicationMessage = `进入“${this.applicationStageLabel(stageId)}”前，请先在简历页保存并绑定实际投递版本。`;
+      this.showGlobalNotice(this.applicationMessage, 'warning');
       return;
     }
     let validStage = false;
@@ -1238,17 +1330,20 @@ struct Index {
       ...this.applicationEvents,
     ];
     this.applicationMessage = `已更新为“${label}”，并写入本机时间线。`;
+    this.showGlobalNotice(this.applicationMessage, 'success');
     void this.saveWorkspace();
   }
 
   private saveNativeResumeVersion(): void {
     if (this.trackedJobs === 0 || !this.applicationJobKey) {
       this.resumeVersionMessage = '请先保存可追溯的真实岗位，再创建投递版本。';
+      this.showGlobalNotice(this.resumeVersionMessage, 'warning');
       return;
     }
     const content = this.resumeSummary.trim();
     if (content.length < 30) {
       this.resumeVersionMessage = '简历内容至少需要 30 个字，才能保存为实际投递版本。';
+      this.showGlobalNotice(this.resumeVersionMessage, 'warning');
       return;
     }
     let versionCount = 0;
@@ -1284,6 +1379,7 @@ struct Index {
     ];
     this.resumeVersionMessage = `“${version.name}”已冻结并绑定到当前岗位。`;
     this.applicationMessage = '实际投递版本已绑定，可进入“已投递”及后续阶段。';
+    this.showGlobalNotice(this.resumeVersionMessage, 'success');
     void this.saveWorkspace();
   }
 
@@ -1294,6 +1390,7 @@ struct Index {
     }
     if (!selectedVersion) {
       this.resumeVersionMessage = '该版本不属于当前追踪岗位，不能绑定。';
+      this.showGlobalNotice(this.resumeVersionMessage, 'warning');
       return;
     }
     const occurredAt = new Date().toLocaleString('zh-CN');
@@ -1305,18 +1402,21 @@ struct Index {
     ];
     this.resumeVersionMessage = `当前投递已改为使用“${selectedVersion.name}”。`;
     this.applicationMessage = '实际投递版本已更新，并写入本机时间线。';
+    this.showGlobalNotice(this.resumeVersionMessage, 'success');
     void this.saveWorkspace();
   }
 
   private deleteNativeResumeVersion(versionId: string): void {
     if (versionId === this.applicationResumeVersionId) {
       this.resumeVersionMessage = '当前版本已绑定投递记录，请先绑定其他版本。';
+      this.showGlobalNotice(this.resumeVersionMessage, 'warning');
       return;
     }
     const remainingVersions = this.resumeVersions.filter((version: NativeResumeVersion) => version.id !== versionId);
     if (remainingVersions.length === this.resumeVersions.length) return;
     this.resumeVersions = remainingVersions;
     this.resumeVersionMessage = '未绑定的投递版本已从本机删除。';
+    this.showGlobalNotice(this.resumeVersionMessage, 'success');
     void this.saveWorkspace();
   }
 
@@ -1336,12 +1436,14 @@ struct Index {
   private saveApplicationSchedule(): void {
     if (this.trackedJobs === 0) {
       this.applicationMessage = '请先保存真实岗位，再记录截止时间或面试安排。';
+      this.showGlobalNotice(this.applicationMessage, 'warning');
       return;
     }
     this.applicationDeadlineError = this.validateLocalDateTime(this.applicationDeadline);
     this.nextInterviewAtError = this.validateLocalDateTime(this.nextInterviewAt);
     if (this.applicationDeadlineError || this.nextInterviewAtError) {
       this.applicationMessage = '请先修正标出的日期时间。';
+      this.showGlobalNotice(this.applicationMessage, 'warning');
       return;
     }
     this.applicationDeadline = this.applicationDeadline.trim();
@@ -1353,6 +1455,7 @@ struct Index {
     this.applicationMessage = this.applicationDeadline || this.nextInterviewAt
       ? '投递日程已保存在本机，并同步下一行动。'
       : '已清空该岗位的投递日程。';
+    this.showGlobalNotice(this.applicationMessage, 'success');
     this.uiContext.getFocusController().clearFocus();
     void this.saveWorkspace();
   }
@@ -1542,6 +1645,7 @@ struct Index {
     this.jobDescriptionError = this.validateJobDescription(description);
     if (this.jobTitleError || this.jobCompanyError || this.jobSourceError || this.jobDescriptionError) {
       this.jobMessage = '请先修正标出的岗位字段。';
+      this.showGlobalNotice(this.jobMessage, 'warning');
       return;
     }
     const nextJobKey = this.buildTrackedJobKey(title, company, source);
@@ -1586,6 +1690,7 @@ struct Index {
     this.uiContext.getFocusController().clearFocus();
     this.rebuildEvidenceMatrix();
     this.jobMessage = '真实岗位已保存到本机，并已按简历事实重建证据矩阵。';
+    this.showGlobalNotice(this.jobMessage, 'success');
     void this.saveWorkspace();
   }
 
@@ -4088,6 +4193,22 @@ struct Index {
     .layoutWeight(1)
   }
 
+  @Builder
+  private buildGlobalNotice(): void {
+    Column() {
+      NativeGlobalNotice({
+        message: this.globalNoticeMessage,
+        tone: this.globalNoticeTone,
+        onDismiss: () => { this.dismissGlobalNotice(); },
+      })
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: this.isWideLayout ? 680 : '100%' })
+    .padding({ left: 16, right: 16, bottom: this.isWideLayout ? 18 : 82 })
+    .align(Alignment.Bottom)
+    .zIndex(20)
+  }
+
   build() {
     Stack() {
       Column()
@@ -4119,6 +4240,9 @@ struct Index {
         .width('100%')
         .height('100%')
         .backgroundColor($r('app.color.km_page_background'))
+      }
+      if (this.globalNoticeMessage) {
+        this.buildGlobalNotice()
       }
     }
     .width('100%')

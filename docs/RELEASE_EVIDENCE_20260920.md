@@ -28,8 +28,8 @@ npm run build:harmony:local
 | 项目 | 结果 |
 | --- | --- |
 | HAP | `harmony/entry/build/default/outputs/default/entry-default-unsigned.hap` |
-| 大小 | `1,981,786` bytes（2026-09-22 跨页任务连续性 HAP） |
-| SHA-256 | `70D314EF418320A07368A8DD9C4FC734F2D94D5529DDBE8DC87CC1D1289838C7` |
+| 大小 | `2,005,411` bytes（2026-09-22 原生全局操作反馈 HAP） |
+| SHA-256 | `6AA9A90935DC4E44502D9580A4A8AD15D788CE8D3FF3F723D13FF4388B782069` |
 | ArkTS 编译 | 通过 |
 | HAP 打包 | 通过 |
 | 签名 | unsigned；项目尚未配置 `signingConfigs` |
@@ -44,11 +44,12 @@ npm run build:harmony:local
 | HDC 目标 | `127.0.0.1:5555`，TCP Connected |
 | HAP 安装 | 通过，`install bundle successfully` |
 | 原生入口启动 | 通过，`EntryAbility` 进入 `FOREGROUND` |
-| 最新包烟测 | 2026-09-22 跨页任务连续性 HAP 覆盖安装并启动成功，`EntryAbility` 为 `FOREGROUND`；首次任务首页、简历到岗位无修改导航、跨页任务条和“继续”精准路由均在深色模式和系统特大字号下完成视觉复测 |
+| 最新包烟测 | 2026-09-22 原生全局操作反馈 HAP 覆盖安装并启动成功，`EntryAbility` 为 `FOREGROUND`；全局反馈横幅在深色模式和系统特大字号下完成视觉复测，自动消失与手动关闭均通过，且未遮挡底部导航 |
 | 原生开场动效截图 | 已归档至 `docs/evidence-screenshots/harmony-native-intro-mature-20260921.jpeg` |
 | 原生首页截图 | 已归档至 `docs/evidence-screenshots/harmony-native-home-mature-20260921.jpeg` |
 | 核心页面截图 | `docs/evidence-screenshots/harmony-native-resume-mature-20260921.jpeg`、`harmony-native-jobs-mature-20260921.jpeg`、`harmony-native-interview-mature-20260921.jpeg`、`harmony-native-growth-mature-20260921.jpeg` |
 | 字段校验截图 | `docs/evidence-screenshots/harmony-native-validation-errors-20260921.jpeg`，空经历提交后红色边框、字段原因和页面级纠正提示同步显示 |
+| 全局操作反馈 | 简历、岗位、投递日程、投递阶段、简历版本和本机数据清除等关键操作统一显示原生语义横幅；成功、提醒、错误和信息状态使用不同语义色，横幅 4.2 秒自动消失并支持手动关闭。证据见 `docs/evidence-screenshots/harmony-native-global-feedback-20260922.jpeg` |
 | 编辑保护与键盘避让 | 简历、岗位和投递日程均按当前字段与已保存基线的真实差异计算脏状态，受控输入初始化不再误报未保存；存在真实修改时切换页签仍显示原生确认对话框。ArkUI `KeyboardAvoidMode.RESIZE` 下焦点输入框和底栏不被软键盘遮挡。证据见 `docs/evidence-screenshots/harmony-native-unsaved-dialog-20260921.jpeg`、`docs/evidence-screenshots/harmony-native-keyboard-avoid-20260921.jpeg` |
 | 系统显示适配 | `AppScope` 跟随系统字号并限制最大缩放为 `1.75`；深色资源限定目录与亮色语义令牌一一对应；`600vp` 起切换左侧导航轨，页面内容最大宽度为 `1040vp`；系统状态栏和底部手势区使用原生安全区扩展。证据见 `docs/evidence-screenshots/harmony-native-display-adaptation-20260921.jpeg`、`harmony-native-dark-mode-20260921.jpeg`、`harmony-native-wide-layout-20260921.jpeg`、`harmony-native-large-font-20260921.jpeg` |
 | 首次任务优先级 | 简历经历为空时，首页主任务、操作按钮、待处理计数与 Form Kit 路由统一优先指向简历页，不再跳过画像直接进入面试；证据见 `docs/evidence-screenshots/harmony-native-first-task-20260922.jpeg` |

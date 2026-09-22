@@ -48,6 +48,7 @@
 | 当前原生清除确认 | `docs/evidence-screenshots/harmony-native-clear-data-confirmation-20260922.jpeg` | 原生危险操作确认明确删除范围、不可撤销性，以及账号登录状态和系统权限不受影响 | 已补充 |
 | 当前原生简历与画像 | `docs/evidence-screenshots/harmony-native-resume-mature-20260921.jpeg` | 紧凑标题栏、统一输入控件、导入操作和简历版本入口 | 已补充 |
 | 当前原生字段即时校验 | `docs/evidence-screenshots/harmony-native-validation-errors-20260921.jpeg` | 空简历经历提交后同步显示红色边框、字段原因和页面级纠正提示 | 已补充 |
+| 当前原生全局操作反馈 | `docs/evidence-screenshots/harmony-native-global-feedback-20260922.jpeg` | 深色模式与系统“特大”字号下，关键保存、校验和状态操作使用原生语义横幅反馈；支持手动关闭并自动消失，且不遮挡底部导航 | 已补充 |
 | 当前原生键盘避让 | `docs/evidence-screenshots/harmony-native-keyboard-avoid-20260921.jpeg` | ArkUI `RESIZE` 模式下焦点输入框、底部导航和系统软键盘均保持可见 | 已补充 |
 | 当前原生未保存离开保护 | `docs/evidence-screenshots/harmony-native-unsaved-dialog-20260921.jpeg` | 简历草稿变更后切换页面会显示原生确认对话框，并明确恢复上次保存内容 | 已补充 |
 | 当前原生岗位中心 | `docs/evidence-screenshots/harmony-native-jobs-mature-20260921.jpeg` | 官方岗位搜索、本机岗位与证据指标采用统一层级和状态色 | 已补充 |
