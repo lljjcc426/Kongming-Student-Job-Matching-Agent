@@ -14,6 +14,8 @@ export struct NativeApplicationTracker {
   @Prop nextInterviewAt: string = '';
   @Prop applicationEvents: NativeApplicationEvent[] = [];
   @Prop applicationMessage: string = '';
+  @Prop applicationDeadlineError: string = '';
+  @Prop nextInterviewAtError: string = '';
   @Prop currentAction: string = '';
   @Prop boundVersionName: string = '';
   onStageChange: (stageId: string) => void = () => {};
@@ -30,20 +32,20 @@ export struct NativeApplicationTracker {
     return '已收藏';
   }
 
-  private stageColor(stageId: string): string {
-    if (stageId === 'offer') return '#047857';
-    if (stageId === 'closed') return '#64748B';
-    if (stageId === 'interview') return '#7C3AED';
-    if (stageId === 'applied') return '#0F766E';
-    return '#1D4ED8';
+  private stageColor(stageId: string): ResourceColor {
+    if (stageId === 'offer') return $r('app.color.km_success');
+    if (stageId === 'closed') return $r('app.color.km_text_secondary');
+    if (stageId === 'interview') return $r('app.color.km_purple');
+    if (stageId === 'applied') return $r('app.color.km_teal');
+    return $r('app.color.km_info');
   }
 
-  private stageBackground(stageId: string): string {
-    if (stageId === 'offer') return '#D1FAE5';
-    if (stageId === 'closed') return '#E2E8F0';
-    if (stageId === 'interview') return '#EDE9FE';
-    if (stageId === 'applied') return '#CCFBF1';
-    return '#DBEAFE';
+  private stageBackground(stageId: string): ResourceColor {
+    if (stageId === 'offer') return $r('app.color.km_success_soft');
+    if (stageId === 'closed') return $r('app.color.km_disabled_soft');
+    if (stageId === 'interview') return $r('app.color.km_purple_soft');
+    if (stageId === 'applied') return $r('app.color.km_teal_soft');
+    return $r('app.color.km_info_soft');
   }
 
   @Builder
@@ -52,11 +54,11 @@ export struct NativeApplicationTracker {
       Text(label)
         .fontSize(10)
         .fontWeight(FontWeight.Medium)
-        .fontColor('#334155')
+        .fontColor($r('app.color.km_text_body'))
       Blank()
       Text(hint)
         .fontSize(9)
-        .fontColor('#94A3B8')
+        .fontColor($r('app.color.km_text_tertiary'))
     }
     .width('100%')
   }
@@ -68,10 +70,10 @@ export struct NativeApplicationTracker {
           Text('投递进度')
             .fontSize(15)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0F172A')
+            .fontColor($r('app.color.km_text_primary'))
           Text(this.applicationUpdatedAt ? `最近更新 ${this.applicationUpdatedAt}` : '阶段只保存在本机')
             .fontSize(10)
-            .fontColor('#64748B')
+            .fontColor($r('app.color.km_text_secondary'))
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
@@ -87,22 +89,22 @@ export struct NativeApplicationTracker {
 
       Text(this.currentAction)
         .fontSize(12)
-        .fontColor('#334155')
+        .fontColor($r('app.color.km_text_body'))
         .lineHeight(19)
         .width('100%')
         .padding(10)
-        .backgroundColor('#F8FAFC')
+        .backgroundColor($r('app.color.km_surface_subtle'))
         .borderRadius(8)
 
       Row() {
         Text('实际投递版本')
           .fontSize(10)
-          .fontColor('#64748B')
+          .fontColor($r('app.color.km_text_secondary'))
         Blank()
         Text(this.boundVersionName || '未绑定')
           .fontSize(10)
           .fontWeight(FontWeight.Medium)
-          .fontColor(this.boundVersionName ? '#047857' : '#B45309')
+          .fontColor(this.boundVersionName ? $r('app.color.km_success') : $r('app.color.km_warning'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
@@ -113,11 +115,11 @@ export struct NativeApplicationTracker {
           GridItem() {
             Button(stage.label)
               .width('100%')
-              .height(36)
+              .constraintSize({ minHeight: 36 })
               .fontSize(11)
               .fontWeight(stage.id === this.applicationStage ? FontWeight.Bold : FontWeight.Regular)
-              .fontColor(stage.id === this.applicationStage ? this.stageColor(stage.id) : '#475569')
-              .backgroundColor(stage.id === this.applicationStage ? this.stageBackground(stage.id) : '#F1F5F9')
+              .fontColor(stage.id === this.applicationStage ? this.stageColor(stage.id) : $r('app.color.km_text_muted'))
+              .backgroundColor(stage.id === this.applicationStage ? this.stageBackground(stage.id) : $r('app.color.km_neutral_soft'))
               .borderRadius(8)
               .onClick(() => { this.onStageChange(stage.id); })
           }
@@ -126,59 +128,78 @@ export struct NativeApplicationTracker {
       .columnsTemplate('1fr 1fr 1fr')
       .columnsGap(8)
       .rowsGap(8)
-      .height(80)
+      .constraintSize({ minHeight: 80 })
       .width('100%')
 
       Column({ space: 8 }) {
         Column({ space: 5 }) {
           this.buildFieldLabel('投递截止', '选填')
           TextInput({ placeholder: '例如：2026-09-30 18:00', text: this.applicationDeadline })
-            .height(40)
+            .constraintSize({ minHeight: 40 })
             .fontSize(11)
-            .backgroundColor('#F8FAFC')
-            .border({ width: 1, color: '#E2E8F0' })
+            .maxLength(16)
+            .enterKeyType(EnterKeyType.Next)
+            .backgroundColor($r('app.color.km_surface_subtle'))
+            .border({ width: 1, color: this.applicationDeadlineError ? $r('app.color.km_danger') : $r('app.color.km_border') })
             .borderRadius(8)
             .onChange((value: string) => { this.onDeadlineChange(value); })
+          if (this.applicationDeadlineError) {
+            Text(this.applicationDeadlineError)
+              .fontSize(9)
+              .fontColor($r('app.color.km_danger'))
+              .lineHeight(15)
+              .width('100%')
+          }
         }
         .width('100%')
         Column({ space: 5 }) {
           this.buildFieldLabel('下一场面试', '选填')
           TextInput({ placeholder: '例如：2026-10-08 14:30', text: this.nextInterviewAt })
-            .height(40)
+            .constraintSize({ minHeight: 40 })
             .fontSize(11)
-            .backgroundColor('#F8FAFC')
-            .border({ width: 1, color: '#E2E8F0' })
+            .maxLength(16)
+            .enterKeyType(EnterKeyType.Done)
+            .backgroundColor($r('app.color.km_surface_subtle'))
+            .border({ width: 1, color: this.nextInterviewAtError ? $r('app.color.km_danger') : $r('app.color.km_border') })
             .borderRadius(8)
             .onChange((value: string) => { this.onInterviewChange(value); })
+          if (this.nextInterviewAtError) {
+            Text(this.nextInterviewAtError)
+              .fontSize(9)
+              .fontColor($r('app.color.km_danger'))
+              .lineHeight(15)
+              .width('100%')
+          }
         }
         .width('100%')
         Button('保存投递日程')
           .width('100%')
-          .height(38)
+          .constraintSize({ minHeight: 38 })
           .fontSize(11)
-          .fontColor('#0F766E')
-          .backgroundColor('#CCFBF1')
+          .fontColor($r('app.color.km_teal'))
+          .backgroundColor($r('app.color.km_teal_soft'))
           .borderRadius(8)
           .onClick(() => { this.onSaveSchedule(); })
-        if (this.applicationDeadline || this.nextInterviewAt) {
+        if ((this.applicationDeadline && !this.applicationDeadlineError) ||
+          (this.nextInterviewAt && !this.nextInterviewAtError)) {
           Row({ space: 8 }) {
-            if (this.applicationDeadline) {
+            if (this.applicationDeadline && !this.applicationDeadlineError) {
               Button('添加截止提醒')
                 .layoutWeight(1)
-                .height(38)
+                .constraintSize({ minHeight: 38 })
                 .fontSize(11)
-                .fontColor('#1D4ED8')
-                .backgroundColor('#DBEAFE')
+                .fontColor($r('app.color.km_info'))
+                .backgroundColor($r('app.color.km_info_soft'))
                 .borderRadius(8)
                 .onClick(() => { this.onCreateDeadlineReminder(); })
             }
-            if (this.nextInterviewAt) {
+            if (this.nextInterviewAt && !this.nextInterviewAtError) {
               Button('添加面试提醒')
                 .layoutWeight(1)
-                .height(38)
+                .constraintSize({ minHeight: 38 })
                 .fontSize(11)
-                .fontColor('#7C3AED')
-                .backgroundColor('#EDE9FE')
+                .fontColor($r('app.color.km_purple'))
+                .backgroundColor($r('app.color.km_purple_soft'))
                 .borderRadius(8)
                 .onClick(() => { this.onCreateInterviewReminder(); })
             }
@@ -190,12 +211,12 @@ export struct NativeApplicationTracker {
 
       Text(this.applicationMessage)
         .fontSize(10)
-        .fontColor('#64748B')
+        .fontColor($r('app.color.km_text_secondary'))
         .lineHeight(17)
         .width('100%')
         .padding(9)
-        .backgroundColor('#F8FAFC')
-        .border({ width: 1, color: '#E2E8F0' })
+        .backgroundColor($r('app.color.km_surface_subtle'))
+        .border({ width: 1, color: $r('app.color.km_border') })
         .borderRadius(8)
 
       if (this.applicationEvents.length > 0) {
@@ -203,7 +224,7 @@ export struct NativeApplicationTracker {
           Text('阶段时间线')
             .fontSize(13)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0F172A')
+            .fontColor($r('app.color.km_text_primary'))
             .width('100%')
           ForEach(this.applicationEvents.slice(0, 6), (event: NativeApplicationEvent) => {
             Row({ space: 9 }) {
@@ -213,12 +234,12 @@ export struct NativeApplicationTracker {
               Column({ space: 2 }) {
                 Text(event.label)
                   .fontSize(11)
-                  .fontColor('#334155')
+                  .fontColor($r('app.color.km_text_body'))
                   .maxLines(2)
                   .width('100%')
                 Text(event.occurredAt)
                   .fontSize(9)
-                  .fontColor('#94A3B8')
+                  .fontColor($r('app.color.km_text_tertiary'))
                   .width('100%')
               }
               .alignItems(HorizontalAlign.Start)

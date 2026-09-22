@@ -1,6 +1,6 @@
 # HarmonyOS 原生构建证据（2026-09-20）
 
-补充验证日期：2026-09-21（原生投递闭环、简历版本绑定门禁、原生 AI 面试可信降级、成长证据账本、Calendar Kit 提醒、Form Kit 动态卡片端到端路由、可靠性加固、前端成熟化及构建内存策略）。
+补充验证日期：2026-09-22（原生投递闭环、简历版本绑定门禁、原生 AI 面试可信降级、成长证据账本、Calendar Kit 提醒、Form Kit 动态卡片端到端路由、可靠性加固、前端成熟化、数据与隐私中心及构建内存策略）。
 
 ## 构建环境
 
@@ -28,8 +28,8 @@ npm run build:harmony:local
 | 项目 | 结果 |
 | --- | --- |
 | HAP | `harmony/entry/build/default/outputs/default/entry-default-unsigned.hap` |
-| 大小 | `1,708,891` bytes（2026-09-21 原生前端第二轮成熟化 HAP） |
-| SHA-256 | `B0EBC9B2745C6852F55B867CF6D5CD9451C439104C24BD2A407F9D65E205393B` |
+| 大小 | `1,981,786` bytes（2026-09-22 跨页任务连续性 HAP） |
+| SHA-256 | `70D314EF418320A07368A8DD9C4FC734F2D94D5529DDBE8DC87CC1D1289838C7` |
 | ArkTS 编译 | 通过 |
 | HAP 打包 | 通过 |
 | 签名 | unsigned；项目尚未配置 `signingConfigs` |
@@ -44,17 +44,26 @@ npm run build:harmony:local
 | HDC 目标 | `127.0.0.1:5555`，TCP Connected |
 | HAP 安装 | 通过，`install bundle successfully` |
 | 原生入口启动 | 通过，`EntryAbility` 进入 `FOREGROUND` |
-| 最新包烟测 | 2026-09-21 前端成熟化 HAP 覆盖安装并启动成功，`EntryAbility` 为 `FOREGROUND`；五个底部页签均可切换，系统 Symbol 正常显示 |
+| 最新包烟测 | 2026-09-22 跨页任务连续性 HAP 覆盖安装并启动成功，`EntryAbility` 为 `FOREGROUND`；首次任务首页、简历到岗位无修改导航、跨页任务条和“继续”精准路由均在深色模式和系统特大字号下完成视觉复测 |
 | 原生开场动效截图 | 已归档至 `docs/evidence-screenshots/harmony-native-intro-mature-20260921.jpeg` |
 | 原生首页截图 | 已归档至 `docs/evidence-screenshots/harmony-native-home-mature-20260921.jpeg` |
 | 核心页面截图 | `docs/evidence-screenshots/harmony-native-resume-mature-20260921.jpeg`、`harmony-native-jobs-mature-20260921.jpeg`、`harmony-native-interview-mature-20260921.jpeg`、`harmony-native-growth-mature-20260921.jpeg` |
+| 字段校验截图 | `docs/evidence-screenshots/harmony-native-validation-errors-20260921.jpeg`，空经历提交后红色边框、字段原因和页面级纠正提示同步显示 |
+| 编辑保护与键盘避让 | 简历、岗位和投递日程均按当前字段与已保存基线的真实差异计算脏状态，受控输入初始化不再误报未保存；存在真实修改时切换页签仍显示原生确认对话框。ArkUI `KeyboardAvoidMode.RESIZE` 下焦点输入框和底栏不被软键盘遮挡。证据见 `docs/evidence-screenshots/harmony-native-unsaved-dialog-20260921.jpeg`、`docs/evidence-screenshots/harmony-native-keyboard-avoid-20260921.jpeg` |
+| 系统显示适配 | `AppScope` 跟随系统字号并限制最大缩放为 `1.75`；深色资源限定目录与亮色语义令牌一一对应；`600vp` 起切换左侧导航轨，页面内容最大宽度为 `1040vp`；系统状态栏和底部手势区使用原生安全区扩展。证据见 `docs/evidence-screenshots/harmony-native-display-adaptation-20260921.jpeg`、`harmony-native-dark-mode-20260921.jpeg`、`harmony-native-wide-layout-20260921.jpeg`、`harmony-native-large-font-20260921.jpeg` |
+| 首次任务优先级 | 简历经历为空时，首页主任务、操作按钮、待处理计数与 Form Kit 路由统一优先指向简历页，不再跳过画像直接进入面试；证据见 `docs/evidence-screenshots/harmony-native-first-task-20260922.jpeg` |
+| 跨页任务连续性 | 用户位于非主任务页面时，页面顶部显示全宽原生下一行动条；内容由当前本机工作区实时派生，不新增重复存储，点击“继续”通过现有未保存保护精准路由到主任务页面。证据见 `docs/evidence-screenshots/harmony-native-task-continuity-20260922.jpeg` |
+| 数据与隐私中心 | 顶部“本机数据”原生入口集中展示简历版本、追踪岗位、投递事件和有效证据计数，明确工作区本机保存、官方岗位搜索不读取简历正文、外部模型默认关闭、分享由系统面板确认等边界。证据见 `docs/evidence-screenshots/harmony-native-data-center-20260922.jpeg`、`harmony-native-data-privacy-actions-20260922.jpeg` |
+| 本机数据清除 | 危险操作需经原生确认弹窗；执行时仅删除 `kongming_native_workspace` Preferences 的 `snapshot`，重置内存工作区并同步 Form Kit 摘要，华为账号登录状态和相机、麦克风等系统权限保持不变；OCR、语音、面试、证据或岗位网络任务进行时禁止清除。确认弹窗证据见 `docs/evidence-screenshots/harmony-native-clear-data-confirmation-20260922.jpeg` |
+| 启动恢复保护 | 开场动效结束前异步读取本机工作区；读取未完成时显示统一加载态，读取失败时暂停编辑并提供重新读取入口，避免默认值覆盖已有记录 |
 | 岗位空状态截图 | `docs/evidence-screenshots/harmony-native-jobs-empty-mature-20260921.jpeg`，官方岗位无结果时明确说明并继续提供本机录入路径 |
-| 原生视觉回归 | 保留蓝青机器人开场；统一语义色、8vp 卡片、紧凑品牌栏、固定字段标签、语义化状态提示和系统 Symbol 图标导航；首页将“今日重点”提升为第一操作位；五个主页面未发现文字重叠、底栏遮挡或异常换行 |
+| 岗位服务失败态 | 岗位源连接失败、服务未配置和有效空结果分别建模；失败时保留上次成功列表，不再同时显示“没有找到岗位”。证据见 `docs/evidence-screenshots/harmony-native-job-service-state-20260922.jpeg` |
+| 原生视觉回归 | 保留蓝青机器人开场；统一亮暗语义色、8vp 卡片、紧凑品牌栏、固定字段标签、语义化状态提示和系统 Symbol 图标导航；首页将“今日重点”提升为第一操作位；手机、大字体与宽屏页面未发现不可访问的文字重叠、底栏遮挡或异常换行 |
 | 真实岗位录入 | 原生岗位页支持岗位、公司、来源链接和 JD 本机保存；空提交会显示字段校验，不生成虚构企业或招聘信息 |
 | 岗位页截图 | `docs/evidence-screenshots/harmony-native-job-tracking-20260920.jpeg`、`docs/evidence-screenshots/harmony-native-job-validation-20260920.jpeg` |
 | 官方岗位网络链路 | `@kit.NetworkKit` 原生 HTTP 客户端读取 `/api/jobs`；本机 API 经模拟器宿主网关 `10.0.2.2` 联调成功，截图时 11/12 个官方来源可用、收集 647 条，严格意图筛选后展示 1 条 |
 | 原生岗位列表与详情 | `docs/evidence-screenshots/harmony-native-official-jobs-20260920.jpeg`、`docs/evidence-screenshots/harmony-native-job-detail-20260920.jpeg` |
-| 网络失败降级 | 服务不可用时不生成替代岗位，保留本机真实岗位录入；证据见 `docs/evidence-screenshots/harmony-native-job-offline-fallback-20260920.jpeg` |
+| 网络失败降级 | 服务不可用时不生成替代岗位、不清空上次成功结果，并继续提供本机真实岗位录入；证据见 `docs/evidence-screenshots/harmony-native-job-offline-fallback-20260920.jpeg`、`harmony-native-job-service-state-20260922.jpeg` |
 | 原生投递阶段 | 同一真实岗位支持已收藏、准备中、已投递、面试中、Offer、已结束六阶段；证据见 `docs/evidence-screenshots/harmony-native-application-stage-20260921.jpeg` |
 | 原生投递时间线 | 阶段变更追加本机事件；强制停止 `EntryAbility` 后再次启动可恢复阶段和历史；证据见 `docs/evidence-screenshots/harmony-native-application-timeline-20260921.jpeg` |
 | 原生版本门禁 | 未绑定当前岗位的实际简历版本时，已投递、面试和 Offer 均被阻止；证据见 `docs/evidence-screenshots/harmony-native-application-version-gate-20260921.jpeg` |

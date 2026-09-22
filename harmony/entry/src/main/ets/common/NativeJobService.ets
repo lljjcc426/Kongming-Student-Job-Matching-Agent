@@ -68,13 +68,16 @@ export class NativePublicJob {
 
 export class NativeJobFeed {
   configured: boolean;
+  failed: boolean;
   jobs: NativePublicJob[];
   total: number;
   stale: boolean;
   message: string;
 
-  constructor(configured: boolean, jobs: NativePublicJob[], total: number, stale: boolean, message: string) {
+  constructor(configured: boolean, failed: boolean, jobs: NativePublicJob[], total: number, stale: boolean,
+    message: string) {
     this.configured = configured;
+    this.failed = failed;
     this.jobs = jobs;
     this.total = total;
     this.stale = stale;
@@ -121,7 +124,7 @@ export class NativeJobService {
   async fetchJobs(query: string, city: string): Promise<NativeJobFeed> {
     const endpoint = this.getEndpoint();
     if (!endpoint) {
-      return new NativeJobFeed(false, [], 0, false, '当前 HAP 未配置岗位服务，请继续使用本机真实岗位录入。');
+      return new NativeJobFeed(false, true, [], 0, false, '当前版本暂未连接在线岗位服务，请继续使用本机真实岗位录入。');
     }
 
     const request = http.createHttp();
@@ -137,7 +140,7 @@ export class NativeJobService {
       const responseText = typeof response.result === 'string' ? response.result : JSON.stringify(response.result);
       const payload = JSON.parse(responseText) as NativeJobsResponse;
       if (responseCode < 200 || responseCode >= 300 || payload.ok !== true) {
-        return new NativeJobFeed(true, [], 0, false, payload.error || `岗位服务返回状态 ${responseCode}。`);
+        return new NativeJobFeed(true, true, [], 0, false, payload.error || `岗位服务返回状态 ${responseCode}。`);
       }
       const jobs = this.normalizeJobs(payload.jobs || []);
       const total = typeof payload.pagination?.total === 'number' ? payload.pagination.total : jobs.length;
@@ -147,12 +150,12 @@ export class NativeJobService {
       const sourceMessage = attempted > 0
         ? `${succeeded}/${attempted} 个官方来源可用，本次收集 ${collected} 条。`
         : '已读取岗位缓存。';
-      return new NativeJobFeed(true, jobs, total, payload.stale === true,
+      return new NativeJobFeed(true, false, jobs, total, payload.stale === true,
         jobs.length > 0 ? `${sourceMessage} 当前展示 ${jobs.length} 条。` : '岗位服务可用，但当前筛选没有结果。');
     } catch (error) {
       const businessError = error as BusinessError;
       console.error(`Native job request failed: ${businessError.code} ${businessError.message}`);
-      return new NativeJobFeed(true, [], 0, false, '岗位服务暂时不可用，已保留本机岗位录入。');
+      return new NativeJobFeed(true, true, [], 0, false, '岗位服务暂时不可用，请检查网络后重试。');
     } finally {
       request.destroy();
     }

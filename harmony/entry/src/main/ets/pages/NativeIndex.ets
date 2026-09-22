@@ -1,12 +1,13 @@
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
+import { KeyboardAvoidMode, mediaquery } from '@kit.ArkUI';
 import { picker } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { loadCareerFormData, saveCareerFormData, updateAllCareerForms } from '../common/CareerFormStore';
 import { NativeAiResult, NativeAiService } from '../common/NativeAiService';
 import { NativeCapabilityService } from '../common/NativeCapabilityService';
 import { NativeCalendarService } from '../common/NativeCalendarService';
-import { NativeEvidenceService } from '../common/NativeEvidenceService';
+import { NativeEvidenceService, NativeEvidenceSourceResult } from '../common/NativeEvidenceService';
 import { NativeJobFeed, NativeJobService, NativePublicJob } from '../common/NativeJobService';
 import { NativeApplicationTracker } from '../components/NativeApplicationTracker';
 import { NativeEvidenceLedger } from '../components/NativeEvidenceLedger';
@@ -41,7 +42,7 @@ struct NativeMetricCard {
   @Prop label: string = '';
   @Prop value: string = '';
   @Prop detail: string = '';
-  @Prop accentColor: string = '#246BFE';
+  @Prop accentColor: ResourceColor = $r('app.color.km_primary');
 
   build() {
     Column({ space: 5 }) {
@@ -69,8 +70,169 @@ struct NativeMetricCard {
     }
     .alignItems(HorizontalAlign.Start)
     .layoutWeight(1)
-    .height(92)
+    .constraintSize({ minHeight: 92 })
     .padding(11)
+    .backgroundColor($r('app.color.km_surface'))
+    .border({ width: 1, color: $r('app.color.km_border') })
+    .borderRadius(8)
+  }
+}
+
+@Component
+struct NativeFieldError {
+  @Prop message: string = '';
+
+  build() {
+    if (this.message) {
+      Row({ space: 5 }) {
+        SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
+          .fontSize(12)
+          .fontColor([$r('app.color.km_danger')])
+        Text(this.message)
+          .fontSize(9)
+          .fontColor($r('app.color.km_danger'))
+          .lineHeight(15)
+          .layoutWeight(1)
+      }
+      .alignItems(VerticalAlign.Top)
+      .width('100%')
+    }
+  }
+}
+
+@Component
+struct NativeStatusMessage {
+  @Prop message: string = '';
+
+  private messageState(): number {
+    if (this.message.includes('正在') || this.message.includes('请稍候')) return 1;
+    if (this.message.includes('失败') || this.message.includes('无法') || this.message.includes('不可用') ||
+      this.message.includes('请填写') || this.message.includes('请补充') || this.message.includes('请至少') ||
+      this.message.includes('请先修正') || this.message.includes('不够具体') ||
+      this.message.includes('不在当前') || this.message.includes('没有可打开') ||
+      this.message.includes('未提供足够')) return 3;
+    if (this.message.includes('已保存') || this.message.includes('已完成') || this.message.includes('已生成') ||
+      this.message.includes('已恢复') || this.message.includes('已打开') || this.message.includes('已交由') ||
+      this.message.includes('已回填') || this.message.includes('已写入') || this.message.includes('已清除') ||
+      this.message.includes('通过')) return 2;
+    return 0;
+  }
+
+  private messageColor(): ResourceColor {
+    const state = this.messageState();
+    if (state === 2) return $r('app.color.km_success');
+    if (state === 3) return $r('app.color.km_warning');
+    if (state === 1) return $r('app.color.km_info');
+    return $r('app.color.km_text_muted');
+  }
+
+  private messageBackground(): ResourceColor {
+    const state = this.messageState();
+    if (state === 2) return $r('app.color.km_success_surface');
+    if (state === 3) return $r('app.color.km_warning_soft');
+    if (state === 1) return $r('app.color.km_primary_tint');
+    return $r('app.color.km_surface_subtle');
+  }
+
+  build() {
+    if (this.message) {
+      Row({ space: 8 }) {
+        if (this.messageState() === 1) {
+          LoadingProgress()
+            .width(16)
+            .height(16)
+            .color(this.messageColor())
+        } else if (this.messageState() === 2) {
+          SymbolGlyph($r('sys.symbol.checkmark_circle'))
+            .fontSize(16)
+            .fontColor([this.messageColor()])
+        } else if (this.messageState() === 3) {
+          SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+            .fontSize(16)
+            .fontColor([this.messageColor()])
+        } else {
+          SymbolGlyph($r('sys.symbol.info_circle'))
+            .fontSize(16)
+            .fontColor([this.messageColor()])
+        }
+        Text(this.message)
+          .fontSize(10)
+          .fontColor(this.messageColor())
+          .lineHeight(17)
+          .layoutWeight(1)
+      }
+      .alignItems(VerticalAlign.Top)
+      .width('100%')
+      .padding(10)
+      .backgroundColor(this.messageBackground())
+      .border({ width: 1, color: this.messageState() === 0 ? $r('app.color.km_border') : this.messageBackground() })
+      .borderRadius(8)
+    }
+  }
+}
+
+@Component
+struct NativeAsyncStatePanel {
+  @Prop state: string = 'loading';
+  @Prop title: string = '';
+  @Prop detail: string = '';
+  @Prop actionLabel: string = '';
+  onAction: () => void = () => {};
+
+  private accentColor(): ResourceColor {
+    if (this.state === 'error') return $r('app.color.km_warning');
+    if (this.state === 'empty') return $r('app.color.km_text_tertiary');
+    return $r('app.color.km_primary');
+  }
+
+  build() {
+    Column({ space: 10 }) {
+      if (this.state === 'loading') {
+        LoadingProgress()
+          .width(30)
+          .height(30)
+          .color(this.accentColor())
+      } else {
+        SymbolGlyph(this.state === 'error'
+          ? $r('sys.symbol.exclamationmark_triangle')
+          : $r('sys.symbol.magnifyingglass'))
+          .fontSize(26)
+          .fontColor([this.accentColor()])
+      }
+      Text(this.title)
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.km_text_primary'))
+        .textAlign(TextAlign.Center)
+      Text(this.detail)
+        .fontSize(10)
+        .fontColor($r('app.color.km_text_secondary'))
+        .lineHeight(17)
+        .textAlign(TextAlign.Center)
+      if (this.actionLabel) {
+        Button() {
+          Row({ space: 6 }) {
+            Text(this.actionLabel)
+              .fontSize(11)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.km_text_on_primary'))
+            SymbolGlyph($r('sys.symbol.chevron_right'))
+              .fontSize(13)
+              .fontColor([$r('app.color.km_text_on_primary')])
+          }
+        }
+        .constraintSize({ minHeight: 38 })
+        .padding({ left: 16, right: 14 })
+        .backgroundColor($r('app.color.km_primary_action'))
+        .borderRadius(8)
+        .onClick(() => { this.onAction(); })
+      }
+    }
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .width('100%')
+    .constraintSize({ minHeight: 150, maxWidth: 560 })
+    .padding({ left: 24, right: 24, top: 22, bottom: 22 })
     .backgroundColor($r('app.color.km_surface'))
     .border({ width: 1, color: $r('app.color.km_border') })
     .borderRadius(8)
@@ -87,8 +249,10 @@ struct Index {
   private aiService: NativeAiService = new NativeAiService(this.hostContext);
   private evidenceService: NativeEvidenceService = new NativeEvidenceService();
   private calendarService: NativeCalendarService = new NativeCalendarService(this.hostContext);
+  private wideScreenQuery?: mediaquery.MediaQueryListener;
   @StorageProp('FormRouteRequest') @Watch('onFormRouteRequestChanged') formRouteRequest: string = '';
   @State activeTab: number = 0;
+  @State isWideLayout: boolean = false;
   @State resumeName: string = '';
   @State targetJob: string = '前端开发实习生';
   @State trackedJobTitle: string = '';
@@ -129,6 +293,7 @@ struct Index {
   @State publicJobsConfigured: boolean = false;
   @State publicJobsStale: boolean = false;
   @State publicJobsSearched: boolean = false;
+  @State publicJobsFailed: boolean = false;
   @State publicJobsTotal: number = 0;
   @State publicJobsMessage: string = '可搜索已配置的官方岗位源，也可继续使用本机录入。';
   @State selectedPublicJobIndex: number = -1;
@@ -151,10 +316,54 @@ struct Index {
   @State ocrActive: boolean = false;
   @State showIntro: boolean = true;
   @State introPhase: number = 0;
+  @State workspaceLoading: boolean = true;
+  @State workspaceLoadFailed: boolean = false;
+  @State showDataCenter: boolean = false;
+  @State dataClearInProgress: boolean = false;
+  @State dataCenterMessage: string = '';
+  @State resumeDirty: boolean = false;
+  @State jobEditorDirty: boolean = false;
+  @State applicationScheduleDirty: boolean = false;
+  @State workspaceSaveFailed: boolean = false;
+  @State resumeTargetTouched: boolean = false;
+  @State resumeSummaryTouched: boolean = false;
+  @State jobTitleTouched: boolean = false;
+  @State jobCompanyTouched: boolean = false;
+  @State jobSourceTouched: boolean = false;
+  @State jobDescriptionTouched: boolean = false;
+  @State resumeTargetError: string = '';
+  @State resumeSummaryError: string = '';
+  @State jobTitleError: string = '';
+  @State jobCompanyError: string = '';
+  @State jobSourceError: string = '';
+  @State jobDescriptionError: string = '';
+  @State applicationDeadlineError: string = '';
+  @State nextInterviewAtError: string = '';
+  @State interviewAnswerTouched: boolean = false;
+  @State interviewAnswerError: string = '';
+  @State growthDraftTouched: boolean = false;
+  @State growthSourceTouched: boolean = false;
+  @State growthDraftError: string = '';
+  @State growthSourceError: string = '';
+  private savedResumeName: string = '';
+  private savedTargetJob: string = '前端开发实习生';
+  private savedResumeSummary: string = '';
+  private savedApplicationDeadline: string = '';
+  private savedNextInterviewAt: string = '';
+  private editorJobTitle: string = '';
+  private editorJobCompany: string = '';
+  private editorJobSource: string = '';
+  private editorJobDescription: string = '';
 
   aboutToAppear(): void {
+    this.uiContext.setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    this.wideScreenQuery = this.uiContext.getMediaQuery().matchMediaSync('(600vp<=width)');
+    this.isWideLayout = this.wideScreenQuery.matches;
+    this.wideScreenQuery.on('change', (result: mediaquery.MediaQueryResult) => {
+      this.isWideLayout = result.matches;
+    });
     const routedFromForm = this.applyFormRouteRequest();
-    void this.loadWorkspace();
+    void this.initializeWorkspace();
     void this.restoreNativeState();
     if (routedFromForm) {
       this.introPhase = 2;
@@ -174,6 +383,130 @@ struct Index {
     }, 820);
   }
 
+  aboutToDisappear(): void {
+    this.wideScreenQuery?.off('change');
+  }
+
+  onBackPress(): boolean {
+    if (this.showDataCenter) {
+      this.showDataCenter = false;
+      return true;
+    }
+    if (this.selectedPublicJobIndex >= 0) {
+      this.selectedPublicJobIndex = -1;
+      return true;
+    }
+    if (this.activeTab !== 0) {
+      this.requestTabChange(0);
+      return true;
+    }
+    if (this.hasUnsavedChanges()) {
+      this.showConfirmDialog(
+        '退出并放弃修改？',
+        `${this.unsavedChangeLabel()}尚未保存，退出后将恢复上次保存内容。`,
+        '放弃并退出',
+        () => {
+          this.discardUnsavedChanges();
+          void this.hostContext.terminateSelf();
+        },
+      );
+      return true;
+    }
+    return false;
+  }
+
+  private showConfirmDialog(title: string, message: string, confirmLabel: string, action: () => void): void {
+    this.uiContext.getFocusController().clearFocus();
+    AlertDialog.show({
+      title,
+      message,
+      autoCancel: true,
+      primaryButton: {
+        value: '取消',
+        fontColor: $r('app.color.km_text_muted'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: confirmLabel,
+        fontColor: $r('app.color.km_danger'),
+        action,
+      },
+    });
+  }
+
+  private hasUnsavedChanges(): boolean {
+    return this.resumeDirty || this.jobEditorDirty || this.applicationScheduleDirty;
+  }
+
+  private updateResumeDirtyState(): void {
+    this.resumeDirty = this.resumeName !== this.savedResumeName ||
+      this.targetJob !== this.savedTargetJob || this.resumeSummary !== this.savedResumeSummary;
+  }
+
+  private updateJobEditorDirtyState(): void {
+    this.jobEditorDirty = this.trackedJobTitle !== this.editorJobTitle ||
+      this.trackedJobCompany !== this.editorJobCompany || this.trackedJobSource !== this.editorJobSource ||
+      this.trackedJobDescription !== this.editorJobDescription;
+  }
+
+  private updateApplicationScheduleDirtyState(): void {
+    this.applicationScheduleDirty = this.applicationDeadline !== this.savedApplicationDeadline ||
+      this.nextInterviewAt !== this.savedNextInterviewAt;
+  }
+
+  private unsavedChangeLabel(): string {
+    const labels: string[] = [];
+    if (this.resumeDirty) labels.push('简历画像');
+    if (this.jobEditorDirty) labels.push('岗位资料');
+    if (this.applicationScheduleDirty) labels.push('投递日程');
+    return labels.join('、');
+  }
+
+  private discardUnsavedChanges(): void {
+    if (this.resumeDirty) {
+      this.resumeName = this.savedResumeName;
+      this.targetJob = this.savedTargetJob;
+      this.resumeSummary = this.savedResumeSummary;
+      this.resumeDirty = false;
+      this.resumeTargetTouched = false;
+      this.resumeSummaryTouched = false;
+      this.resumeTargetError = '';
+      this.resumeSummaryError = '';
+    }
+    if (this.jobEditorDirty) this.cancelTrackedJobEdit();
+    if (this.applicationScheduleDirty) {
+      this.applicationDeadline = this.savedApplicationDeadline;
+      this.nextInterviewAt = this.savedNextInterviewAt;
+      this.applicationScheduleDirty = false;
+      this.applicationDeadlineError = '';
+      this.nextInterviewAtError = '';
+    }
+  }
+
+  private performTabChange(tab: number): void {
+    this.uiContext.getFocusController().clearFocus();
+    if (tab === 2) this.selectedPublicJobIndex = -1;
+    this.showDataCenter = false;
+    this.activeTab = tab;
+  }
+
+  private requestTabChange(tab: number): void {
+    if (tab === this.activeTab) return;
+    if (!this.hasUnsavedChanges()) {
+      this.performTabChange(tab);
+      return;
+    }
+    this.showConfirmDialog(
+      '放弃未保存修改？',
+      `${this.unsavedChangeLabel()}尚未保存。离开后将恢复上次保存内容。`,
+      '放弃并离开',
+      () => {
+        this.discardUnsavedChanges();
+        this.performTabChange(tab);
+      },
+    );
+  }
+
   private onFormRouteRequestChanged(): void {
     if (this.applyFormRouteRequest()) {
       this.introPhase = 2;
@@ -184,11 +517,11 @@ struct Index {
   private applyFormRouteRequest(): boolean {
     const page = this.formRouteRequest.split('|')[0];
     if (!page) return false;
-    if (page === 'resume') this.activeTab = 1;
+    if (page === 'resume') this.requestTabChange(1);
     else if (page === 'jobs') this.openJobsTab();
-    else if (page === 'interview') this.activeTab = 3;
-    else if (page === 'growth') this.activeTab = 4;
-    else if (page === 'home') this.activeTab = 0;
+    else if (page === 'interview') this.requestTabChange(3);
+    else if (page === 'growth') this.requestTabChange(4);
+    else if (page === 'home') this.requestTabChange(0);
     else return false;
     return true;
   }
@@ -207,10 +540,15 @@ struct Index {
   }
 
   private async restoreNativeState(): Promise<void> {
-    const result = this.parseNativeResult(await this.nativeService.getHuaweiAuthState());
-    this.authSignedIn = result.signedIn === true;
-    this.authDisplayName = result.displayName || '';
-    this.nativeMessage = result.message;
+    try {
+      const result = this.parseNativeResult(await this.nativeService.getHuaweiAuthState());
+      this.authSignedIn = result.signedIn === true;
+      this.authDisplayName = result.displayName || '';
+      this.nativeMessage = result.message;
+    } catch (error) {
+      this.nativeMessage = '系统服务状态暂时无法读取，可稍后重试。';
+      console.error(`Native capability state restore failed: ${String(error)}`);
+    }
   }
 
   private async loginHuawei(): Promise<void> {
@@ -234,6 +572,7 @@ struct Index {
       content: this.buildProgressSummary(),
     })));
     this.nativeMessage = result.message;
+    this.dataCenterMessage = result.message;
   }
 
   private buildProgressSummary(): string {
@@ -270,6 +609,7 @@ struct Index {
       this.interviewAnswer = this.interviewAnswer.trim()
         ? `${this.interviewAnswer.trim()}\n${result.text.trim()}`
         : result.text.trim();
+      if (this.interviewAnswerTouched) this.interviewAnswerError = this.validateInterviewAnswer(this.interviewAnswer);
     }
     this.nativeMessage = result.message;
   }
@@ -281,6 +621,8 @@ struct Index {
       this.resumeSummary = this.resumeSummary.trim()
         ? `${this.resumeSummary.trim()}\n${result.text.trim()}`
         : result.text.trim();
+      this.updateResumeDirtyState();
+      if (this.resumeSummaryTouched) this.resumeSummaryError = this.validateResumeSummary(this.resumeSummary);
       this.profileMessage = '本机 OCR 已回填经历文本，请确认事实后保存画像。';
     } else {
       this.profileMessage = result.message || '本机 OCR 未识别到有效文字，请改用文字输入。';
@@ -336,7 +678,146 @@ struct Index {
     }
   }
 
-  private async loadWorkspace(): Promise<void> {
+  private validateTargetJob(value: string): string {
+    const normalized = value.trim();
+    if (!normalized) return '请填写目标岗位。';
+    if (normalized.length < 2) return '目标岗位至少需要 2 个字。';
+    return '';
+  }
+
+  private validateResumeSummary(value: string): string {
+    const normalized = value.trim();
+    if (!normalized) return '请填写至少一段真实经历。';
+    if (normalized.length < 30) return `还需补充 ${30 - normalized.length} 个字，说明个人行动和结果。`;
+    return '';
+  }
+
+  private saveResumeProfile(): void {
+    this.resumeTargetTouched = true;
+    this.resumeSummaryTouched = true;
+    this.resumeTargetError = this.validateTargetJob(this.targetJob);
+    this.resumeSummaryError = this.validateResumeSummary(this.resumeSummary);
+    if (this.resumeTargetError || this.resumeSummaryError) {
+      this.profileMessage = '请先修正标出的简历字段。';
+      return;
+    }
+    this.resumeName = this.resumeName.trim();
+    this.targetJob = this.targetJob.trim();
+    this.resumeSummary = this.resumeSummary.trim();
+    this.savedResumeName = this.resumeName;
+    this.savedTargetJob = this.targetJob;
+    this.savedResumeSummary = this.resumeSummary;
+    this.resumeDirty = false;
+    this.uiContext.getFocusController().clearFocus();
+    this.rebuildEvidenceMatrix();
+    this.profileMessage = '简历画像已保存到本机。';
+    void this.saveWorkspace();
+  }
+
+  private validateJobTitle(value: string): string {
+    return value.trim() ? '' : '请填写岗位名称。';
+  }
+
+  private validateJobCompany(value: string): string {
+    return value.trim() ? '' : '请填写公司或招聘主体名称。';
+  }
+
+  private validateJobSource(value: string): string {
+    return /^https?:\/\/[^\s]+$/i.test(value.trim()) ? '' : '请填写可追溯的岗位来源链接，需为完整的 http/https 地址。';
+  }
+
+  private validateJobDescription(value: string): string {
+    const normalized = value.trim();
+    if (!normalized) return '请粘贴岗位职责与要求。';
+    if (normalized.length < 30) return `还需补充 ${30 - normalized.length} 个字才能建立证据矩阵。`;
+    return '';
+  }
+
+  private validateLocalDateTime(value: string): string {
+    const normalized = value.trim();
+    if (!normalized) return '';
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(normalized)) return '格式应为 YYYY-MM-DD HH:mm。';
+    const sections = normalized.split(/\s+/);
+    const dateParts = sections[0].split('-');
+    const timeParts = sections[1].split(':');
+    const year = Number(dateParts[0]);
+    const month = Number(dateParts[1]);
+    const day = Number(dateParts[2]);
+    const hour = Number(timeParts[0]);
+    const minute = Number(timeParts[1]);
+    const parsed = new Date(year, month - 1, day, hour, minute, 0, 0);
+    if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day ||
+      parsed.getHours() !== hour || parsed.getMinutes() !== minute) return '日期或时间无效，请重新填写。';
+    if (parsed.getTime() <= Date.now()) return '请选择未来时间。';
+    return '';
+  }
+
+  private validateInterviewAnswer(value: string): string {
+    const normalized = value.trim();
+    if (!normalized) return '请先填写本轮回答。';
+    if (normalized.length < 20) return `还需补充 ${20 - normalized.length} 个字，说明个人行动和结果。`;
+    return '';
+  }
+
+  private validateGrowthDraft(value: string): string {
+    const normalized = value.trim();
+    if (normalized.length < 30) return '至少填写 30 个字，并说明个人行动、产出物和结果。';
+    if (!/负责|设计|实现|分析|验证|修复|构建|复盘|提交|完成|测试/.test(normalized)) {
+      return '请明确写出你亲自完成的行动。';
+    }
+    if (!/\d|%|提升|降低|增长|覆盖|产出|上线|发布|用户|样本/.test(normalized)) {
+      return '请补充结果数据或可核验的产出物。';
+    }
+    return '';
+  }
+
+  private validateGrowthSource(value: string): string {
+    return /^https:\/\/[^\s]+$/i.test(value.trim()) ? '' : '请补充可核验的 HTTPS 代码仓库、报告或演示链接。';
+  }
+
+  private beginTrackedJobEdit(): void {
+    this.editorJobTitle = this.trackedJobTitle;
+    this.editorJobCompany = this.trackedJobCompany;
+    this.editorJobSource = this.trackedJobSource;
+    this.editorJobDescription = this.trackedJobDescription;
+    this.jobEditorDirty = false;
+    this.jobTitleTouched = false;
+    this.jobCompanyTouched = false;
+    this.jobSourceTouched = false;
+    this.jobDescriptionTouched = false;
+    this.jobTitleError = '';
+    this.jobCompanyError = '';
+    this.jobSourceError = '';
+    this.jobDescriptionError = '';
+    this.showJobEditor = true;
+  }
+
+  private cancelTrackedJobEdit(): void {
+    this.trackedJobTitle = this.editorJobTitle;
+    this.trackedJobCompany = this.editorJobCompany;
+    this.trackedJobSource = this.editorJobSource;
+    this.trackedJobDescription = this.editorJobDescription;
+    this.jobEditorDirty = false;
+    this.jobTitleTouched = false;
+    this.jobCompanyTouched = false;
+    this.jobSourceTouched = false;
+    this.jobDescriptionTouched = false;
+    this.jobTitleError = '';
+    this.jobCompanyError = '';
+    this.jobSourceError = '';
+    this.jobDescriptionError = '';
+    this.showJobEditor = false;
+  }
+
+  private async initializeWorkspace(): Promise<void> {
+    this.workspaceLoading = true;
+    this.workspaceLoadFailed = false;
+    const restored = await this.loadWorkspace();
+    this.workspaceLoadFailed = !restored;
+    this.workspaceLoading = false;
+  }
+
+  private async loadWorkspace(): Promise<boolean> {
     try {
       const store = await preferences.getPreferences(this.hostContext, NATIVE_STORE_NAME);
       const raw = await store.get('snapshot', '') as string;
@@ -405,9 +886,23 @@ struct Index {
           ? parsed.jobEvidence
           : createDefaultNativeJobEvidence();
       }
+      this.savedResumeName = this.resumeName;
+      this.savedTargetJob = this.targetJob;
+      this.savedResumeSummary = this.resumeSummary;
+      this.savedApplicationDeadline = this.applicationDeadline;
+      this.savedNextInterviewAt = this.nextInterviewAt;
+      this.editorJobTitle = this.trackedJobTitle;
+      this.editorJobCompany = this.trackedJobCompany;
+      this.editorJobSource = this.trackedJobSource;
+      this.editorJobDescription = this.trackedJobDescription;
+      this.resumeDirty = false;
+      this.jobEditorDirty = false;
+      this.applicationScheduleDirty = false;
       await this.syncCareerFormData();
+      return true;
     } catch (error) {
       console.error(`Native workspace restore failed: ${String(error)}`);
+      return false;
     }
   }
 
@@ -415,20 +910,20 @@ struct Index {
     try {
       const store = await preferences.getPreferences(this.hostContext, NATIVE_STORE_NAME);
       const snapshot: NativeWorkspaceSnapshot = {
-        resumeName: this.resumeName,
-        targetJob: this.targetJob,
-        trackedJobTitle: this.trackedJobTitle,
-        trackedJobCompany: this.trackedJobCompany,
-        trackedJobSource: this.trackedJobSource,
-        trackedJobDescription: this.trackedJobDescription,
+        resumeName: this.resumeDirty ? this.savedResumeName : this.resumeName,
+        targetJob: this.resumeDirty ? this.savedTargetJob : this.targetJob,
+        trackedJobTitle: this.jobEditorDirty ? this.editorJobTitle : this.trackedJobTitle,
+        trackedJobCompany: this.jobEditorDirty ? this.editorJobCompany : this.trackedJobCompany,
+        trackedJobSource: this.jobEditorDirty ? this.editorJobSource : this.trackedJobSource,
+        trackedJobDescription: this.jobEditorDirty ? this.editorJobDescription : this.trackedJobDescription,
         applicationJobKey: this.applicationJobKey,
         applicationStage: this.applicationStage,
         applicationUpdatedAt: this.applicationUpdatedAt,
-        applicationDeadline: this.applicationDeadline,
-        nextInterviewAt: this.nextInterviewAt,
+        applicationDeadline: this.applicationScheduleDirty ? this.savedApplicationDeadline : this.applicationDeadline,
+        nextInterviewAt: this.applicationScheduleDirty ? this.savedNextInterviewAt : this.nextInterviewAt,
         applicationEvents: this.applicationEvents,
         applicationResumeVersionId: this.applicationResumeVersionId,
-        resumeSummary: this.resumeSummary,
+        resumeSummary: this.resumeDirty ? this.savedResumeSummary : this.resumeSummary,
         resumeVersions: this.resumeVersions,
         interviewType: this.interviewType,
         interviewStarted: this.interviewStarted,
@@ -449,10 +944,143 @@ struct Index {
       };
       await store.put('snapshot', JSON.stringify(snapshot));
       await store.flush();
+      this.workspaceSaveFailed = false;
       await this.syncCareerFormData();
     } catch (error) {
+      this.workspaceSaveFailed = true;
       this.profileMessage = '本机保存失败，请稍后重试。';
       console.error(`Native workspace save failed: ${String(error)}`);
+    }
+  }
+
+  private hasActiveDataOperation(): boolean {
+    return this.publicJobsLoading || this.interviewLoading || this.ocrActive || this.speechActive ||
+      this.evidenceChecking;
+  }
+
+  private resetWorkspaceState(): void {
+    this.activeTab = 0;
+    this.resumeName = '';
+    this.targetJob = '前端开发实习生';
+    this.trackedJobTitle = '';
+    this.trackedJobCompany = '';
+    this.trackedJobSource = '';
+    this.trackedJobDescription = '';
+    this.applicationJobKey = '';
+    this.applicationStage = 'interested';
+    this.applicationUpdatedAt = '';
+    this.applicationDeadline = '';
+    this.nextInterviewAt = '';
+    this.applicationEvents = [];
+    this.applicationResumeVersionId = '';
+    this.applicationMessage = '保存真实岗位后即可记录投递进度。';
+    this.resumeSummary = '';
+    this.resumeVersions = [];
+    this.resumeVersionMessage = '保存真实岗位后，可冻结并绑定实际投递简历。';
+    this.evidenceCoverage = 42;
+    this.empiricalCoverage = 42;
+    this.growthBaselineCoverage = 42;
+    this.projectedCoverage = 63;
+    this.trackedJobs = 0;
+    this.growthTasks = [];
+    this.growthEvidenceRecords = [];
+    this.growthHistory = [];
+    this.jobEvidence = createDefaultNativeJobEvidence();
+    this.evidenceDraft = '';
+    this.evidenceSourceUrl = '';
+    this.evidenceConfirmed = false;
+    this.evidenceChecking = false;
+    this.growthMessage = '';
+    this.jobMessage = '尚未保存真实岗位，当前只展示目标岗位画像。';
+    this.showJobEditor = false;
+    this.jobQuery = '';
+    this.jobCity = '';
+    this.publicJobs = [];
+    this.publicJobsLoading = false;
+    this.publicJobsConfigured = false;
+    this.publicJobsStale = false;
+    this.publicJobsSearched = false;
+    this.publicJobsFailed = false;
+    this.publicJobsTotal = 0;
+    this.publicJobsMessage = '可搜索已配置的官方岗位源，也可继续使用本机录入。';
+    this.selectedPublicJobIndex = -1;
+    this.interviewType = '综合面';
+    this.interviewStarted = false;
+    this.interviewQuestion = '';
+    this.interviewRound = 0;
+    this.interviewTurns = [];
+    this.interviewAnswer = '';
+    this.interviewMessage = '';
+    this.interviewFeedback = '';
+    this.interviewModelName = '本机规则';
+    this.interviewLoading = false;
+    this.modelConsent = false;
+    this.profileMessage = '数据默认保存在本机，可随时修改或清除。';
+    this.resumeDirty = false;
+    this.jobEditorDirty = false;
+    this.applicationScheduleDirty = false;
+    this.workspaceSaveFailed = false;
+    this.workspaceLoadFailed = false;
+    this.resumeTargetTouched = false;
+    this.resumeSummaryTouched = false;
+    this.jobTitleTouched = false;
+    this.jobCompanyTouched = false;
+    this.jobSourceTouched = false;
+    this.jobDescriptionTouched = false;
+    this.resumeTargetError = '';
+    this.resumeSummaryError = '';
+    this.jobTitleError = '';
+    this.jobCompanyError = '';
+    this.jobSourceError = '';
+    this.jobDescriptionError = '';
+    this.applicationDeadlineError = '';
+    this.nextInterviewAtError = '';
+    this.interviewAnswerTouched = false;
+    this.interviewAnswerError = '';
+    this.growthDraftTouched = false;
+    this.growthSourceTouched = false;
+    this.growthDraftError = '';
+    this.growthSourceError = '';
+    this.savedResumeName = '';
+    this.savedTargetJob = this.targetJob;
+    this.savedResumeSummary = '';
+    this.savedApplicationDeadline = '';
+    this.savedNextInterviewAt = '';
+    this.editorJobTitle = '';
+    this.editorJobCompany = '';
+    this.editorJobSource = '';
+    this.editorJobDescription = '';
+  }
+
+  private requestClearWorkspaceData(): void {
+    if (this.hasActiveDataOperation()) {
+      this.dataCenterMessage = '请等待当前识别、语音或网络任务完成后再清除数据。';
+      return;
+    }
+    this.showConfirmDialog(
+      '清除工作区数据？',
+      '将删除简历版本、岗位、投递、面试与成长记录。华为账号登录状态和系统权限不会改变。此操作无法撤销。',
+      '确认清除',
+      () => { void this.clearWorkspaceData(); },
+    );
+  }
+
+  private async clearWorkspaceData(): Promise<void> {
+    if (this.dataClearInProgress) return;
+    this.dataClearInProgress = true;
+    this.dataCenterMessage = '正在清除本机工作区数据。';
+    try {
+      const store = await preferences.getPreferences(this.hostContext, NATIVE_STORE_NAME);
+      await store.delete('snapshot');
+      await store.flush();
+      this.resetWorkspaceState();
+      await this.syncCareerFormData();
+      this.dataCenterMessage = '本机工作区已清除，账号登录状态和系统权限未改变。';
+    } catch (error) {
+      this.dataCenterMessage = '本机工作区清除失败，请稍后重试。';
+      console.error(`Native workspace clear failed: ${String(error)}`);
+    } finally {
+      this.dataClearInProgress = false;
     }
   }
 
@@ -542,10 +1170,12 @@ struct Index {
   }
 
   private primaryNextAction(): string {
+    if (!this.resumeSummary.trim()) return '导入或填写真实经历，建立求职画像';
     return this.trackedJobs > 0 ? this.currentApplicationAction() : this.nextGrowthAction();
   }
 
   private primaryActionTab(): number {
+    if (!this.resumeSummary.trim()) return 1;
     if (this.trackedJobs > 0) {
       if (this.applicationStage === 'preparing' && !this.boundResumeVersion()) return 1;
       return this.applicationStage === 'interview' ? 3 : 2;
@@ -554,6 +1184,7 @@ struct Index {
   }
 
   private primaryActionLabel(): string {
+    if (!this.resumeSummary.trim()) return '完善求职画像';
     if (this.trackedJobs > 0) {
       if (this.applicationStage === 'preparing' && !this.boundResumeVersion()) return '保存投递版本';
       if (this.applicationStage === 'interview') return '准备岗位面试';
@@ -562,12 +1193,22 @@ struct Index {
     return this.growthTasks.length === 0 ? '开始岗位面试' : '继续成长任务';
   }
 
+  private primaryActionDestinationLabel(): string {
+    const tab = this.primaryActionTab();
+    if (tab === 1) return '简历';
+    if (tab === 2) return '岗位';
+    if (tab === 3) return '面试';
+    if (tab === 4) return '成长';
+    return '首页';
+  }
+
   private pendingActionCount(): number {
+    const profilePending = this.resumeSummary.trim() ? 0 : 1;
     const growthPending = this.growthTasks.filter((task: NativeGrowthTask) => task.status !== 'verified').length;
     if (this.trackedJobs === 0 || this.applicationStage === 'offer' || this.applicationStage === 'closed') {
-      return growthPending;
+      return profilePending + growthPending;
     }
-    return growthPending + 1;
+    return profilePending + growthPending + 1;
   }
 
   private updateApplicationStage(stageId: string): void {
@@ -679,17 +1320,40 @@ struct Index {
     void this.saveWorkspace();
   }
 
+  private requestDeleteNativeResumeVersion(versionId: string): void {
+    let versionName = '该投递版本';
+    for (const version of this.resumeVersions) {
+      if (version.id === versionId) versionName = `“${version.name}”`;
+    }
+    this.showConfirmDialog(
+      '删除简历版本？',
+      `${versionName}删除后无法恢复，已绑定版本不会被删除。`,
+      '确认删除',
+      () => { this.deleteNativeResumeVersion(versionId); },
+    );
+  }
+
   private saveApplicationSchedule(): void {
     if (this.trackedJobs === 0) {
       this.applicationMessage = '请先保存真实岗位，再记录截止时间或面试安排。';
       return;
     }
+    this.applicationDeadlineError = this.validateLocalDateTime(this.applicationDeadline);
+    this.nextInterviewAtError = this.validateLocalDateTime(this.nextInterviewAt);
+    if (this.applicationDeadlineError || this.nextInterviewAtError) {
+      this.applicationMessage = '请先修正标出的日期时间。';
+      return;
+    }
     this.applicationDeadline = this.applicationDeadline.trim();
     this.nextInterviewAt = this.nextInterviewAt.trim();
+    this.savedApplicationDeadline = this.applicationDeadline;
+    this.savedNextInterviewAt = this.nextInterviewAt;
+    this.applicationScheduleDirty = false;
     this.applicationUpdatedAt = new Date().toLocaleString('zh-CN');
     this.applicationMessage = this.applicationDeadline || this.nextInterviewAt
       ? '投递日程已保存在本机，并同步下一行动。'
       : '已清空该岗位的投递日程。';
+    this.uiContext.getFocusController().clearFocus();
     void this.saveWorkspace();
   }
 
@@ -782,18 +1446,38 @@ struct Index {
 
   private async refreshPublicJobs(): Promise<void> {
     if (this.publicJobsLoading) return;
+    this.uiContext.getFocusController().clearFocus();
     this.publicJobsLoading = true;
     this.publicJobsSearched = true;
+    this.publicJobsFailed = false;
     this.selectedPublicJobIndex = -1;
     this.publicJobsMessage = '正在连接官方岗位源，请稍候。';
     const query = this.jobQuery.trim() || this.targetJob.trim();
-    const feed: NativeJobFeed = await this.jobService.fetchJobs(query, this.jobCity);
-    this.publicJobs = feed.jobs;
-    this.publicJobsConfigured = feed.configured;
-    this.publicJobsStale = feed.stale;
-    this.publicJobsTotal = feed.total;
-    this.publicJobsMessage = feed.message;
-    this.publicJobsLoading = false;
+    try {
+      const feed: NativeJobFeed = await this.jobService.fetchJobs(query, this.jobCity);
+      this.publicJobsConfigured = feed.configured;
+      this.publicJobsFailed = feed.failed;
+      if (feed.failed) {
+        this.publicJobsStale = this.publicJobs.length > 0;
+        this.publicJobsMessage = this.publicJobs.length > 0
+          ? `${feed.message} 已保留上次成功结果。`
+          : feed.message;
+        return;
+      }
+      this.publicJobs = feed.jobs;
+      this.publicJobsStale = feed.stale;
+      this.publicJobsTotal = feed.total;
+      this.publicJobsMessage = feed.message;
+    } catch (error) {
+      console.error(`Public job refresh failed: ${String(error)}`);
+      this.publicJobsFailed = true;
+      this.publicJobsStale = this.publicJobs.length > 0;
+      this.publicJobsMessage = this.publicJobs.length > 0
+        ? '岗位服务连接失败，已保留上次结果；请检查网络后重试。'
+        : '岗位服务连接失败，请检查网络后重试。';
+    } finally {
+      this.publicJobsLoading = false;
+    }
   }
 
   private showPublicJob(jobId: string): void {
@@ -848,16 +1532,16 @@ struct Index {
     const company = this.trackedJobCompany.trim();
     const source = this.trackedJobSource.trim();
     const description = this.trackedJobDescription.trim();
-    if (!title || !company) {
-      this.jobMessage = '请填写真实岗位名称和公司名称。';
-      return;
-    }
-    if (!source.startsWith('https://') && !source.startsWith('http://')) {
-      this.jobMessage = '请填写可追溯的岗位来源链接。';
-      return;
-    }
-    if (description.length < 30) {
-      this.jobMessage = '岗位描述至少需要 30 个字，才能建立证据矩阵。';
+    this.jobTitleTouched = true;
+    this.jobCompanyTouched = true;
+    this.jobSourceTouched = true;
+    this.jobDescriptionTouched = true;
+    this.jobTitleError = this.validateJobTitle(title);
+    this.jobCompanyError = this.validateJobCompany(company);
+    this.jobSourceError = this.validateJobSource(source);
+    this.jobDescriptionError = this.validateJobDescription(description);
+    if (this.jobTitleError || this.jobCompanyError || this.jobSourceError || this.jobDescriptionError) {
+      this.jobMessage = '请先修正标出的岗位字段。';
       return;
     }
     const nextJobKey = this.buildTrackedJobKey(title, company, source);
@@ -875,6 +1559,9 @@ struct Index {
       this.applicationUpdatedAt = occurredAt;
       this.applicationDeadline = '';
       this.nextInterviewAt = '';
+      this.savedApplicationDeadline = '';
+      this.savedNextInterviewAt = '';
+      this.applicationScheduleDirty = false;
       this.applicationEvents = [
         new NativeApplicationEvent('interested', `已收藏“${title}”并开始本机追踪`, occurredAt),
       ];
@@ -882,7 +1569,21 @@ struct Index {
       this.applicationMessage = '岗位已进入“已收藏”阶段，可继续更新投递进度。';
       this.resumeVersionMessage = '保存并绑定实际投递版本后，才能进入已投递及后续阶段。';
     }
+    this.editorJobTitle = this.trackedJobTitle;
+    this.editorJobCompany = this.trackedJobCompany;
+    this.editorJobSource = this.trackedJobSource;
+    this.editorJobDescription = this.trackedJobDescription;
+    this.jobEditorDirty = false;
+    this.jobTitleTouched = false;
+    this.jobCompanyTouched = false;
+    this.jobSourceTouched = false;
+    this.jobDescriptionTouched = false;
+    this.jobTitleError = '';
+    this.jobCompanyError = '';
+    this.jobSourceError = '';
+    this.jobDescriptionError = '';
     this.showJobEditor = false;
+    this.uiContext.getFocusController().clearFocus();
     this.rebuildEvidenceMatrix();
     this.jobMessage = '真实岗位已保存到本机，并已按简历事实重建证据矩阵。';
     void this.saveWorkspace();
@@ -898,16 +1599,33 @@ struct Index {
     this.applicationUpdatedAt = '';
     this.applicationDeadline = '';
     this.nextInterviewAt = '';
+    this.savedApplicationDeadline = '';
+    this.savedNextInterviewAt = '';
+    this.applicationScheduleDirty = false;
     this.applicationEvents = [];
     this.applicationResumeVersionId = '';
     this.applicationMessage = '保存真实岗位后即可记录投递进度。';
     this.trackedJobs = 0;
+    this.editorJobTitle = '';
+    this.editorJobCompany = '';
+    this.editorJobSource = '';
+    this.editorJobDescription = '';
+    this.jobEditorDirty = false;
     this.showJobEditor = false;
     this.jobEvidence = createDefaultNativeJobEvidence();
     this.evidenceCoverage = 42;
     this.projectedCoverage = Math.max(this.empiricalCoverage, 63);
     this.jobMessage = '已移除岗位来源，目标岗位画像仍保留在本机。';
     void this.saveWorkspace();
+  }
+
+  private requestRemoveTrackedJob(): void {
+    this.showConfirmDialog(
+      '移除当前岗位？',
+      '岗位资料、投递阶段、日程和当前绑定关系将从工作台移除；已冻结的简历版本仍保留在本机。',
+      '确认移除',
+      () => { this.removeTrackedJob(); },
+    );
   }
 
   private rebuildEvidenceMatrix(): void {
@@ -1017,6 +1735,8 @@ struct Index {
     this.interviewQuestion = this.fallbackInterviewQuestion(1);
     this.interviewTurns = [];
     this.interviewAnswer = '';
+    this.interviewAnswerTouched = false;
+    this.interviewAnswerError = '';
     this.interviewFeedback = '';
     this.interviewModelName = '本机规则';
     this.interviewMessage = this.modelConsent
@@ -1028,14 +1748,19 @@ struct Index {
   private async submitInterviewAnswer(): Promise<void> {
     if (this.interviewLoading) return;
     const answer = this.interviewAnswer.trim();
-    if (answer.length < 20) {
-      this.interviewMessage = '回答还不够具体，请至少说明个人行动和结果。';
+    this.interviewAnswerTouched = true;
+    this.interviewAnswerError = this.validateInterviewAnswer(answer);
+    if (this.interviewAnswerError) {
+      this.interviewMessage = '请先修正标出的本轮回答。';
       return;
     }
+    this.uiContext.getFocusController().clearFocus();
     const occurredAt = new Date().toLocaleString('zh-CN');
     const nextTurns = [...this.interviewTurns, new NativeInterviewTurn(this.interviewQuestion, answer, occurredAt)];
     this.interviewTurns = nextTurns;
     this.interviewAnswer = '';
+    this.interviewAnswerTouched = false;
+    this.interviewAnswerError = '';
     if (nextTurns.length >= 3) {
       this.interviewMessage = '已完成 3 轮回答，可以生成本轮反馈。';
       void this.saveWorkspace();
@@ -1054,24 +1779,33 @@ struct Index {
 
     this.interviewLoading = true;
     this.interviewMessage = '已脱敏本轮内容，正在生成岗位化追问。';
-    const result: NativeAiResult = await this.aiService.generateInterviewQuestion(
-      this.interviewType,
-      nextRound,
-      this.resumeSummary,
-      this.trackedJobTitle || this.targetJob,
-      this.trackedJobDescription,
-      nextTurns,
-    );
-    this.interviewLoading = false;
-    this.interviewRound = nextRound;
-    if (result.ok) {
-      this.interviewQuestion = result.content;
-      this.interviewModelName = result.model || '外部模型';
-      this.interviewMessage = `已由 ${this.interviewModelName} 生成第 ${nextRound} 轮证据追问。`;
-    } else {
+    try {
+      const result: NativeAiResult = await this.aiService.generateInterviewQuestion(
+        this.interviewType,
+        nextRound,
+        this.resumeSummary,
+        this.trackedJobTitle || this.targetJob,
+        this.trackedJobDescription,
+        nextTurns,
+      );
+      this.interviewRound = nextRound;
+      if (result.ok) {
+        this.interviewQuestion = result.content;
+        this.interviewModelName = result.model || '外部模型';
+        this.interviewMessage = `已由 ${this.interviewModelName} 生成第 ${nextRound} 轮证据追问。`;
+      } else {
+        this.interviewQuestion = this.fallbackInterviewQuestion(nextRound);
+        this.interviewModelName = '本机规则';
+        this.interviewMessage = result.message;
+      }
+    } catch (error) {
+      console.error(`Interview follow-up generation failed: ${String(error)}`);
+      this.interviewRound = nextRound;
       this.interviewQuestion = this.fallbackInterviewQuestion(nextRound);
       this.interviewModelName = '本机规则';
-      this.interviewMessage = result.message;
+      this.interviewMessage = '外部模型连接失败，已切换到本机追问，可继续作答或稍后重试。';
+    } finally {
+      this.interviewLoading = false;
     }
     void this.saveWorkspace();
   }
@@ -1080,39 +1814,56 @@ struct Index {
     if (this.interviewLoading) return;
     let turns = this.interviewTurns;
     const answer = this.interviewAnswer.trim();
-    if (answer.length > 0 && answer.length < 20) {
-      this.interviewMessage = '当前回答还不够具体，请补充个人行动和结果后再生成反馈。';
+    if (answer.length > 0) {
+      this.interviewAnswerTouched = true;
+      this.interviewAnswerError = this.validateInterviewAnswer(answer);
+    } else {
+      this.interviewAnswerTouched = false;
+      this.interviewAnswerError = '';
+    }
+    if (this.interviewAnswerError) {
+      this.interviewMessage = '请先修正标出的本轮回答。';
       return;
     }
     if (answer.length >= 20) {
       turns = [...turns, new NativeInterviewTurn(this.interviewQuestion, answer, new Date().toLocaleString('zh-CN'))];
       this.interviewTurns = turns;
       this.interviewAnswer = '';
+      this.interviewAnswerTouched = false;
+      this.interviewAnswerError = '';
     }
     if (turns.length === 0) {
       this.interviewMessage = '请至少提交一轮真实回答后再生成反馈。';
       return;
     }
 
+    this.uiContext.getFocusController().clearFocus();
     this.interviewLoading = true;
     let feedback = '';
     if (this.modelConsent) {
       this.interviewMessage = '正在对已脱敏的面试记录生成岗位化反馈。';
-      const result: NativeAiResult = await this.aiService.generateInterviewFeedback(
-        this.interviewType,
-        this.resumeSummary,
-        this.trackedJobTitle || this.targetJob,
-        this.trackedJobDescription,
-        turns,
-      );
-      if (result.ok) {
-        feedback = result.content;
-        this.interviewModelName = result.model || '外部模型';
-        this.interviewMessage = `已由 ${this.interviewModelName} 生成反馈；内容仅作为训练建议。`;
-      } else {
+      try {
+        const result: NativeAiResult = await this.aiService.generateInterviewFeedback(
+          this.interviewType,
+          this.resumeSummary,
+          this.trackedJobTitle || this.targetJob,
+          this.trackedJobDescription,
+          turns,
+        );
+        if (result.ok) {
+          feedback = result.content;
+          this.interviewModelName = result.model || '外部模型';
+          this.interviewMessage = `已由 ${this.interviewModelName} 生成反馈；内容仅作为训练建议。`;
+        } else {
+          feedback = this.localInterviewFeedback(turns);
+          this.interviewModelName = '本机规则';
+          this.interviewMessage = result.message;
+        }
+      } catch (error) {
+        console.error(`Interview feedback generation failed: ${String(error)}`);
         feedback = this.localInterviewFeedback(turns);
         this.interviewModelName = '本机规则';
-        this.interviewMessage = result.message;
+        this.interviewMessage = '外部模型连接失败，已生成本机反馈；可继续完成成长任务。';
       }
     } else {
       feedback = this.localInterviewFeedback(turns);
@@ -1135,33 +1886,51 @@ struct Index {
     this.interviewRound = 0;
     this.interviewTurns = [];
     this.interviewAnswer = '';
+    this.interviewAnswerTouched = false;
+    this.interviewAnswerError = '';
     this.interviewFeedback = '';
     this.interviewModelName = '本机规则';
     this.interviewMessage = '已清空本轮面试记录，可以重新选择面试类型。';
     void this.saveWorkspace();
   }
 
+  private requestResetInterview(): void {
+    this.showConfirmDialog(
+      '重新开始本轮面试？',
+      '当前问题、回答和已生成反馈会被清空，已写入成长任务的历史记录不受影响。',
+      '重新开始',
+      () => { this.resetInterview(); },
+    );
+  }
+
   private async submitGrowthEvidence(): Promise<void> {
     if (this.evidenceChecking) return;
     const text = this.evidenceDraft.trim();
     const sourceUrl = this.evidenceSourceUrl.trim();
-    const hasAction = /负责|设计|实现|分析|验证|修复|构建|复盘|提交|完成|测试/.test(text);
-    const hasOutcome = /\d|%|提升|降低|增长|覆盖|产出|上线|发布|用户|样本/.test(text);
-    if (text.length < 30 || !hasAction || !hasOutcome) {
-      this.growthMessage = '证据需要更具体：请补充个人动作、产出物和结果数据。';
-      return;
-    }
-    if (!/^https:\/\/[^\s]+$/i.test(sourceUrl)) {
-      this.growthMessage = '请补充可核验的 HTTPS 代码仓库、报告或演示链接。';
+    this.growthDraftTouched = true;
+    this.growthSourceTouched = true;
+    this.growthDraftError = this.validateGrowthDraft(text);
+    this.growthSourceError = this.validateGrowthSource(sourceUrl);
+    if (this.growthDraftError || this.growthSourceError) {
+      this.growthMessage = '请先修正标出的成长证据字段。';
       return;
     }
     if (!this.evidenceConfirmed) {
       this.growthMessage = '请先确认内容真实且来源可供核验。';
       return;
     }
+    this.uiContext.getFocusController().clearFocus();
     this.evidenceChecking = true;
     this.growthMessage = '正在使用 Network Kit 核验公开 HTTPS 来源。';
-    const sourceResult = await this.evidenceService.verifyPublicHttps(sourceUrl);
+    let sourceResult: NativeEvidenceSourceResult;
+    try {
+      sourceResult = await this.evidenceService.verifyPublicHttps(sourceUrl);
+    } catch (error) {
+      console.error(`Growth evidence verification failed: ${String(error)}`);
+      this.growthMessage = '证据来源连接失败，请检查网络和链接后重试。';
+      this.evidenceChecking = false;
+      return;
+    }
     this.evidenceChecking = false;
     if (!sourceResult.ok) {
       this.growthMessage = sourceResult.message;
@@ -1207,6 +1976,10 @@ struct Index {
     this.evidenceDraft = '';
     this.evidenceSourceUrl = '';
     this.evidenceConfirmed = false;
+    this.growthDraftTouched = false;
+    this.growthSourceTouched = false;
+    this.growthDraftError = '';
+    this.growthSourceError = '';
     this.growthMessage = `${sourceResult.message}证据已写入本机账本，内容指纹 ${record.fingerprint}。`;
     void this.saveWorkspace();
   }
@@ -1288,6 +2061,15 @@ struct Index {
     void this.saveWorkspace();
   }
 
+  private requestRevokeGrowthEvidence(taskId: string): void {
+    this.showConfirmDialog(
+      '撤销证据验证？',
+      '该证据会标记为已撤销并保留审计记录，实证覆盖率将同步回退。',
+      '确认撤销',
+      () => { this.revokeGrowthEvidence(taskId); },
+    );
+  }
+
   private verifiedGrowthGain(): number {
     return this.growthGainForTasks(this.growthTasks);
   }
@@ -1298,34 +2080,6 @@ struct Index {
       if (task.status === 'verified') gain += task.projectedGain;
     }
     return gain;
-  }
-
-  private messageState(message: string): number {
-    if (message.includes('正在') || message.includes('请稍候')) return 1;
-    if (message.includes('失败') || message.includes('无法') || message.includes('不可用') ||
-      message.includes('请填写') || message.includes('请补充') || message.includes('请至少') ||
-      message.includes('不够具体') || message.includes('不在当前') || message.includes('没有可打开') ||
-      message.includes('未提供足够')) return 3;
-    if (message.includes('已保存') || message.includes('已完成') || message.includes('已生成') ||
-      message.includes('已恢复') || message.includes('已打开') || message.includes('已交由') ||
-      message.includes('已回填') || message.includes('已写入') || message.includes('通过')) return 2;
-    return 0;
-  }
-
-  private messageColor(message: string): string {
-    const state = this.messageState(message);
-    if (state === 2) return '#047857';
-    if (state === 3) return '#B45309';
-    if (state === 1) return '#1D4ED8';
-    return '#475569';
-  }
-
-  private messageBackground(message: string): string {
-    const state = this.messageState(message);
-    if (state === 2) return '#ECFDF5';
-    if (state === 3) return '#FFF7E6';
-    if (state === 1) return '#EFF6FF';
-    return '#F8FAFC';
   }
 
   @Builder
@@ -1343,43 +2097,6 @@ struct Index {
       }
     }
     .width('100%')
-  }
-
-  @Builder
-  private buildStatusMessage(message: string): void {
-    if (message) {
-      Row({ space: 8 }) {
-        if (this.messageState(message) === 1) {
-          LoadingProgress()
-            .width(16)
-            .height(16)
-            .color(this.messageColor(message))
-        } else if (this.messageState(message) === 2) {
-          SymbolGlyph($r('sys.symbol.checkmark_circle'))
-            .fontSize(16)
-            .fontColor([this.messageColor(message)])
-        } else if (this.messageState(message) === 3) {
-          SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
-            .fontSize(16)
-            .fontColor([this.messageColor(message)])
-        } else {
-          SymbolGlyph($r('sys.symbol.info_circle'))
-            .fontSize(16)
-            .fontColor([this.messageColor(message)])
-        }
-        Text(message)
-          .fontSize(10)
-          .fontColor(this.messageColor(message))
-          .lineHeight(17)
-          .layoutWeight(1)
-      }
-      .alignItems(VerticalAlign.Top)
-      .width('100%')
-      .padding(10)
-      .backgroundColor(this.messageBackground(message))
-      .border({ width: 1, color: this.messageState(message) === 0 ? '#E2E8F0' : this.messageBackground(message) })
-      .borderRadius(8)
-    }
   }
 
   @Builder
@@ -1403,27 +2120,322 @@ struct Index {
           .alignItems(HorizontalAlign.Start)
         }
         Blank()
-        Text(this.authSignedIn ? this.authDisplayName : '本机数据')
-          .fontSize(10)
-          .fontColor(this.authSignedIn ? $r('app.color.km_teal') : $r('app.color.km_text_secondary'))
-          .padding({ left: 9, right: 9, top: 5, bottom: 5 })
+        Button() {
+          Row({ space: 5 }) {
+            SymbolGlyph($r('sys.symbol.info_circle'))
+              .fontSize(14)
+              .fontColor([this.authSignedIn ? $r('app.color.km_teal') : $r('app.color.km_text_secondary')])
+            Text(this.authSignedIn ? this.authDisplayName : '本机数据')
+              .fontSize(10)
+              .fontColor(this.authSignedIn ? $r('app.color.km_teal') : $r('app.color.km_text_secondary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+        }
+          .constraintSize({ minHeight: 34, maxWidth: this.isWideLayout ? 240 : 150 })
+          .padding({ left: 9, right: 9 })
           .backgroundColor(this.authSignedIn ? $r('app.color.km_teal_soft') : $r('app.color.km_surface_subtle'))
           .borderRadius(8)
+          .onClick(() => { this.showDataCenter = !this.showDataCenter; })
       }
       .width('100%')
-      .height(58)
+      .constraintSize({ minHeight: 58 })
       .padding({ left: 16, right: 16 })
       Divider()
         .color($r('app.color.km_border'))
         .strokeWidth(1)
+      if (this.workspaceSaveFailed) {
+        Row({ space: 8 }) {
+          SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+            .fontSize(15)
+            .fontColor([$r('app.color.km_warning')])
+          Text('本机保存未完成，请重试。')
+            .fontSize(10)
+            .fontColor($r('app.color.km_warning'))
+            .layoutWeight(1)
+          Button('重试')
+            .constraintSize({ minHeight: 30 })
+            .fontSize(10)
+            .fontColor($r('app.color.km_text_on_primary'))
+            .backgroundColor($r('app.color.km_warning'))
+            .borderRadius(8)
+            .onClick(() => { void this.saveWorkspace(); })
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 7, bottom: 7 })
+        .backgroundColor($r('app.color.km_warning_soft'))
+      }
     }
     .width('100%')
     .backgroundColor($r('app.color.km_surface'))
   }
 
+  @Builder
+  private buildPrivacyBoundary(title: string, detail: string): void {
+    Row({ space: 10 }) {
+      SymbolGlyph($r('sys.symbol.checkmark_circle'))
+        .fontSize(18)
+        .fontColor([$r('app.color.km_success')])
+      Column({ space: 3 }) {
+        Text(title)
+          .fontSize(12)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.km_text_primary'))
+          .width('100%')
+        Text(detail)
+          .fontSize(10)
+          .fontColor($r('app.color.km_text_secondary'))
+          .lineHeight(17)
+          .width('100%')
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+    }
+    .alignItems(VerticalAlign.Top)
+    .width('100%')
+  }
+
+  @Builder
+  private buildDataCenter(): void {
+    Scroll() {
+      Column({ space: 14 }) {
+        Row() {
+          Button() {
+            Row({ space: 6 }) {
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(14)
+                .fontColor([$r('app.color.km_text_secondary')])
+                .rotate({ angle: 180 })
+              Text('返回工作台')
+                .fontSize(11)
+                .fontColor($r('app.color.km_text_secondary'))
+            }
+          }
+          .constraintSize({ minHeight: 36 })
+          .padding({ left: 10, right: 12 })
+          .backgroundColor($r('app.color.km_surface_subtle'))
+          .borderRadius(8)
+          .onClick(() => { this.showDataCenter = false; })
+          Blank()
+        }
+        .width('100%')
+
+        Column({ space: 5 }) {
+          Text('数据与隐私')
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.km_text_primary'))
+          Text('查看本机记录范围，管理账号与数据操作。')
+            .fontSize(12)
+            .fontColor($r('app.color.km_text_secondary'))
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+
+        Column({ space: 10 }) {
+          Row() {
+            Column({ space: 3 }) {
+              Text('本机工作区')
+                .fontSize(16)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.km_text_primary'))
+              Text('以下记录仅保存在当前设备的应用数据中')
+                .fontSize(10)
+                .fontColor($r('app.color.km_text_secondary'))
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+            Text('本机保存')
+              .fontSize(9)
+              .fontColor($r('app.color.km_success'))
+              .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+              .backgroundColor($r('app.color.km_success_soft'))
+              .borderRadius(8)
+          }
+          .width('100%')
+          Row({ space: 8 }) {
+            NativeMetricCard({
+              label: '简历版本',
+              value: `${this.resumeVersions.length}`,
+              detail: '已冻结的投递版本',
+              accentColor: $r('app.color.km_primary'),
+            })
+            NativeMetricCard({
+              label: '追踪岗位',
+              value: `${this.trackedJobs}`,
+              detail: '已保存真实岗位',
+              accentColor: $r('app.color.km_teal'),
+            })
+          }
+          .width('100%')
+          Row({ space: 8 }) {
+            NativeMetricCard({
+              label: '投递记录',
+              value: `${this.applicationEvents.length}`,
+              detail: '本机阶段时间线',
+              accentColor: $r('app.color.km_purple'),
+            })
+            NativeMetricCard({
+              label: '有效证据',
+              value: `${this.growthEvidenceRecords.filter((record: NativeGrowthEvidenceRecord) =>
+                record.status === 'verified').length}`,
+              detail: '通过核验的记录',
+              accentColor: $r('app.color.km_success'),
+            })
+          }
+          .width('100%')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .padding(16)
+        .backgroundColor($r('app.color.km_surface'))
+        .border({ width: 1, color: $r('app.color.km_border') })
+        .borderRadius(8)
+
+        Column({ space: 12 }) {
+          Text('数据边界')
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.km_text_primary'))
+            .width('100%')
+          this.buildPrivacyBoundary('工作区默认留在本机', '简历、岗位、投递、面试与成长记录保存在应用本机存储。')
+          Divider().color($r('app.color.km_border')).strokeWidth(1)
+          this.buildPrivacyBoundary('在线岗位不读取简历正文', '搜索官方岗位时仅发送岗位关键词和城市筛选条件。')
+          Divider().color($r('app.color.km_border')).strokeWidth(1)
+          this.buildPrivacyBoundary('外部模型增强默认关闭', '开启后仅发送面试页标明的已脱敏岗位化上下文。')
+          Divider().color($r('app.color.km_border')).strokeWidth(1)
+          this.buildPrivacyBoundary('分享由系统面板确认', '应用不会自动发布进展摘要，也不在摘要中包含简历正文和岗位 JD。')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .padding(16)
+        .backgroundColor($r('app.color.km_surface'))
+        .border({ width: 1, color: $r('app.color.km_border') })
+        .borderRadius(8)
+
+        Column({ space: 10 }) {
+          Row() {
+            Column({ space: 3 }) {
+              Text('华为账号')
+                .fontSize(15)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.km_text_primary'))
+              Text(this.authSignedIn ? this.authDisplayName : '当前未登录')
+                .fontSize(10)
+                .fontColor($r('app.color.km_text_secondary'))
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+            Button(this.authSignedIn ? '退出登录' : '登录')
+              .constraintSize({ minHeight: 36 })
+              .fontSize(11)
+              .fontColor(this.authSignedIn ? $r('app.color.km_danger') : $r('app.color.km_info'))
+              .backgroundColor(this.authSignedIn ? $r('app.color.km_danger_soft') : $r('app.color.km_info_soft'))
+              .borderRadius(8)
+              .onClick(() => { void (this.authSignedIn ? this.logoutHuawei() : this.loginHuawei()); })
+          }
+          .width('100%')
+          Text('清除工作区不会退出账号，也不会改变相机、麦克风等系统权限。')
+            .fontSize(10)
+            .fontColor($r('app.color.km_text_secondary'))
+            .lineHeight(17)
+            .width('100%')
+          NativeStatusMessage({ message: this.nativeMessage })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .padding(16)
+        .backgroundColor($r('app.color.km_surface'))
+        .border({ width: 1, color: $r('app.color.km_border') })
+        .borderRadius(8)
+
+        Column({ space: 10 }) {
+          Text('数据操作')
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.km_text_primary'))
+            .width('100%')
+          Button() {
+            Row({ space: 10 }) {
+              SymbolGlyph($r('sys.symbol.doc_text'))
+                .fontSize(19)
+                .fontColor([$r('app.color.km_success')])
+              Column({ space: 2 }) {
+                Text('分享求职进展摘要')
+                  .fontSize(12)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.km_text_primary'))
+                  .width('100%')
+                Text('调用系统分享面板，不包含简历正文与岗位 JD')
+                  .fontSize(9)
+                  .fontColor($r('app.color.km_text_secondary'))
+                  .width('100%')
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(14)
+                .fontColor([$r('app.color.km_text_tertiary')])
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .constraintSize({ minHeight: 58 })
+          .padding({ left: 12, right: 12 })
+          .backgroundColor($r('app.color.km_surface_subtle'))
+          .borderRadius(8)
+          .onClick(() => { void this.shareProgress(); })
+          Button() {
+            Row({ space: 10 }) {
+              SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+                .fontSize(19)
+                .fontColor([$r('app.color.km_danger')])
+              Column({ space: 2 }) {
+                Text(this.dataClearInProgress ? '正在清除本机工作区' : '清除本机工作区')
+                  .fontSize(12)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.km_danger'))
+                  .width('100%')
+                Text('删除简历、岗位、投递、面试与成长记录')
+                  .fontSize(9)
+                  .fontColor($r('app.color.km_text_secondary'))
+                  .width('100%')
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(14)
+                .fontColor([$r('app.color.km_danger')])
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .constraintSize({ minHeight: 58 })
+          .padding({ left: 12, right: 12 })
+          .backgroundColor($r('app.color.km_danger_soft'))
+          .borderRadius(8)
+          .enabled(!this.dataClearInProgress)
+          .onClick(() => { this.requestClearWorkspaceData(); })
+          NativeStatusMessage({ message: this.dataCenterMessage })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .padding(16)
+        .backgroundColor($r('app.color.km_surface'))
+        .border({ width: 1, color: $r('app.color.km_border') })
+        .borderRadius(8)
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 14, bottom: 28 })
+      .constraintSize({ maxWidth: this.isWideLayout ? 1040 : '100%' })
+      .alignSelf(ItemAlign.Center)
+    }
+    .layoutWeight(1)
+    .scrollBar(BarState.Off)
+  }
+
   private openJobsTab(): void {
-    this.selectedPublicJobIndex = -1;
-    this.activeTab = 2;
+    this.requestTabChange(2);
   }
 
   @Builder
@@ -1445,9 +2457,9 @@ struct Index {
           .fontColor($r('app.color.km_primary'))
         Row({ space: 8 }) {
           Circle().width(7).height(7).fill($r('app.color.km_primary'))
-          Blank().width(44).height(1).backgroundColor('#93C5FD')
-          Circle().width(8).height(8).fill('#22D3EE')
-          Blank().width(44).height(1).backgroundColor('#93C5FD')
+          Blank().width(44).height(1).backgroundColor($r('app.color.km_decor_line'))
+          Circle().width(8).height(8).fill($r('app.color.km_accent_cyan'))
+          Blank().width(44).height(1).backgroundColor($r('app.color.km_decor_line'))
           Circle().width(7).height(7).fill($r('app.color.km_primary'))
         }
         Text('从证据开始，建立你的求职优势')
@@ -1473,12 +2485,32 @@ struct Index {
   }
 
   @Builder
+  private buildWorkspaceState(): void {
+    Row() {
+      NativeAsyncStatePanel({
+        state: this.workspaceLoadFailed ? 'error' : 'loading',
+        title: this.workspaceLoadFailed ? '暂时无法恢复本机工作区' : '正在恢复本机工作区',
+        detail: this.workspaceLoadFailed
+          ? '为避免覆盖已有记录，工作区已暂停编辑。请重新读取本机数据。'
+          : '正在读取简历、岗位、投递和成长记录。',
+        actionLabel: this.workspaceLoadFailed ? '重新读取' : '',
+        onAction: () => { void this.initializeWorkspace(); },
+      })
+    }
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+    .layoutWeight(1)
+    .width('100%')
+    .padding(16)
+  }
+
+  @Builder
   private buildJourneyStep(title: string, detail: string, completed: boolean, targetTab: number): void {
     Column({ space: 6 }) {
       Circle()
         .width(10)
         .height(10)
-        .fill(completed ? $r('app.color.km_teal') : '#CBD5E1')
+        .fill(completed ? $r('app.color.km_teal') : $r('app.color.km_border_strong'))
       Text(title)
         .fontSize(11)
         .fontWeight(FontWeight.Medium)
@@ -1492,11 +2524,11 @@ struct Index {
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .layoutWeight(1)
-    .height(68)
+    .constraintSize({ minHeight: 68 })
     .backgroundColor(completed ? $r('app.color.km_teal_soft') : $r('app.color.km_surface'))
-    .border({ width: 1, color: completed ? '#B7E4DA' : $r('app.color.km_border') })
+    .border({ width: 1, color: completed ? $r('app.color.km_success_border') : $r('app.color.km_border') })
     .borderRadius(8)
-    .onClick(() => { this.activeTab = targetTab; })
+    .onClick(() => { this.requestTabChange(targetTab); })
   }
 
   @Builder
@@ -1546,7 +2578,7 @@ struct Index {
           Text(`${this.empiricalCoverage}%`)
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.km_primary_dark'))
+            .fontColor($r('app.color.km_primary_emphasis'))
           Text('当前实证覆盖')
             .fontSize(9)
             .fontColor($r('app.color.km_text_secondary'))
@@ -1563,11 +2595,11 @@ struct Index {
       Row() {
         Text(`${this.evidenceReadyCount()}/${this.jobEvidence.length} 项发现线索`)
           .fontSize(11)
-          .fontColor('#334155')
+          .fontColor($r('app.color.km_text_body'))
         Blank()
         Text(this.trackedJobs > 0 ? `已追踪 ${this.trackedJobs} 个真实岗位` : '尚未导入真实岗位')
           .fontSize(10)
-          .fontColor(this.trackedJobs > 0 ? '#047857' : '#B45309')
+          .fontColor(this.trackedJobs > 0 ? $r('app.color.km_success') : $r('app.color.km_warning'))
       }
       .width('100%')
       Text(this.trackedJobs > 0
@@ -1579,9 +2611,9 @@ struct Index {
         .width('100%')
       Button('查看岗位证据')
         .width('100%')
-        .height(40)
+        .constraintSize({ minHeight: 40 })
         .fontSize(12)
-        .fontColor('#FFFFFF')
+        .fontColor($r('app.color.km_text_on_primary'))
         .backgroundColor($r('app.color.km_primary'))
         .borderRadius(8)
         .onClick(() => { this.openJobsTab(); })
@@ -1608,19 +2640,19 @@ struct Index {
           .fontColor($r('app.color.km_text_primary'))
         Text(this.homeGuidance())
           .fontSize(11)
-          .fontColor('#475569')
+          .fontColor($r('app.color.km_text_muted'))
           .lineHeight(18)
           .maxLines(3)
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
       Button('去处理')
-        .height(34)
+        .constraintSize({ minHeight: 34 })
         .fontSize(11)
-        .fontColor('#0B63CE')
+        .fontColor($r('app.color.km_info'))
         .backgroundColor($r('app.color.km_surface'))
         .borderRadius(8)
-        .onClick(() => { this.activeTab = this.guidanceTab(); })
+        .onClick(() => { this.requestTabChange(this.guidanceTab()); })
     }
     .alignItems(VerticalAlign.Center)
     .width('100%')
@@ -1636,24 +2668,24 @@ struct Index {
         Text('今日重点')
           .fontSize(10)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#DCE8FF')
+          .fontColor($r('app.color.km_text_on_primary_muted'))
         Blank()
         Text(`${this.pendingActionCount()} 项待处理`)
           .fontSize(10)
-          .fontColor('#DCE8FF')
+          .fontColor($r('app.color.km_text_on_primary_muted'))
       }
       .width('100%')
       Text(this.primaryNextAction())
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
+        .fontColor($r('app.color.km_text_on_primary'))
         .lineHeight(25)
         .maxLines(3)
         .width('100%')
       Row({ space: 8 }) {
         Text(this.trackedJobs > 0 ? this.trackedJobTitle : this.targetJob)
           .fontSize(10)
-          .fontColor('#DCE8FF')
+          .fontColor($r('app.color.km_text_on_primary_muted'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1)
@@ -1662,17 +2694,17 @@ struct Index {
             Text(this.primaryActionLabel())
               .fontSize(11)
               .fontWeight(FontWeight.Medium)
-              .fontColor($r('app.color.km_primary_dark'))
+              .fontColor($r('app.color.km_primary_emphasis'))
             SymbolGlyph($r('sys.symbol.chevron_right'))
               .fontSize(14)
-              .fontColor([$r('app.color.km_primary_dark')])
+              .fontColor([$r('app.color.km_primary_emphasis')])
           }
         }
-        .height(34)
+        .constraintSize({ minHeight: 34 })
         .padding({ left: 12, right: 10 })
-        .backgroundColor('#FFFFFF')
+        .backgroundColor($r('app.color.km_surface'))
         .borderRadius(8)
-        .onClick(() => { this.activeTab = this.primaryActionTab(); })
+        .onClick(() => { this.requestTabChange(this.primaryActionTab()); })
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
@@ -1680,7 +2712,7 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .padding(16)
-    .backgroundColor($r('app.color.km_primary_dark'))
+    .backgroundColor($r('app.color.km_primary_hero'))
     .borderRadius(8)
   }
 
@@ -1700,10 +2732,10 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
         Button(this.authSignedIn ? '退出登录' : '华为账号登录')
-          .height(36)
+          .constraintSize({ minHeight: 36 })
           .fontSize(12)
-          .fontColor(this.authSignedIn ? '#B91C1C' : '#1D4ED8')
-          .backgroundColor(this.authSignedIn ? '#FEE2E2' : '#DBEAFE')
+          .fontColor(this.authSignedIn ? $r('app.color.km_danger') : $r('app.color.km_info'))
+          .backgroundColor(this.authSignedIn ? $r('app.color.km_danger_soft') : $r('app.color.km_info_soft'))
           .borderRadius(12)
           .onClick(() => {
             void (this.authSignedIn ? this.logoutHuawei() : this.loginHuawei());
@@ -1712,29 +2744,29 @@ struct Index {
       .width('100%')
       Text('求职资料默认保存在本机。登录账号、分享进展或使用语音时，会先由你主动触发。')
         .fontSize(12)
-        .fontColor('#334155')
+        .fontColor($r('app.color.km_text_body'))
         .lineHeight(19)
         .width('100%')
       Row({ space: 8 }) {
         Button('分享求职进展')
           .layoutWeight(1)
-          .height(40)
+          .constraintSize({ minHeight: 40 })
           .fontSize(12)
-          .fontColor('#047857')
-          .backgroundColor('#D1FAE5')
+          .fontColor($r('app.color.km_success'))
+          .backgroundColor($r('app.color.km_success_soft'))
           .borderRadius(12)
           .onClick(() => { void this.shareProgress(); })
         Button('打开面试语音')
           .layoutWeight(1)
-          .height(40)
+          .constraintSize({ minHeight: 40 })
           .fontSize(12)
-          .fontColor('#7C3AED')
-          .backgroundColor('#EDE9FE')
+          .fontColor($r('app.color.km_purple'))
+          .backgroundColor($r('app.color.km_purple_soft'))
           .borderRadius(12)
-          .onClick(() => { this.activeTab = 3; })
+          .onClick(() => { this.requestTabChange(3); })
       }
       .width('100%')
-      this.buildStatusMessage(this.nativeMessage)
+      NativeStatusMessage({ message: this.nativeMessage })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
@@ -1769,19 +2801,19 @@ struct Index {
             label: '实证覆盖',
             value: `${this.empiricalCoverage}%`,
             detail: '审核通过后更新',
-            accentColor: '#0F766E',
+            accentColor: $r('app.color.km_teal'),
           })
           NativeMetricCard({
             label: '成长预测',
             value: `${this.projectedCoverage}%`,
             detail: '完成任务后的预测',
-            accentColor: '#246BFE',
+            accentColor: $r('app.color.km_primary'),
           })
           NativeMetricCard({
             label: '待办任务',
             value: `${this.growthTasks.filter((task: NativeGrowthTask) => task.status !== 'verified').length}`,
             detail: '按优先级推进',
-            accentColor: '#B45309',
+            accentColor: $r('app.color.km_warning'),
           })
         }
         .width('100%')
@@ -1792,15 +2824,15 @@ struct Index {
         Row({ space: 8 }) {
           Button('更新简历画像')
             .layoutWeight(1)
-            .height(40)
-            .fontColor('#1D4ED8')
+            .constraintSize({ minHeight: 40 })
+            .fontColor($r('app.color.km_info'))
             .backgroundColor($r('app.color.km_primary_soft'))
             .borderRadius(8)
-            .onClick(() => { this.activeTab = 1; })
+            .onClick(() => { this.requestTabChange(1); })
           Button('查看岗位证据')
             .layoutWeight(1)
-            .height(40)
-            .fontColor('#047857')
+            .constraintSize({ minHeight: 40 })
+            .fontColor($r('app.color.km_success'))
             .backgroundColor($r('app.color.km_teal_soft'))
             .borderRadius(8)
             .onClick(() => { this.openJobsTab(); })
@@ -1812,6 +2844,8 @@ struct Index {
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 14, bottom: 20 })
+      .constraintSize({ maxWidth: this.isWideLayout ? 1040 : '100%' })
+      .alignSelf(ItemAlign.Center)
     }
     .layoutWeight(1)
     .scrollBar(BarState.Off)
@@ -1837,49 +2871,75 @@ struct Index {
         Column({ space: 6 }) {
           this.buildFieldLabel('姓名', '选填')
           TextInput({ placeholder: '填写你的姓名', text: this.resumeName })
-            .height(48)
+            .constraintSize({ minHeight: 48 })
+            .maxLength(40)
+            .enterKeyType(EnterKeyType.Next)
             .backgroundColor($r('app.color.km_surface'))
             .border({ width: 1, color: $r('app.color.km_border') })
             .borderRadius(8)
-            .onChange((value: string) => { this.resumeName = value; })
+            .onChange((value: string) => {
+              this.resumeName = value;
+              this.updateResumeDirtyState();
+            })
         }
         .width('100%')
         Column({ space: 6 }) {
-          this.buildFieldLabel('目标岗位', '用于匹配')
+          this.buildFieldLabel('目标岗位', '必填 · 用于匹配')
           TextInput({ placeholder: '例如：前端开发实习生', text: this.targetJob })
-            .height(48)
+            .constraintSize({ minHeight: 48 })
+            .maxLength(80)
+            .enterKeyType(EnterKeyType.Next)
             .backgroundColor($r('app.color.km_surface'))
-            .border({ width: 1, color: $r('app.color.km_border') })
+            .border({ width: 1, color: this.resumeTargetError ? $r('app.color.km_danger') : $r('app.color.km_border') })
             .borderRadius(8)
-            .onChange((value: string) => { this.targetJob = value; })
+            .onChange((value: string) => {
+              this.targetJob = value;
+              this.updateResumeDirtyState();
+              if (this.resumeTargetTouched) this.resumeTargetError = this.validateTargetJob(value);
+            })
+            .onBlur(() => {
+              this.resumeTargetTouched = true;
+              this.resumeTargetError = this.validateTargetJob(this.targetJob);
+            })
+          NativeFieldError({ message: this.resumeTargetError })
         }
         .width('100%')
         Column({ space: 6 }) {
-          this.buildFieldLabel('真实经历', '只写可核验内容')
+          this.buildFieldLabel('真实经历', `${this.resumeSummary.length}/4000 · 至少 30 字`)
           TextArea({ placeholder: '粘贴真实项目、实习或校园经历，不要填写无法核验的数字。', text: this.resumeSummary })
-            .height(150)
+            .constraintSize({ minHeight: 150 })
+            .maxLength(4000)
             .backgroundColor($r('app.color.km_surface'))
-            .border({ width: 1, color: $r('app.color.km_border') })
+            .border({ width: 1, color: this.resumeSummaryError ? $r('app.color.km_danger') : $r('app.color.km_border') })
             .borderRadius(8)
-            .onChange((value: string) => { this.resumeSummary = value; })
+            .onChange((value: string) => {
+              this.resumeSummary = value;
+              this.updateResumeDirtyState();
+              if (this.resumeSummaryTouched) this.resumeSummaryError = this.validateResumeSummary(value);
+            })
+            .onBlur(() => {
+              this.resumeSummaryTouched = true;
+              this.resumeSummaryError = this.validateResumeSummary(this.resumeSummary);
+            })
+          NativeFieldError({ message: this.resumeSummaryError })
         }
         .width('100%')
         Row({ space: 8 }) {
           Button(this.ocrActive ? '本机 OCR 识别中…' : '从图库导入')
             .layoutWeight(1)
-            .height(42)
+            .constraintSize({ minHeight: 42 })
             .fontSize(12)
-            .fontColor('#1D4ED8')
-            .backgroundColor('#DBEAFE')
+            .fontColor($r('app.color.km_info'))
+            .backgroundColor($r('app.color.km_info_soft'))
             .borderRadius(8)
             .enabled(!this.ocrActive)
             .onClick(() => { void this.importResumeImage(); })
           Button(this.ocrActive ? '请稍候' : '从文件导入')
             .layoutWeight(1)
-            .height(42)
+            .constraintSize({ minHeight: 42 })
             .fontSize(12)
-            .fontColor('#0F766E')
-            .backgroundColor('#CCFBF1')
+            .fontColor($r('app.color.km_teal'))
+            .backgroundColor($r('app.color.km_teal_soft'))
             .borderRadius(8)
             .enabled(!this.ocrActive)
             .onClick(() => { void this.importResumeFile(); })
@@ -1888,20 +2948,16 @@ struct Index {
         Text('图片只在本机读取，识别后仍需你确认。')
           .width('100%')
           .fontSize(11)
-          .fontColor('#64748B')
+          .fontColor($r('app.color.km_text_secondary'))
           .lineHeight(17)
         Button('保存本机简历画像')
           .width('100%')
-          .height(46)
-          .fontColor('#FFFFFF')
-          .backgroundColor('#2563EB')
+          .constraintSize({ minHeight: 46 })
+          .fontColor($r('app.color.km_text_on_primary'))
+          .backgroundColor($r('app.color.km_primary_action'))
           .borderRadius(8)
-          .onClick(() => {
-            this.rebuildEvidenceMatrix();
-            this.profileMessage = '简历画像已保存到本机。';
-            void this.saveWorkspace();
-          })
-        this.buildStatusMessage(this.profileMessage)
+          .onClick(() => { this.saveResumeProfile(); })
+        NativeStatusMessage({ message: this.profileMessage })
         NativeResumeVersionPanel({
           versions: this.resumeVersions,
           currentJobKey: this.applicationJobKey,
@@ -1910,7 +2966,7 @@ struct Index {
           message: this.resumeVersionMessage,
           onCreateVersion: () => { this.saveNativeResumeVersion(); },
           onBindVersion: (versionId: string) => { this.bindNativeResumeVersion(versionId); },
-          onDeleteVersion: (versionId: string) => { this.deleteNativeResumeVersion(versionId); },
+          onDeleteVersion: (versionId: string) => { this.requestDeleteNativeResumeVersion(versionId); },
         })
         Column({ space: 8 }) {
           Text('隐私与识别')
@@ -1930,6 +2986,8 @@ struct Index {
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 14, bottom: 24 })
+      .constraintSize({ maxWidth: this.isWideLayout ? 1040 : '100%' })
+      .alignSelf(ItemAlign.Center)
     }
     .layoutWeight(1)
     .scrollBar(BarState.Off)
@@ -1943,25 +3001,27 @@ struct Index {
           Text('官方岗位搜索')
             .fontSize(17)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0F172A')
+            .fontColor($r('app.color.km_text_primary'))
           Text('只展示带有可追溯来源链接的岗位')
             .fontSize(11)
-            .fontColor('#64748B')
+            .fontColor($r('app.color.km_text_secondary'))
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
         Text(this.publicJobsConfigured ? '服务已配置' : '支持离线降级')
           .fontSize(10)
-          .fontColor(this.publicJobsConfigured ? '#047857' : '#B45309')
+          .fontColor(this.publicJobsConfigured ? $r('app.color.km_success') : $r('app.color.km_warning'))
           .padding({ left: 8, right: 8, top: 5, bottom: 5 })
-          .backgroundColor(this.publicJobsConfigured ? '#D1FAE5' : '#FEF3C7')
+          .backgroundColor(this.publicJobsConfigured ? $r('app.color.km_success_soft') : $r('app.color.km_warning_badge'))
           .borderRadius(11)
       }
       .width('100%')
       Column({ space: 6 }) {
         this.buildFieldLabel('岗位关键词', `默认：${this.targetJob}`)
         TextInput({ placeholder: '输入岗位名称或技能关键词', text: this.jobQuery })
-          .height(44)
+          .constraintSize({ minHeight: 44 })
+          .maxLength(80)
+          .enterKeyType(EnterKeyType.Search)
           .backgroundColor($r('app.color.km_surface_subtle'))
           .border({ width: 1, color: $r('app.color.km_border') })
           .borderRadius(8)
@@ -1971,7 +3031,9 @@ struct Index {
       Column({ space: 6 }) {
         this.buildFieldLabel('城市', '选填')
         TextInput({ placeholder: '例如：上海', text: this.jobCity })
-          .height(44)
+          .constraintSize({ minHeight: 44 })
+          .maxLength(40)
+          .enterKeyType(EnterKeyType.Search)
           .backgroundColor($r('app.color.km_surface_subtle'))
           .border({ width: 1, color: $r('app.color.km_border') })
           .borderRadius(8)
@@ -1980,10 +3042,10 @@ struct Index {
       .width('100%')
       Button(this.publicJobsLoading ? '正在读取官方岗位…' : '搜索官方岗位')
         .width('100%')
-        .height(42)
+        .constraintSize({ minHeight: 42 })
         .fontSize(12)
-        .fontColor('#FFFFFF')
-        .backgroundColor(this.publicJobsLoading ? '#94A3B8' : '#2563EB')
+        .fontColor($r('app.color.km_text_on_primary'))
+        .backgroundColor(this.publicJobsLoading ? $r('app.color.km_disabled') : $r('app.color.km_primary_action'))
         .borderRadius(8)
         .enabled(!this.publicJobsLoading)
         .onClick(() => { void this.refreshPublicJobs(); })
@@ -1995,13 +3057,15 @@ struct Index {
           .backgroundColor($r('app.color.km_warning_soft'))
           .borderRadius(8)
       }
-      this.buildStatusMessage(this.publicJobsMessage)
+      if (!this.publicJobsFailed || this.publicJobs.length > 0) {
+        NativeStatusMessage({ message: this.publicJobsMessage })
+      }
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .padding(16)
-    .backgroundColor('#FFFFFF')
-    .border({ width: 1, color: '#E2E8F0' })
+    .backgroundColor($r('app.color.km_surface'))
+    .border({ width: 1, color: $r('app.color.km_border') })
     .borderRadius(8)
   }
 
@@ -2013,39 +3077,39 @@ struct Index {
           Text(job.title)
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0F172A')
+            .fontColor($r('app.color.km_text_primary'))
             .maxLines(2)
           Text(job.company)
             .fontSize(12)
-            .fontColor('#475569')
+            .fontColor($r('app.color.km_text_muted'))
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
         Text(this.verificationLabel(job.verification))
           .fontSize(9)
-          .fontColor('#047857')
+          .fontColor($r('app.color.km_success'))
           .padding({ left: 7, right: 7, top: 4, bottom: 4 })
-          .backgroundColor('#D1FAE5')
+          .backgroundColor($r('app.color.km_success_soft'))
           .borderRadius(9)
       }
       .width('100%')
       Row({ space: 8 }) {
         Text(job.city)
           .fontSize(10)
-          .fontColor('#2563EB')
+          .fontColor($r('app.color.km_primary_action'))
         Text(job.level)
           .fontSize(10)
-          .fontColor('#7C3AED')
+          .fontColor($r('app.color.km_purple'))
         Text(job.sourceName)
           .fontSize(10)
-          .fontColor('#64748B')
+          .fontColor($r('app.color.km_text_secondary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .width('100%')
       Text(job.summary)
         .fontSize(11)
-        .fontColor('#64748B')
+        .fontColor($r('app.color.km_text_secondary'))
         .lineHeight(18)
         .maxLines(3)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -2053,18 +3117,18 @@ struct Index {
       Row({ space: 8 }) {
         Button('查看详情')
           .layoutWeight(1)
-          .height(38)
+          .constraintSize({ minHeight: 38 })
           .fontSize(11)
-          .fontColor('#1D4ED8')
-          .backgroundColor('#DBEAFE')
+          .fontColor($r('app.color.km_info'))
+          .backgroundColor($r('app.color.km_info_soft'))
           .borderRadius(12)
           .onClick(() => { this.showPublicJob(job.id); })
         Button('保存追踪')
           .layoutWeight(1)
-          .height(38)
+          .constraintSize({ minHeight: 38 })
           .fontSize(11)
-          .fontColor('#FFFFFF')
-          .backgroundColor('#2563EB')
+          .fontColor($r('app.color.km_text_on_primary'))
+          .backgroundColor($r('app.color.km_primary_action'))
           .borderRadius(12)
           .onClick(() => { this.trackPublicJob(job); })
       }
@@ -2073,8 +3137,8 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .padding(16)
-    .backgroundColor('#FFFFFF')
-    .border({ width: 1, color: '#E2E8F0' })
+    .backgroundColor($r('app.color.km_surface'))
+    .border({ width: 1, color: $r('app.color.km_border') })
     .borderRadius(8)
   }
 
@@ -2083,10 +3147,10 @@ struct Index {
     Scroll() {
       Column({ space: 12 }) {
         Button('返回岗位列表')
-          .height(38)
+          .constraintSize({ minHeight: 38 })
           .fontSize(11)
-          .fontColor('#1D4ED8')
-          .backgroundColor('#DBEAFE')
+          .fontColor($r('app.color.km_info'))
+          .backgroundColor($r('app.color.km_info_soft'))
           .borderRadius(12)
           .alignSelf(ItemAlign.Start)
           .onClick(() => { this.selectedPublicJobIndex = -1; })
@@ -2094,28 +3158,28 @@ struct Index {
           Row() {
             Text(this.verificationLabel(job.verification))
               .fontSize(10)
-              .fontColor('#047857')
+              .fontColor($r('app.color.km_success'))
               .padding({ left: 8, right: 8, top: 5, bottom: 5 })
-              .backgroundColor('#D1FAE5')
+              .backgroundColor($r('app.color.km_success_soft'))
               .borderRadius(10)
             Blank()
             Text(job.level)
               .fontSize(11)
-              .fontColor('#7C3AED')
+              .fontColor($r('app.color.km_purple'))
           }
           .width('100%')
           Text(job.title)
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0F172A')
+            .fontColor($r('app.color.km_text_primary'))
             .width('100%')
           Text(`${job.company} · ${job.city}`)
             .fontSize(13)
-            .fontColor('#475569')
+            .fontColor($r('app.color.km_text_muted'))
             .width('100%')
           Text(job.summary)
             .fontSize(12)
-            .fontColor('#334155')
+            .fontColor($r('app.color.km_text_body'))
             .lineHeight(20)
             .maxLines(6)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -2124,65 +3188,65 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .width('100%')
         .padding(18)
-        .backgroundColor('#FFFFFF')
-        .border({ width: 1, color: '#E2E8F0' })
+        .backgroundColor($r('app.color.km_surface'))
+        .border({ width: 1, color: $r('app.color.km_border') })
         .borderRadius(8)
 
         Row({ space: 8 }) {
           Button('保存为追踪岗位')
             .layoutWeight(1)
-            .height(44)
+            .constraintSize({ minHeight: 44 })
             .fontSize(11)
-            .fontColor('#1D4ED8')
-            .backgroundColor('#DBEAFE')
+            .fontColor($r('app.color.km_info'))
+            .backgroundColor($r('app.color.km_info_soft'))
             .borderRadius(8)
             .onClick(() => { this.trackPublicJob(job); })
           Button('打开官方投递')
             .layoutWeight(1)
-            .height(44)
+            .constraintSize({ minHeight: 44 })
             .fontSize(11)
-            .fontColor('#FFFFFF')
-            .backgroundColor('#2563EB')
+            .fontColor($r('app.color.km_text_on_primary'))
+            .backgroundColor($r('app.color.km_primary_action'))
             .borderRadius(8)
             .onClick(() => { void this.openPublicJob(job); })
         }
         .width('100%')
-        this.buildStatusMessage(this.publicJobsMessage)
+        NativeStatusMessage({ message: this.publicJobsMessage })
 
         Column({ space: 8 }) {
           Text('岗位职责与要求')
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0F172A')
+            .fontColor($r('app.color.km_text_primary'))
           Text(job.description)
             .fontSize(12)
-            .fontColor('#475569')
+            .fontColor($r('app.color.km_text_muted'))
             .lineHeight(21)
             .width('100%')
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
         .padding(16)
-        .backgroundColor('#FFFFFF')
-        .border({ width: 1, color: '#E2E8F0' })
+        .backgroundColor($r('app.color.km_surface'))
+        .border({ width: 1, color: $r('app.color.km_border') })
         .borderRadius(8)
 
         Column({ space: 7 }) {
           Text('来源核验')
             .fontSize(15)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0F172A')
+            .fontColor($r('app.color.km_text_primary'))
           Text(`来源：${job.sourceName}`)
             .fontSize(11)
-            .fontColor('#475569')
+            .fontColor($r('app.color.km_text_muted'))
           if (job.publishedAt) {
             Text(`发布时间：${job.publishedAt}`)
               .fontSize(11)
-              .fontColor('#64748B')
+              .fontColor($r('app.color.km_text_secondary'))
           }
           Text(job.sourceUrl)
             .fontSize(10)
-            .fontColor('#2563EB')
+            .fontColor($r('app.color.km_primary_action'))
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .width('100%')
@@ -2190,11 +3254,13 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .width('100%')
         .padding(16)
-        .backgroundColor('#EFF6FF')
+        .backgroundColor($r('app.color.km_primary_tint'))
         .borderRadius(8)
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 14, bottom: 24 })
+      .constraintSize({ maxWidth: this.isWideLayout ? 1040 : '100%' })
+      .alignSelf(ItemAlign.Center)
     }
     .layoutWeight(1)
     .scrollBar(BarState.Off)
@@ -2207,83 +3273,126 @@ struct Index {
         Text(this.trackedJobs > 0 ? '编辑真实岗位' : '添加真实岗位')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#0F172A')
+          .fontColor($r('app.color.km_text_primary'))
         Blank()
         Text('仅保存在本机')
           .fontSize(10)
-          .fontColor('#047857')
+          .fontColor($r('app.color.km_success'))
           .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-          .backgroundColor('#D1FAE5')
+          .backgroundColor($r('app.color.km_success_soft'))
           .borderRadius(10)
       }
       .width('100%')
       Column({ space: 6 }) {
         this.buildFieldLabel('岗位名称', '必填')
         TextInput({ placeholder: '填写招聘页面中的岗位名称', text: this.trackedJobTitle })
-          .height(44)
+          .constraintSize({ minHeight: 44 })
+          .maxLength(120)
+          .enterKeyType(EnterKeyType.Next)
           .backgroundColor($r('app.color.km_surface_subtle'))
-          .border({ width: 1, color: $r('app.color.km_border') })
+          .border({ width: 1, color: this.jobTitleError ? $r('app.color.km_danger') : $r('app.color.km_border') })
           .borderRadius(8)
-          .onChange((value: string) => { this.trackedJobTitle = value; })
+          .onChange((value: string) => {
+            this.trackedJobTitle = value;
+            this.updateJobEditorDirtyState();
+            if (this.jobTitleTouched) this.jobTitleError = this.validateJobTitle(value);
+          })
+          .onBlur(() => {
+            this.jobTitleTouched = true;
+            this.jobTitleError = this.validateJobTitle(this.trackedJobTitle);
+          })
+        NativeFieldError({ message: this.jobTitleError })
       }
       .width('100%')
       Column({ space: 6 }) {
         this.buildFieldLabel('公司名称', '必填')
         TextInput({ placeholder: '填写招聘主体或公司名称', text: this.trackedJobCompany })
-          .height(44)
+          .constraintSize({ minHeight: 44 })
+          .maxLength(120)
+          .enterKeyType(EnterKeyType.Next)
           .backgroundColor($r('app.color.km_surface_subtle'))
-          .border({ width: 1, color: $r('app.color.km_border') })
+          .border({ width: 1, color: this.jobCompanyError ? $r('app.color.km_danger') : $r('app.color.km_border') })
           .borderRadius(8)
-          .onChange((value: string) => { this.trackedJobCompany = value; })
+          .onChange((value: string) => {
+            this.trackedJobCompany = value;
+            this.updateJobEditorDirtyState();
+            if (this.jobCompanyTouched) this.jobCompanyError = this.validateJobCompany(value);
+          })
+          .onBlur(() => {
+            this.jobCompanyTouched = true;
+            this.jobCompanyError = this.validateJobCompany(this.trackedJobCompany);
+          })
+        NativeFieldError({ message: this.jobCompanyError })
       }
       .width('100%')
       Column({ space: 6 }) {
         this.buildFieldLabel('岗位来源', '必填')
         TextInput({ placeholder: '粘贴 http/https 招聘页面链接', text: this.trackedJobSource })
-          .height(44)
+          .constraintSize({ minHeight: 44 })
+          .maxLength(1000)
+          .enterKeyType(EnterKeyType.Next)
           .backgroundColor($r('app.color.km_surface_subtle'))
-          .border({ width: 1, color: $r('app.color.km_border') })
+          .border({ width: 1, color: this.jobSourceError ? $r('app.color.km_danger') : $r('app.color.km_border') })
           .borderRadius(8)
-          .onChange((value: string) => { this.trackedJobSource = value; })
+          .onChange((value: string) => {
+            this.trackedJobSource = value;
+            this.updateJobEditorDirtyState();
+            if (this.jobSourceTouched) this.jobSourceError = this.validateJobSource(value);
+          })
+          .onBlur(() => {
+            this.jobSourceTouched = true;
+            this.jobSourceError = this.validateJobSource(this.trackedJobSource);
+          })
+        NativeFieldError({ message: this.jobSourceError })
       }
       .width('100%')
       Column({ space: 6 }) {
         this.buildFieldLabel('岗位描述', '至少 30 字')
         TextArea({ placeholder: '粘贴真实 JD，用于识别技能、学历和成果要求。', text: this.trackedJobDescription })
-          .height(128)
+          .constraintSize({ minHeight: 128 })
+          .maxLength(6000)
           .backgroundColor($r('app.color.km_surface_subtle'))
-          .border({ width: 1, color: $r('app.color.km_border') })
+          .border({ width: 1, color: this.jobDescriptionError ? $r('app.color.km_danger') : $r('app.color.km_border') })
           .borderRadius(8)
-          .onChange((value: string) => { this.trackedJobDescription = value; })
+          .onChange((value: string) => {
+            this.trackedJobDescription = value;
+            this.updateJobEditorDirtyState();
+            if (this.jobDescriptionTouched) this.jobDescriptionError = this.validateJobDescription(value);
+          })
+          .onBlur(() => {
+            this.jobDescriptionTouched = true;
+            this.jobDescriptionError = this.validateJobDescription(this.trackedJobDescription);
+          })
+        NativeFieldError({ message: this.jobDescriptionError })
       }
       .width('100%')
       Row({ space: 8 }) {
         Button('保存并重建证据')
           .layoutWeight(1)
-          .height(42)
+          .constraintSize({ minHeight: 42 })
           .fontSize(12)
-          .fontColor('#FFFFFF')
-          .backgroundColor('#2563EB')
+          .fontColor($r('app.color.km_text_on_primary'))
+          .backgroundColor($r('app.color.km_primary_action'))
           .borderRadius(8)
           .onClick(() => { this.saveTrackedJob(); })
         if (this.trackedJobs > 0) {
           Button('取消')
-            .height(42)
+            .constraintSize({ minHeight: 42 })
             .fontSize(12)
-            .fontColor('#475569')
-            .backgroundColor('#E2E8F0')
+            .fontColor($r('app.color.km_text_muted'))
+            .backgroundColor($r('app.color.km_border'))
             .borderRadius(8)
-            .onClick(() => { this.showJobEditor = false; })
+            .onClick(() => { this.cancelTrackedJobEdit(); })
         }
       }
       .width('100%')
-      this.buildStatusMessage(this.jobMessage)
+      NativeStatusMessage({ message: this.jobMessage })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .padding(16)
-    .backgroundColor('#FFFFFF')
-    .border({ width: 1, color: '#E2E8F0' })
+    .backgroundColor($r('app.color.km_surface'))
+    .border({ width: 1, color: $r('app.color.km_border') })
     .borderRadius(8)
   }
 
@@ -2301,31 +3410,31 @@ struct Index {
             Text(this.trackedJobTitle)
               .fontSize(18)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('app.color.km_text_primary'))
               .maxLines(2)
             Text(this.trackedJobCompany)
               .fontSize(12)
-              .fontColor('#475569')
+              .fontColor($r('app.color.km_text_muted'))
           }
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
           Text('本机追踪')
             .fontSize(10)
-            .fontColor('#047857')
+            .fontColor($r('app.color.km_success'))
             .padding({ left: 8, right: 8, top: 5, bottom: 5 })
-            .backgroundColor('#D1FAE5')
+            .backgroundColor($r('app.color.km_success_soft'))
             .borderRadius(11)
         }
         .width('100%')
         Text(this.trackedJobSource)
           .fontSize(10)
-          .fontColor('#2563EB')
+          .fontColor($r('app.color.km_primary_action'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
         Text(this.trackedJobDescription)
           .fontSize(11)
-          .fontColor('#64748B')
+          .fontColor($r('app.color.km_text_secondary'))
           .lineHeight(18)
           .maxLines(3)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -2337,11 +3446,21 @@ struct Index {
           nextInterviewAt: this.nextInterviewAt,
           applicationEvents: this.applicationEvents,
           applicationMessage: this.applicationMessage,
+          applicationDeadlineError: this.applicationDeadlineError,
+          nextInterviewAtError: this.nextInterviewAtError,
           currentAction: this.currentApplicationAction(),
           boundVersionName: this.boundResumeVersionName(),
           onStageChange: (stageId: string) => { this.updateApplicationStage(stageId); },
-          onDeadlineChange: (value: string) => { this.applicationDeadline = value; },
-          onInterviewChange: (value: string) => { this.nextInterviewAt = value; },
+          onDeadlineChange: (value: string) => {
+            this.applicationDeadline = value;
+            this.updateApplicationScheduleDirtyState();
+            this.applicationDeadlineError = this.validateLocalDateTime(value);
+          },
+          onInterviewChange: (value: string) => {
+            this.nextInterviewAt = value;
+            this.updateApplicationScheduleDirtyState();
+            this.nextInterviewAtError = this.validateLocalDateTime(value);
+          },
           onSaveSchedule: () => { this.saveApplicationSchedule(); },
           onCreateDeadlineReminder: () => { void this.openApplicationReminder('deadline'); },
           onCreateInterviewReminder: () => { void this.openApplicationReminder('interview'); },
@@ -2349,29 +3468,29 @@ struct Index {
         Row({ space: 8 }) {
           Button('编辑岗位')
             .layoutWeight(1)
-            .height(38)
+            .constraintSize({ minHeight: 38 })
             .fontSize(11)
-            .fontColor('#1D4ED8')
-            .backgroundColor('#DBEAFE')
+            .fontColor($r('app.color.km_info'))
+            .backgroundColor($r('app.color.km_info_soft'))
             .borderRadius(12)
-            .onClick(() => { this.showJobEditor = true; })
+            .onClick(() => { this.beginTrackedJobEdit(); })
           Button('移除岗位')
             .layoutWeight(1)
-            .height(38)
+            .constraintSize({ minHeight: 38 })
             .fontSize(11)
-            .fontColor('#B91C1C')
-            .backgroundColor('#FEE2E2')
+            .fontColor($r('app.color.km_danger'))
+            .backgroundColor($r('app.color.km_danger_soft'))
             .borderRadius(12)
-            .onClick(() => { this.removeTrackedJob(); })
+            .onClick(() => { this.requestRemoveTrackedJob(); })
         }
         .width('100%')
-        this.buildStatusMessage(this.jobMessage)
+        NativeStatusMessage({ message: this.jobMessage })
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')
       .padding(16)
-      .backgroundColor('#FFFFFF')
-      .border({ width: 1, color: '#E2E8F0' })
+      .backgroundColor($r('app.color.km_surface'))
+      .border({ width: 1, color: $r('app.color.km_border') })
       .borderRadius(8)
     }
   }
@@ -2402,43 +3521,42 @@ struct Index {
               Text('官方岗位结果')
                 .fontSize(16)
                 .fontWeight(FontWeight.Bold)
-                .fontColor('#0F172A')
+                .fontColor($r('app.color.km_text_primary'))
               Blank()
               Text(`${this.publicJobs.length}/${this.publicJobsTotal}`)
                 .fontSize(11)
-                .fontColor('#64748B')
+                .fontColor($r('app.color.km_text_secondary'))
             }
             .width('100%')
             ForEach(this.publicJobs, (job: NativePublicJob) => {
               this.buildPublicJobCard(job);
             }, (job: NativePublicJob) => job.id)
-          } else if (this.publicJobsSearched && !this.publicJobsLoading) {
-            Column({ space: 7 }) {
-              SymbolGlyph($r('sys.symbol.magnifyingglass'))
-                .fontSize(24)
-                .fontColor([$r('app.color.km_text_tertiary')])
-              Text('没有找到符合条件的官方岗位')
-                .fontSize(14)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('app.color.km_text_primary'))
-              Text('可以调整关键词或城市后重试，也可以继续在下方录入真实岗位。')
-                .fontSize(10)
-                .fontColor($r('app.color.km_text_secondary'))
-                .lineHeight(17)
-                .textAlign(TextAlign.Center)
-            }
-            .alignItems(HorizontalAlign.Center)
-            .width('100%')
-            .padding(18)
-            .backgroundColor($r('app.color.km_surface'))
-            .border({ width: 1, color: $r('app.color.km_border') })
-            .borderRadius(8)
+          } else if (this.publicJobsLoading) {
+            NativeAsyncStatePanel({
+              state: 'loading',
+              title: '正在汇总官方岗位',
+              detail: '正在核对来源、岗位状态与筛选条件。',
+            })
+          } else if (this.publicJobsSearched && this.publicJobsFailed) {
+            NativeAsyncStatePanel({
+              state: 'error',
+              title: this.publicJobsConfigured ? '暂时无法读取官方岗位' : '当前版本未连接岗位服务',
+              detail: this.publicJobsMessage,
+              actionLabel: this.publicJobsConfigured ? '重新连接' : '',
+              onAction: () => { void this.refreshPublicJobs(); },
+            })
+          } else if (this.publicJobsSearched) {
+            NativeAsyncStatePanel({
+              state: 'empty',
+              title: '没有找到符合条件的官方岗位',
+              detail: '调整关键词或城市后重新搜索，也可以继续在下方录入真实岗位。',
+            })
           }
 
           Text('本机岗位与证据')
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0F172A')
+            .fontColor($r('app.color.km_text_primary'))
             .width('100%')
 
           Row({ space: 10 }) {
@@ -2455,14 +3573,16 @@ struct Index {
 
           Button('进入模拟面试')
             .width('100%')
-            .height(46)
-            .fontColor('#FFFFFF')
-            .backgroundColor('#2563EB')
+            .constraintSize({ minHeight: 46 })
+            .fontColor($r('app.color.km_text_on_primary'))
+            .backgroundColor($r('app.color.km_primary_action'))
             .borderRadius(8)
-            .onClick(() => { this.activeTab = 3; })
+            .onClick(() => { this.requestTabChange(3); })
         }
         .width('100%')
         .padding({ left: 16, right: 16, top: 14, bottom: 24 })
+        .constraintSize({ maxWidth: this.isWideLayout ? 1040 : '100%' })
+        .alignSelf(ItemAlign.Center)
       }
       .layoutWeight(1)
       .scrollBar(BarState.Off)
@@ -2476,7 +3596,7 @@ struct Index {
         Text(title)
           .fontSize(15)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#0F172A')
+          .fontColor($r('app.color.km_text_primary'))
         Blank()
         Text(status)
           .fontSize(11)
@@ -2488,15 +3608,15 @@ struct Index {
       .width('100%')
       Text(detail)
         .fontSize(12)
-        .fontColor('#64748B')
+        .fontColor($r('app.color.km_text_secondary'))
         .lineHeight(19)
         .width('100%')
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .padding(16)
-    .backgroundColor('#FFFFFF')
-    .border({ width: 1, color: '#E2E8F0' })
+    .backgroundColor($r('app.color.km_surface'))
+    .border({ width: 1, color: $r('app.color.km_border') })
     .borderRadius(8)
   }
 
@@ -2517,25 +3637,25 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .width('100%')
         Row({ space: 8 }) {
-          Button('综合面').layoutWeight(1).height(40).backgroundColor(this.interviewType === '综合面' ? '#2563EB' : '#E2E8F0').fontColor(this.interviewType === '综合面' ? '#FFFFFF' : '#334155').borderRadius(8).onClick(() => { this.interviewType = '综合面'; })
-          Button('技术面').layoutWeight(1).height(40).backgroundColor(this.interviewType === '技术面' ? '#2563EB' : '#E2E8F0').fontColor(this.interviewType === '技术面' ? '#FFFFFF' : '#334155').borderRadius(8).onClick(() => { this.interviewType = '技术面'; })
-          Button('HR 面').layoutWeight(1).height(40).backgroundColor(this.interviewType === 'HR面' ? '#2563EB' : '#E2E8F0').fontColor(this.interviewType === 'HR面' ? '#FFFFFF' : '#334155').borderRadius(8).onClick(() => { this.interviewType = 'HR面'; })
+          Button('综合面').layoutWeight(1).constraintSize({ minHeight: 40 }).backgroundColor(this.interviewType === '综合面' ? $r('app.color.km_primary_action') : $r('app.color.km_border')).fontColor(this.interviewType === '综合面' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body')).borderRadius(8).onClick(() => { this.interviewType = '综合面'; })
+          Button('技术面').layoutWeight(1).constraintSize({ minHeight: 40 }).backgroundColor(this.interviewType === '技术面' ? $r('app.color.km_primary_action') : $r('app.color.km_border')).fontColor(this.interviewType === '技术面' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body')).borderRadius(8).onClick(() => { this.interviewType = '技术面'; })
+          Button('HR 面').layoutWeight(1).constraintSize({ minHeight: 40 }).backgroundColor(this.interviewType === 'HR面' ? $r('app.color.km_primary_action') : $r('app.color.km_border')).fontColor(this.interviewType === 'HR面' ? $r('app.color.km_text_on_primary') : $r('app.color.km_text_body')).borderRadius(8).onClick(() => { this.interviewType = 'HR面'; })
         }
         .width('100%')
 
         Row({ space: 12 }) {
           Checkbox({ name: 'native-model-consent', group: 'interview-privacy' })
             .select(this.modelConsent)
-            .selectedColor('#2563EB')
+            .selectedColor($r('app.color.km_primary_action'))
             .onChange((value: boolean) => { this.updateModelConsent(value); })
           Column({ space: 3 }) {
             Text('本次训练使用智能增强')
               .fontSize(14)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('app.color.km_text_primary'))
             Text('发送前隐藏手机号、邮箱、身份证号和详细地址；模型密钥仅保存在服务端。')
               .fontSize(11)
-              .fontColor('#64748B')
+              .fontColor($r('app.color.km_text_secondary'))
               .lineHeight(18)
           }
           .alignItems(HorizontalAlign.Start)
@@ -2544,7 +3664,7 @@ struct Index {
         .alignItems(VerticalAlign.Top)
         .width('100%')
         .padding(14)
-        .backgroundColor(this.modelConsent ? '#EFF6FF' : '#F8FAFC')
+        .backgroundColor(this.modelConsent ? $r('app.color.km_primary_tint') : $r('app.color.km_surface_subtle'))
         .borderRadius(8)
 
         if (!this.interviewStarted) {
@@ -2552,76 +3672,87 @@ struct Index {
             Text('围绕真实项目回答，不自动编造经历。')
               .fontSize(16)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('app.color.km_text_primary'))
             Text(this.modelConsent
               ? '首题由本机准备；提交回答后，模型只基于已脱敏内容生成下一轮证据追问。'
               : '当前使用本机规则生成问题和反馈，不会发送简历或回答。')
               .fontSize(13)
-              .fontColor('#64748B')
+              .fontColor($r('app.color.km_text_secondary'))
               .lineHeight(21)
             Button(this.modelConsent ? '开始 AI 增强面试' : '开始本机面试')
               .width('100%')
-              .height(46)
-              .fontColor('#FFFFFF')
-              .backgroundColor('#2563EB')
+              .constraintSize({ minHeight: 46 })
+              .fontColor($r('app.color.km_text_on_primary'))
+              .backgroundColor($r('app.color.km_primary_action'))
               .borderRadius(8)
               .onClick(() => { this.startInterview(); })
           }
           .alignItems(HorizontalAlign.Start)
           .width('100%')
           .padding(18)
-          .backgroundColor('#FFFFFF')
-          .border({ width: 1, color: '#E2E8F0' })
+          .backgroundColor($r('app.color.km_surface'))
+          .border({ width: 1, color: $r('app.color.km_border') })
           .borderRadius(8)
         } else {
           Column({ space: 10 }) {
             Row() {
               Text(`${this.interviewType} · 第 ${Math.max(1, this.interviewRound)} 轮 / 3`)
                 .fontSize(12)
-                .fontColor('#2563EB')
+                .fontColor($r('app.color.km_primary_action'))
               Blank()
               Text(this.interviewModelName)
                 .fontSize(10)
-                .fontColor(this.interviewModelName === '本机规则' ? '#475569' : '#047857')
+                .fontColor(this.interviewModelName === '本机规则' ? $r('app.color.km_text_muted') : $r('app.color.km_success'))
                 .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                .backgroundColor(this.interviewModelName === '本机规则' ? '#E2E8F0' : '#D1FAE5')
+                .backgroundColor(this.interviewModelName === '本机规则' ? $r('app.color.km_border') : $r('app.color.km_success_soft'))
                 .borderRadius(10)
             }
             .width('100%')
             Text(this.interviewQuestion || this.fallbackInterviewQuestion(1))
               .fontSize(17)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('app.color.km_text_primary'))
               .lineHeight(25)
             if (this.interviewTurns.length > 0) {
               Text(`已在本机保留 ${this.interviewTurns.length} 轮回答`)
                 .fontSize(11)
-                .fontColor('#64748B')
+                .fontColor($r('app.color.km_text_secondary'))
             }
-            this.buildFieldLabel('本轮回答', '仅保存在本机')
+            this.buildFieldLabel('本轮回答', `${this.interviewAnswer.length}/3000 · 至少 20 字`)
             TextArea({ placeholder: '输入真实回答，不要填写无法核验的成果。', text: this.interviewAnswer })
-              .height(180)
-              .backgroundColor('#F8FAFC')
-              .border({ width: 1, color: '#E2E8F0' })
+              .constraintSize({ minHeight: 180 })
+              .maxLength(3000)
+              .backgroundColor($r('app.color.km_surface_subtle'))
+              .border({ width: 1, color: this.interviewAnswerError ? $r('app.color.km_danger') : $r('app.color.km_border') })
               .borderRadius(8)
               .enabled(!this.interviewLoading && this.interviewTurns.length < 3)
-              .onChange((value: string) => { this.interviewAnswer = value; })
+              .onChange((value: string) => {
+                this.interviewAnswer = value;
+                if (this.interviewAnswerTouched) this.interviewAnswerError = this.validateInterviewAnswer(value);
+              })
+              .onBlur(() => {
+                if (this.interviewAnswer.trim()) {
+                  this.interviewAnswerTouched = true;
+                  this.interviewAnswerError = this.validateInterviewAnswer(this.interviewAnswer);
+                }
+              })
+            NativeFieldError({ message: this.interviewAnswerError })
             Row({ space: 8 }) {
               Button('朗读问题')
                 .layoutWeight(1)
-                .height(40)
+                .constraintSize({ minHeight: 40 })
                 .fontSize(12)
-                .fontColor('#7C3AED')
-                .backgroundColor('#EDE9FE')
+                .fontColor($r('app.color.km_purple'))
+                .backgroundColor($r('app.color.km_purple_soft'))
                 .borderRadius(8)
                 .enabled(!this.interviewLoading)
                 .onClick(() => { void this.speakInterviewPrompt(); })
               Button(this.speechActive ? '停止并填入语音' : '语音回答')
                 .layoutWeight(1)
-                .height(40)
+                .constraintSize({ minHeight: 40 })
                 .fontSize(12)
-                .fontColor(this.speechActive ? '#FFFFFF' : '#1D4ED8')
-                .backgroundColor(this.speechActive ? '#DC2626' : '#DBEAFE')
+                .fontColor(this.speechActive ? $r('app.color.km_text_on_primary') : $r('app.color.km_info'))
+                .backgroundColor(this.speechActive ? $r('app.color.km_danger_active') : $r('app.color.km_info_soft'))
                 .borderRadius(8)
                 .enabled(!this.interviewLoading && this.interviewTurns.length < 3)
                 .onClick(() => { void this.toggleSpeechInput(); })
@@ -2630,50 +3761,50 @@ struct Index {
             if (this.interviewTurns.length < 3) {
               Button(this.interviewLoading ? '正在生成岗位化追问…' : '提交回答并生成追问')
                 .width('100%')
-                .height(46)
-                .fontColor('#1D4ED8')
-                .backgroundColor('#DBEAFE')
+                .constraintSize({ minHeight: 46 })
+                .fontColor($r('app.color.km_info'))
+                .backgroundColor($r('app.color.km_info_soft'))
                 .borderRadius(8)
                 .enabled(!this.interviewLoading)
                 .onClick(() => { void this.submitInterviewAnswer(); })
             }
             Button(this.interviewLoading ? '正在生成反馈…' : '完成面试并生成反馈')
               .width('100%')
-              .height(46)
-              .fontColor('#FFFFFF')
-              .backgroundColor('#2563EB')
+              .constraintSize({ minHeight: 46 })
+              .fontColor($r('app.color.km_text_on_primary'))
+              .backgroundColor($r('app.color.km_primary_action'))
               .borderRadius(8)
               .enabled(!this.interviewLoading)
               .onClick(() => { void this.finishInterview(); })
-            this.buildStatusMessage(this.interviewMessage)
+            NativeStatusMessage({ message: this.interviewMessage })
             if (this.interviewFeedback) {
-              Divider().color('#CBD5E1')
+              Divider().color($r('app.color.km_border_strong'))
               Text('本轮反馈')
                 .fontSize(15)
                 .fontWeight(FontWeight.Bold)
-                .fontColor('#0F172A')
+                .fontColor($r('app.color.km_text_primary'))
               Text(this.interviewFeedback)
                 .fontSize(12)
-                .fontColor('#475569')
+                .fontColor($r('app.color.km_text_muted'))
                 .lineHeight(21)
                 .width('100%')
               Row({ space: 8 }) {
                 Button('查看成长任务')
                   .layoutWeight(1)
-                  .height(40)
+                  .constraintSize({ minHeight: 40 })
                   .fontSize(12)
-                  .fontColor('#047857')
-                  .backgroundColor('#D1FAE5')
+                  .fontColor($r('app.color.km_success'))
+                  .backgroundColor($r('app.color.km_success_soft'))
                   .borderRadius(8)
-                  .onClick(() => { this.activeTab = 4; })
+                  .onClick(() => { this.requestTabChange(4); })
                 Button('重新开始')
                   .layoutWeight(1)
-                  .height(40)
+                  .constraintSize({ minHeight: 40 })
                   .fontSize(12)
-                  .fontColor('#475569')
-                  .backgroundColor('#E2E8F0')
+                  .fontColor($r('app.color.km_text_muted'))
+                  .backgroundColor($r('app.color.km_border'))
                   .borderRadius(8)
-                  .onClick(() => { this.resetInterview(); })
+                  .onClick(() => { this.requestResetInterview(); })
               }
               .width('100%')
             }
@@ -2681,13 +3812,15 @@ struct Index {
           .alignItems(HorizontalAlign.Start)
           .width('100%')
           .padding(18)
-          .backgroundColor('#FFFFFF')
-          .border({ width: 1, color: '#E2E8F0' })
+          .backgroundColor($r('app.color.km_surface'))
+          .border({ width: 1, color: $r('app.color.km_border') })
           .borderRadius(8)
         }
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 14, bottom: 24 })
+      .constraintSize({ maxWidth: this.isWideLayout ? 1040 : '100%' })
+      .alignSelf(ItemAlign.Center)
     }
     .layoutWeight(1)
     .scrollBar(BarState.Off)
@@ -2720,24 +3853,24 @@ struct Index {
             Text('还没有成长计划')
               .fontSize(17)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('app.color.km_text_primary'))
             Text('先完成一次岗位面试，系统会根据岗位证据和回答表现生成任务。')
               .fontSize(13)
-              .fontColor('#64748B')
+              .fontColor($r('app.color.km_text_secondary'))
               .lineHeight(20)
             Button('开始岗位面试')
               .width('100%')
-              .height(44)
-              .fontColor('#FFFFFF')
-              .backgroundColor('#2563EB')
+              .constraintSize({ minHeight: 44 })
+              .fontColor($r('app.color.km_text_on_primary'))
+              .backgroundColor($r('app.color.km_primary_action'))
               .borderRadius(8)
-              .onClick(() => { this.activeTab = 3; })
+              .onClick(() => { this.requestTabChange(3); })
           }
           .alignItems(HorizontalAlign.Start)
           .width('100%')
           .padding(18)
-          .backgroundColor('#FFFFFF')
-          .border({ width: 1, color: '#E2E8F0' })
+          .backgroundColor($r('app.color.km_surface'))
+          .border({ width: 1, color: $r('app.color.km_border') })
           .borderRadius(8)
         } else {
           NativeEvidenceLedger({
@@ -2747,26 +3880,34 @@ struct Index {
             evidenceSourceUrl: this.evidenceSourceUrl,
             evidenceConfirmed: this.evidenceConfirmed,
             evidenceChecking: this.evidenceChecking,
-            onDraftChange: (value: string) => { this.evidenceDraft = value; },
-            onSourceChange: (value: string) => { this.evidenceSourceUrl = value; },
+            evidenceDraftError: this.growthDraftError,
+            evidenceSourceError: this.growthSourceError,
+            onDraftChange: (value: string) => {
+              this.evidenceDraft = value;
+              if (this.growthDraftTouched) this.growthDraftError = this.validateGrowthDraft(value);
+            },
+            onSourceChange: (value: string) => {
+              this.evidenceSourceUrl = value;
+              if (this.growthSourceTouched) this.growthSourceError = this.validateGrowthSource(value);
+            },
             onConfirmedChange: (value: boolean) => { this.evidenceConfirmed = value; },
             onSubmitEvidence: () => { void this.submitGrowthEvidence(); },
             onOpenSource: (sourceUrl: string) => { void this.openGrowthEvidenceSource(sourceUrl); },
-            onRevokeEvidence: (taskId: string) => { this.revokeGrowthEvidence(taskId); },
+            onRevokeEvidence: (taskId: string) => { this.requestRevokeGrowthEvidence(taskId); },
           })
         }
 
-        this.buildStatusMessage(this.growthMessage)
+        NativeStatusMessage({ message: this.growthMessage })
         if (this.growthHistory.length > 0) {
           Column({ space: 7 }) {
             Text('实证变化记录')
               .fontSize(16)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('app.color.km_text_primary'))
             ForEach(this.growthHistory.slice(0, 5), (item: string) => {
               Text(`• ${item}`)
                 .fontSize(12)
-                .fontColor('#64748B')
+                .fontColor($r('app.color.km_text_secondary'))
                 .lineHeight(19)
                 .width('100%')
             }, (item: string, index: number) => `${index}-${item}`)
@@ -2774,12 +3915,14 @@ struct Index {
           .alignItems(HorizontalAlign.Start)
           .width('100%')
           .padding(16)
-          .backgroundColor('#EFF6FF')
+          .backgroundColor($r('app.color.km_primary_tint'))
           .borderRadius(8)
         }
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 14, bottom: 24 })
+      .constraintSize({ maxWidth: this.isWideLayout ? 1040 : '100%' })
+      .alignSelf(ItemAlign.Center)
     }
     .layoutWeight(1)
     .scrollBar(BarState.Off)
@@ -2800,13 +3943,10 @@ struct Index {
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .layoutWeight(1)
-    .height(52)
-    .backgroundColor(this.activeTab === tab ? $r('app.color.km_primary_soft') : '#00FFFFFF')
+    .constraintSize({ minHeight: 52 })
+    .backgroundColor(this.activeTab === tab ? $r('app.color.km_primary_soft') : $r('app.color.km_transparent'))
     .borderRadius(8)
-    .onClick(() => {
-      if (tab === 2) this.openJobsTab();
-      else this.activeTab = tab;
-    })
+    .onClick(() => { this.requestTabChange(tab); })
   }
 
   @Builder
@@ -2829,28 +3969,159 @@ struct Index {
     .backgroundColor($r('app.color.km_surface'))
   }
 
-  build() {
-    if (this.showIntro) {
-      this.buildIntro()
-    } else {
-      Column() {
-        this.buildHeader()
-        if (this.activeTab === 0) {
-          this.buildHome()
-        } else if (this.activeTab === 1) {
-          this.buildResume()
-        } else if (this.activeTab === 2) {
-          this.buildJobs()
-        } else if (this.activeTab === 3) {
-          this.buildInterview()
-        } else {
-          this.buildGrowth()
-        }
-        this.buildBottomNavigation()
-      }
-      .width('100%')
-      .height('100%')
-      .backgroundColor($r('app.color.km_page_background'))
+  @Builder
+  private buildRailNavigationItem(icon: Resource, label: string, tab: number): void {
+    Row({ space: 10 }) {
+      SymbolGlyph(icon)
+        .fontSize(21)
+        .fontColor([this.activeTab === tab ? $r('app.color.km_primary') : $r('app.color.km_text_secondary')])
+      Text(label)
+        .fontSize(11)
+        .fontWeight(this.activeTab === tab ? FontWeight.Medium : FontWeight.Regular)
+        .fontColor(this.activeTab === tab ? $r('app.color.km_primary') : $r('app.color.km_text_secondary'))
+        .maxFontScale(1.6)
     }
+    .width('100%')
+    .constraintSize({ minHeight: 52 })
+    .padding({ left: 12, right: 10 })
+    .backgroundColor(this.activeTab === tab ? $r('app.color.km_primary_soft') : $r('app.color.km_transparent'))
+    .borderRadius(8)
+    .onClick(() => { this.requestTabChange(tab); })
+  }
+
+  @Builder
+  private buildRailNavigation(): void {
+    Column({ space: 6 }) {
+      Text('工作区')
+        .fontSize(9)
+        .fontColor($r('app.color.km_text_tertiary'))
+        .width('100%')
+        .padding({ left: 12, bottom: 4 })
+      this.buildRailNavigationItem($r('sys.symbol.house'), '首页', 0)
+      this.buildRailNavigationItem($r('sys.symbol.doc_text'), '简历', 1)
+      this.buildRailNavigationItem($r('sys.symbol.briefcase'), '岗位', 2)
+      this.buildRailNavigationItem($r('sys.symbol.mic'), '面试', 3)
+      this.buildRailNavigationItem($r('sys.symbol.ranking'), '成长', 4)
+      Blank()
+    }
+    .width(116)
+    .height('100%')
+    .padding({ left: 10, right: 10, top: 14, bottom: 14 })
+    .backgroundColor($r('app.color.km_surface'))
+    .border({ width: { right: 1 }, color: $r('app.color.km_border') })
+  }
+
+  @Builder
+  private buildTaskContinuityBar(): void {
+    Row({ space: 10 }) {
+      Column()
+        .width(3)
+        .height(38)
+        .backgroundColor($r('app.color.km_primary'))
+        .borderRadius(2)
+      Column({ space: 3 }) {
+        Text(`下一行动 · ${this.primaryActionDestinationLabel()}`)
+          .fontSize(9)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.km_primary'))
+          .width('100%')
+        Text(this.primaryNextAction())
+          .fontSize(11)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.km_text_primary'))
+          .lineHeight(17)
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      Button() {
+        Row({ space: 3 }) {
+          Text('继续')
+            .fontSize(10)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.km_primary_emphasis'))
+            .maxFontScale(1.5)
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(13)
+            .fontColor([$r('app.color.km_primary_emphasis')])
+        }
+      }
+      .constraintSize({ minHeight: 36 })
+      .padding({ left: 10, right: 8 })
+      .backgroundColor($r('app.color.km_primary_soft'))
+      .borderRadius(8)
+      .onClick(() => { this.requestTabChange(this.primaryActionTab()); })
+    }
+    .alignItems(VerticalAlign.Center)
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 9, bottom: 9 })
+    .backgroundColor($r('app.color.km_surface'))
+    .border({ width: { bottom: 1 }, color: $r('app.color.km_border') })
+  }
+
+  @Builder
+  private buildActivePage(): void {
+    if (this.activeTab === 0) {
+      this.buildHome()
+    } else if (this.activeTab === 1) {
+      this.buildResume()
+    } else if (this.activeTab === 2) {
+      this.buildJobs()
+    } else if (this.activeTab === 3) {
+      this.buildInterview()
+    } else {
+      this.buildGrowth()
+    }
+  }
+
+  @Builder
+  private buildWorkspaceContent(): void {
+    Column() {
+      if (this.activeTab !== 0 && this.activeTab !== this.primaryActionTab()) {
+        this.buildTaskContinuityBar()
+      }
+      this.buildActivePage()
+    }
+    .width('100%')
+    .layoutWeight(1)
+  }
+
+  build() {
+    Stack() {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('app.color.km_page_background'))
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      if (this.showIntro) {
+        this.buildIntro()
+      } else {
+        Column() {
+          this.buildHeader()
+          if (this.workspaceLoading || this.workspaceLoadFailed) {
+            this.buildWorkspaceState()
+          } else if (this.showDataCenter) {
+            this.buildDataCenter()
+          } else if (this.isWideLayout) {
+            Row() {
+              this.buildRailNavigation()
+              this.buildWorkspaceContent()
+            }
+            .width('100%')
+            .layoutWeight(1)
+          } else {
+            this.buildWorkspaceContent()
+            this.buildBottomNavigation()
+          }
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('app.color.km_page_background'))
+      }
+    }
+    .width('100%')
+    .height('100%')
   }
 }

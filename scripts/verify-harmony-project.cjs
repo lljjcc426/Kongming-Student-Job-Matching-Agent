@@ -8,6 +8,7 @@ const required = [
   "build-profile.json5",
   "oh-package.json5",
   "AppScope/app.json5",
+  "AppScope/resources/base/profile/configuration.json",
   "entry/build-profile.json5",
   "entry/src/main/module.json5",
   "entry/src/main/ets/entryability/EntryAbility.ets",
@@ -27,6 +28,7 @@ const required = [
   "entry/src/main/resources/base/profile/main_pages.json",
   "entry/src/main/resources/base/profile/form_config.json",
   "entry/src/main/resources/base/media/startIconNative.png",
+  "entry/src/main/resources/dark/element/color.json",
 ];
 
 required.forEach((relative) => {
@@ -43,6 +45,7 @@ const readHarmonyFile = (relative) => fs.readFileSync(path.join(harmonyRoot, rel
 const buildProfile = readHarmonyFile("build-profile.json5");
 const hvigorConfig = readHarmonyFile("hvigor/hvigor-config.json5");
 const appScope = readHarmonyFile("AppScope/app.json5");
+const appConfiguration = readHarmonyFile("AppScope/resources/base/profile/configuration.json");
 const moduleProfile = readHarmonyFile("entry/src/main/module.json5");
 const entryAbility = readHarmonyFile("entry/src/main/ets/entryability/EntryAbility.ets");
 const page = readHarmonyFile("entry/src/main/ets/pages/NativeIndex.ets");
@@ -59,6 +62,7 @@ const careerFormStore = readHarmonyFile("entry/src/main/ets/common/CareerFormSto
 const applicationCard = readHarmonyFile("entry/src/main/ets/applicationform/pages/ApplicationCard.ets");
 const applicationFormAbility = readHarmonyFile("entry/src/main/ets/applicationformability/ApplicationFormAbility.ets");
 const nativeColors = readHarmonyFile("entry/src/main/resources/base/element/color.json");
+const nativeDarkColors = readHarmonyFile("entry/src/main/resources/dark/element/color.json");
 const nativeStrings = readHarmonyFile("entry/src/main/resources/base/element/string.json");
 const packageJson = readRepoFile("package.json");
 const syncScript = readRepoFile("scripts/sync-harmony-web.ps1");
@@ -77,6 +81,9 @@ assert.match(hvigorConfig, /"parallel"\s*:\s*false/);
 assert.match(hvigorConfig, /"optimizationStrategy"\s*:\s*"memory"/);
 assert.match(appScope, /"bundleName"\s*:\s*"cn\.kongming\.jobmatch"/);
 assert.doesNotMatch(appScope, /com\.example/);
+assert.match(appScope, /"configuration"\s*:\s*"\$profile:configuration"/);
+assert.match(appConfiguration, /"fontSizeScale"\s*:\s*"followSystem"/);
+assert.match(appConfiguration, /"fontSizeMaxScale"\s*:\s*"1\.75"/);
 
 assert.match(moduleProfile, /ohos\.want\.action\.sendData/);
 assert.match(moduleProfile, /general\.text/);
@@ -104,8 +111,30 @@ assert.match(page, /refreshPublicJobs/);
 assert.match(page, /openPublicJob/);
 assert.match(page, /Text\('今日重点'\)/);
 assert.match(page, /private buildFieldLabel\(label: string/);
-assert.match(page, /private buildStatusMessage\(message: string/);
+assert.match(page, /struct NativeFieldError/);
+assert.match(page, /struct NativeStatusMessage/);
+assert.match(page, /struct NativeAsyncStatePanel/);
 assert.match(page, /publicJobsSearched/);
+assert.match(page, /workspaceLoadFailed/);
+assert.match(page, /publicJobsFailed/);
+assert.match(page, /showDataCenter/);
+assert.match(page, /private buildDataCenter\(\)/);
+assert.match(page, /private requestClearWorkspaceData\(\)/);
+assert.match(page, /await store\.delete\('snapshot'\)/);
+assert.match(page, /华为账号登录状态和系统权限不会改变/);
+assert.match(page, /private buildTaskContinuityBar\(\)/);
+assert.match(page, /private buildWorkspaceContent\(\)/);
+assert.match(page, /private primaryActionDestinationLabel\(\)/);
+assert.match(page, /if \(!this\.resumeSummary\.trim\(\)\) return '导入或填写真实经历，建立求职画像'/);
+assert.match(page, /Text\(`下一行动 · \$\{this\.primaryActionDestinationLabel\(\)\}`\)/);
+assert.match(page, /private updateResumeDirtyState\(\)/);
+assert.match(page, /private updateJobEditorDirtyState\(\)/);
+assert.match(page, /private updateApplicationScheduleDirtyState\(\)/);
+assert.doesNotMatch(page, /this\.resumeDirty = true/);
+assert.doesNotMatch(page, /this\.jobEditorDirty = true/);
+assert.doesNotMatch(page, /this\.applicationScheduleDirty = true/);
+assert.match(page, /暂时无法恢复本机工作区/);
+assert.match(page, /暂时无法读取官方岗位/);
 assert.match(page, /private buildNavigationItem\(icon: Resource/);
 assert.match(page, /sys\.symbol\.checkmark_circle/);
 assert.match(page, /sys\.symbol\.exclamationmark_triangle/);
@@ -154,6 +183,8 @@ assert.match(nativeJobService, /@kit\.NetworkKit/);
 assert.match(nativeJobService, /http\.createHttp\(\)/);
 assert.match(nativeJobService, /job_service_url/);
 assert.match(nativeJobService, /connectTimeout:\s*10000/);
+assert.match(nativeJobService, /failed: boolean/);
+assert.match(nativeJobService, /new NativeJobFeed\(true, true/);
 assert.match(nativeStrings, /"name"\s*:\s*"job_service_url"/);
 assert.match(nativeAiService, /export class NativeAiService/);
 assert.match(nativeAiService, /@kit\.NetworkKit/);
@@ -185,6 +216,13 @@ assert.match(nativeStrings, /"name"\s*:\s*"ark_service_url"/);
 assert.match(nativeColors, /"name"\s*:\s*"km_page_background"/);
 assert.match(nativeColors, /"name"\s*:\s*"km_primary"/);
 assert.match(nativeColors, /"name"\s*:\s*"km_teal"/);
+assert.match(nativeColors, /"name"\s*:\s*"km_text_on_primary"/);
+assert.match(nativeColors, /"name"\s*:\s*"km_surface_elevated"/);
+assert.match(nativeDarkColors, /"name"\s*:\s*"km_page_background"/);
+assert.match(nativeDarkColors, /"name"\s*:\s*"km_primary_hero"/);
+const nativeColorNames = JSON.parse(nativeColors).color.map((item) => item.name).sort();
+const nativeDarkColorNames = JSON.parse(nativeDarkColors).color.map((item) => item.name).sort();
+assert.deepEqual(nativeDarkColorNames, nativeColorNames);
 assert.match(workspaceModel, /export class NativeGrowthTask/);
 assert.match(workspaceModel, /export class NativeGrowthEvidenceRecord/);
 assert.match(workspaceModel, /export class NativeJobEvidence/);
@@ -230,6 +268,20 @@ assert.match(page, /evidenceChecking: this\.evidenceChecking/);
 assert.match(page, /revokeGrowthEvidence/);
 assert.match(page, /growthBaselineCoverage \+ this\.growthGainForTasks\(nextTasks\)/);
 assert.match(page, /private growthGainForTasks\(tasks: NativeGrowthTask\[\]\): number/);
+assert.match(page, /KeyboardAvoidMode\.RESIZE/);
+assert.match(page, /matchMediaSync\('\(600vp<=width\)'\)/);
+assert.match(page, /private buildRailNavigation\(\)/);
+assert.match(page, /constraintSize\(\{ minHeight:/);
+assert.match(page, /expandSafeArea\(\[SafeAreaType\.SYSTEM\], \[SafeAreaEdge\.TOP, SafeAreaEdge\.BOTTOM\]\)/);
+assert.match(page, /private showConfirmDialog\(/);
+assert.match(page, /private hasUnsavedChanges\(\): boolean/);
+assert.match(page, /private requestDeleteNativeResumeVersion\(/);
+assert.match(page, /private requestRemoveTrackedJob\(/);
+assert.match(page, /private requestResetInterview\(/);
+assert.match(page, /private requestRevokeGrowthEvidence\(/);
+assert.match(page, /workspaceSaveFailed/);
+assert.match(page, /private validateResumeSummary\(/);
+assert.match(page, /private validateLocalDateTime\(/);
 assert.match(page, /Progress\(\{ value: this\.empiricalCoverage, total: 100/);
 assert.match(page, /struct NativeMetricCard/);
 assert.match(page, /@Prop value: string/);
@@ -251,6 +303,8 @@ assert.match(applicationTracker, /阶段时间线/);
 assert.match(applicationTracker, /保存投递日程/);
 assert.match(applicationTracker, /投递截止/);
 assert.match(applicationTracker, /下一场面试/);
+assert.match(applicationTracker, /applicationDeadlineError/);
+assert.match(applicationTracker, /nextInterviewAtError/);
 assert.match(applicationTracker, /添加截止提醒/);
 assert.match(applicationTracker, /添加面试提醒/);
 assert.doesNotMatch(applicationTracker, /ArkWeb|WebviewController|Web\(\{/);
@@ -262,6 +316,8 @@ assert.match(evidenceLedger, /证据账本/);
 assert.match(evidenceLedger, /撤销验证/);
 assert.match(evidenceLedger, /打开来源/);
 assert.match(evidenceLedger, /正在核验 HTTPS 来源/);
+assert.match(evidenceLedger, /evidenceDraftError/);
+assert.match(evidenceLedger, /evidenceSourceError/);
 assert.match(evidenceLedger, /来源可访问/);
 assert.match(evidenceLedger, /`\$\{task\.id\}-\$\{task\.status\}`/);
 assert.match(evidenceLedger, /`\$\{record\.id\}-\$\{record\.status\}`/);

@@ -37,9 +37,22 @@
 | 上一版原生 HarmonyOS 模拟器首页 | `docs/evidence-screenshots/harmony-native-emulator-home-20260920.jpeg` | 前端成熟化前的原生首页，用于界面对比 | 历史材料 |
 | 当前原生开场动效 | `docs/evidence-screenshots/harmony-native-intro-mature-20260921.jpeg` | 保留蓝青机器人品牌画风，移除面向用户的技术实现文案 | 已补充 |
 | 当前原生今日工作台 | `docs/evidence-screenshots/harmony-native-home-mature-20260921.jpeg` | 今日重点前置、三项关键指标、岗位证据和求职主线进入首屏 | 已补充 |
+| 当前原生首次任务 | `docs/evidence-screenshots/harmony-native-first-task-20260922.jpeg` | 简历经历为空时，“今日重点”优先引导建立求职画像，并将该步骤纳入待处理计数 | 已补充 |
+| 当前原生跨页任务连续性 | `docs/evidence-screenshots/harmony-native-task-continuity-20260922.jpeg` | 非主任务页面顶部持续显示真实下一行动，点击“继续”可精准返回目标页面 | 已补充 |
+| 当前原生显示适配 | `docs/evidence-screenshots/harmony-native-display-adaptation-20260921.jpeg` | 亮色模式下内容避让系统状态栏与手势区，底部导航保持完整可操作 | 已补充 |
+| 当前原生深色模式 | `docs/evidence-screenshots/harmony-native-dark-mode-20260921.jpeg` | 系统深色模式通过资源限定目录切换语义色，蓝青品牌层级与信息辨识度保持一致 | 已补充 |
+| 当前原生宽屏布局 | `docs/evidence-screenshots/harmony-native-wide-layout-20260921.jpeg` | 2688 x 1216 横屏下切换左侧导航轨，内容限制最大宽度并利用横向空间 | 已补充 |
+| 当前原生系统大字体 | `docs/evidence-screenshots/harmony-native-large-font-20260921.jpeg` | 系统“特大”字号下标题、指标、按钮和底部导航均可读，页面内容可完整滚动访问 | 已补充 |
+| 当前原生数据与隐私中心 | `docs/evidence-screenshots/harmony-native-data-center-20260922.jpeg` | 本机简历版本、追踪岗位、投递事件和有效证据计数，以及实际数据边界说明 | 已补充 |
+| 当前原生账号与数据操作 | `docs/evidence-screenshots/harmony-native-data-privacy-actions-20260922.jpeg` | 华为账号状态、系统分享入口与本机工作区清除入口在深色特大字号下完整可访问 | 已补充 |
+| 当前原生清除确认 | `docs/evidence-screenshots/harmony-native-clear-data-confirmation-20260922.jpeg` | 原生危险操作确认明确删除范围、不可撤销性，以及账号登录状态和系统权限不受影响 | 已补充 |
 | 当前原生简历与画像 | `docs/evidence-screenshots/harmony-native-resume-mature-20260921.jpeg` | 紧凑标题栏、统一输入控件、导入操作和简历版本入口 | 已补充 |
+| 当前原生字段即时校验 | `docs/evidence-screenshots/harmony-native-validation-errors-20260921.jpeg` | 空简历经历提交后同步显示红色边框、字段原因和页面级纠正提示 | 已补充 |
+| 当前原生键盘避让 | `docs/evidence-screenshots/harmony-native-keyboard-avoid-20260921.jpeg` | ArkUI `RESIZE` 模式下焦点输入框、底部导航和系统软键盘均保持可见 | 已补充 |
+| 当前原生未保存离开保护 | `docs/evidence-screenshots/harmony-native-unsaved-dialog-20260921.jpeg` | 简历草稿变更后切换页面会显示原生确认对话框，并明确恢复上次保存内容 | 已补充 |
 | 当前原生岗位中心 | `docs/evidence-screenshots/harmony-native-jobs-mature-20260921.jpeg` | 官方岗位搜索、本机岗位与证据指标采用统一层级和状态色 | 已补充 |
 | 当前原生岗位空状态 | `docs/evidence-screenshots/harmony-native-jobs-empty-mature-20260921.jpeg` | 官方岗位无结果时显示完整空状态，并引导调整条件或继续本机录入 | 已补充 |
+| 当前原生岗位服务状态 | `docs/evidence-screenshots/harmony-native-job-service-state-20260922.jpeg` | 在线岗位服务未连接时显示独立失败态，不误报为搜索无结果，并继续衔接本机真实岗位录入 | 已补充 |
 | 当前原生面试训练 | `docs/evidence-screenshots/harmony-native-interview-mature-20260921.jpeg` | 面试模式分段选择、会话授权、问题与回答入口的原生页面 | 已补充 |
 | 当前原生成长计划 | `docs/evidence-screenshots/harmony-native-growth-mature-20260921.jpeg` | 当前覆盖、完成后预测、有效证据和待办任务的统一工作流 | 已补充 |
 | 当前原生真实岗位录入 | `docs/evidence-screenshots/harmony-native-job-tracking-20260920.jpeg` | 岗位、公司、来源链接和 JD 由 ArkUI 原生表单录入并保存到本机 | 已补充 |
@@ -77,7 +90,7 @@
 | 核心可信性 | `npm run verify:evidence` | 已通过，含 20 组对抗样例和版本绑定测试 |
 | 旧评分退出检查 | `npm run verify:claims` | 已通过，同时扫描源码与 HAP 静态资源 |
 | UI 验证 | `npm run verify:ui` | 已通过，含版本保存、投递绑定和刷新恢复 |
-| HAP 构建 | `npm run build:harmony` | 已通过，2026-09-21，SHA-256 已记录 |
+| HAP 构建 | `npm run build:harmony` | 已通过，2026-09-22，SHA-256 已记录 |
 | HAP 模拟器安装/启动 | `npm run run:harmony:emulator` | 本轮已通过，HAP 安装成功，`EntryAbility` 进入前台，五个主页面与开场动效完成视觉回归 |
 | 真实模型调用耗时 | `docs/REAL_MODEL_CALL_EVIDENCE.md`；`docs/PERFORMANCE_TEST_REPORT.md` | 已补充 Gitee AI 控制台记录 |
 | 模型调用成功率 | `docs/REAL_MODEL_CALL_EVIDENCE.md`；`docs/PERFORMANCE_TEST_REPORT.md` | 已补充 200 状态调用记录 |
