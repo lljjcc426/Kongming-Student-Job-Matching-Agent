@@ -1,5 +1,7 @@
 const { chromium } = require("playwright");
 
+const baseUrl = process.argv[2] || process.env.KONGMING_BASE_URL || "http://127.0.0.1:5173";
+
 const mockJobs = [
   ["frontend-intern", "前端开发实习生", "软件开发", "实习"],
   ["backend-intern", "后端开发实习生", "软件开发", "实习"],
@@ -40,7 +42,7 @@ async function main() {
   let sensitivePayloadLeak = false;
   let arkRequestCount = 0;
 
-  await page.route("**/api/ark", async (route) => {
+  await page.route(/\/api\/gateway\?operation=model(?:&|$)/, async (route) => {
     arkRequestCount += 1;
     const body = route.request().postDataJSON();
     const serializedBody = JSON.stringify(body);
@@ -50,7 +52,6 @@ async function main() {
         contentType: "application/json",
         body: JSON.stringify({
           ok: true,
-          model: "mock",
           content: JSON.stringify({
             name: "林晨",
             education: ["示例大学 计算机科学与技术 本科"],
@@ -70,7 +71,7 @@ async function main() {
     if (body.task === "job-recommendations") {
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify({ ok: true, model: "mock", content: JSON.stringify(mockJobs) }),
+        body: JSON.stringify({ ok: true, content: JSON.stringify(mockJobs) }),
       });
       return;
     }
@@ -80,7 +81,6 @@ async function main() {
         contentType: "application/json",
         body: JSON.stringify({
           ok: true,
-          model: "mock",
           content: "可以。基于当前简历，建议优先核对前端开发和大模型应用岗位要求，并补充可核验的项目结果。",
         }),
       });
@@ -89,11 +89,11 @@ async function main() {
 
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify({ ok: true, model: "mock", content: "模型增强分析测试结果" }),
+      body: JSON.stringify({ ok: true, content: "补充建议测试结果" }),
     });
   });
 
-  await page.route("**/api/jobs**", async (route) => {
+  await page.route(/\/api\/gateway\?operation=jobs(?:&|$)/, async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
@@ -126,7 +126,7 @@ async function main() {
     });
   });
 
-  await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
+  await page.goto(baseUrl, { waitUntil: "networkidle" });
   const introStage = await page.locator(".loading-screen").count();
   const introProgress = await page.locator(".loading-brand-progress-track").count();
   const introProgressCard = await page.locator(".loading-brand-progress").count();
@@ -289,7 +289,8 @@ async function main() {
   if (!title.includes("孔明职配")) {
     throw new Error(`Unexpected home title: ${title}`);
   }
-  if (publicJobCards !== 1 || !publicSourceText.includes("5/6 个来源可用")) {
+  if (publicJobCards !== 1 || !publicSourceText.includes("已找到 1 个相关岗位") ||
+    !publicSourceText.includes("筛选后展示 1 条官方岗位") || publicSourceText.includes("来源可用")) {
     throw new Error(`Official job feed did not render correctly: cards=${publicJobCards}, source=${publicSourceText}`);
   }
   if (initialJobCards !== 1) {

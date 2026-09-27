@@ -1,12 +1,17 @@
-const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
-const DEFAULT_MODEL = "doubao-seed-2-0-lite-260215";
+import {
+  buildModelProviderHeaders,
+  completionUrlForProvider,
+  modelProviderConfigurationError,
+  resolveModelProvider,
+} from "./modelProvider.js";
+import { runSparkWebSocketCompletion } from "./sparkWebSocket.js";
+
 const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "resume-rewrite", "job-recommendations", "jd-analysis", "interview-feedback", "career-chat"]);
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_CHAT_CHARS = 6000;
 const MAX_IMAGE_DATA_URL_CHARS = 10_000_000;
 const MAX_IMAGE_COUNT = 4;
-const REQUEST_TIMEOUT_MS = Number(process.env.ARK_REQUEST_TIMEOUT_MS || 65000);
 const SEARCH_TIMEOUT_MS = 5000;
 const SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; StudentJobMatcher/0.1)";
 
@@ -26,8 +31,6 @@ const imageCountOf = (body) => {
   return body.imageDataUrl ? 1 : 0;
 };
 
-const isOpenAiCompatibleProvider = (baseUrl) => /ai\.gitee\.com/i.test(baseUrl);
-
 const maxTokensForTask = (body) => {
   if (body.task === "job-recommendations") return Math.max(700, asCount(body.jobCount) * 420);
   if (body.task === "jd-analysis") return 1400;
@@ -38,48 +41,22 @@ const maxTokensForTask = (body) => {
   return 1200;
 };
 
-const buildCompletionPayload = (body, baseUrl, model) => {
+const buildCompletionPayload = (body, provider) => {
   const payload = {
-    model,
+    model: provider.model,
     messages: buildMessages(body),
     temperature: 0.25,
   };
 
   const maxTokens = maxTokensForTask(body);
-  if (isOpenAiCompatibleProvider(baseUrl)) {
+  if (provider.maxTokensField === "max_tokens") {
     payload.max_tokens = maxTokens;
     return payload;
   }
 
-  payload.thinking = {
-    type: "disabled",
-  };
+  if (provider.disableThinking) payload.thinking = { type: "disabled" };
   payload.max_completion_tokens = maxTokens;
   return payload;
-};
-
-const modelForTask = (body) => {
-  if (body.task === "resume-vision" && process.env.ARK_VISION_MODEL) {
-    return process.env.ARK_VISION_MODEL;
-  }
-  return process.env.ARK_MODEL || DEFAULT_MODEL;
-};
-
-const buildProviderHeaders = (apiKey) => {
-  const headers = {
-    "Content-Type": "application/json; charset=utf-8",
-    Authorization: `Bearer ${apiKey}`,
-  };
-
-  if (process.env.ARK_PACKAGE) {
-    headers["X-Package"] = process.env.ARK_PACKAGE;
-  }
-
-  if (process.env.ARK_FAILOVER_ENABLED) {
-    headers["X-Failover-Enabled"] = process.env.ARK_FAILOVER_ENABLED;
-  }
-
-  return headers;
 };
 
 const validateRequest = (body) => {
@@ -491,7 +468,7 @@ const attachRecruitingLinks = async (content, task) => {
   return JSON.stringify(Array.isArray(parsed) ? jobs : jobs[0], null, 2);
 };
 
-export async function runArkCompletion(body) {
+export async function runArkCompletion(body, dependencies = {}) {
   const validationError = validateRequest(body);
   if (validationError) {
     return {
@@ -503,44 +480,62 @@ export async function runArkCompletion(body) {
     };
   }
 
-  const apiKey = process.env.ARK_API_KEY;
-  if (!apiKey) {
+  const provider = resolveModelProvider(body.task);
+  const configurationError = modelProviderConfigurationError(provider);
+  if (configurationError) {
     return {
       status: 503,
       payload: {
         ok: false,
-        error: "当前运行环境未配置 ARK_API_KEY，模型能力不可用。请配置环境变量并重启服务。",
+        error: configurationError,
       },
     };
   }
 
-  const baseUrl = process.env.ARK_BASE_URL || DEFAULT_BASE_URL;
-  const model = modelForTask(body);
-  let response;
+  let content = "";
   try {
-    response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: buildProviderHeaders(apiKey),
-      body: JSON.stringify(buildCompletionPayload(body, baseUrl, model)),
-    });
+    const completionPayload = buildCompletionPayload(body, provider);
+    if (provider.transport === "spark-websocket") {
+      const sparkCompletion = dependencies.sparkWebSocketCompletion || runSparkWebSocketCompletion;
+      const result = await sparkCompletion(provider, completionPayload);
+      content = result.content;
+    } else {
+      const response = await fetch(completionUrlForProvider(provider), {
+        method: "POST",
+        signal: AbortSignal.timeout(provider.requestTimeoutMs),
+        headers: buildModelProviderHeaders(provider),
+        body: JSON.stringify(completionPayload),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return {
+          status: response.status,
+          payload: {
+            ok: false,
+            error: `${provider.label}调用失败，请检查服务配额、模型名称与鉴权配置。`,
+          },
+        };
+      }
+      content = data?.choices?.[0]?.message?.content || "";
+    }
   } catch (error) {
+    const errorCode = Number.isFinite(error?.code) ? `（错误码 ${error.code}）` : "";
     return {
-      status: 504,
+      status: error?.timeout || (error instanceof Error && error.name === "TimeoutError") ? 504 : 502,
       payload: {
         ok: false,
-        error: error instanceof Error && error.name === "TimeoutError" ? "模型接口响应超时，请稍后重试或上传更清晰、更小的文件。" : "模型接口网络连接失败，请检查本机网络或服务配置。",
+        error: error?.timeout || (error instanceof Error && error.name === "TimeoutError")
+          ? `${provider.label}响应超时，请稍后重试或上传更清晰、更小的文件。`
+          : `${provider.label}调用失败${errorCode}，请检查应用服务授权、模型版本、配额与网络。`,
       },
     };
   }
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  if (!content) {
     return {
-      status: response.status,
+      status: 502,
       payload: {
         ok: false,
-        error: "模型接口调用失败，请稍后重试。",
+        error: `${provider.label}返回了空内容，请稍后重试。`,
       },
     };
   }
@@ -549,8 +544,10 @@ export async function runArkCompletion(body) {
     status: 200,
     payload: {
       ok: true,
-      model,
-      content: await attachRecruitingLinks(data?.choices?.[0]?.message?.content || "", body.task),
+      provider: provider.id,
+      providerLabel: provider.label,
+      model: provider.model,
+      content: await attachRecruitingLinks(content, body.task),
     },
   };
 }

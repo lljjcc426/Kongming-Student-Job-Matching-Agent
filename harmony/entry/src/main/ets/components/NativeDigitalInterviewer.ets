@@ -1,8 +1,11 @@
 import {
   Animation,
   EnvironmentBackgroundType,
+  Geometry,
   LightType,
+  Morpher,
   Node,
+  NodeType,
   Quaternion,
   Scene,
   Vec3,
@@ -42,6 +45,68 @@ function scaleQuaternion(quaternion: Quaternion, multiplier: number): Quaternion
     w: quaternion.w * multiplier,
   };
 }
+
+function multiplyQuaternion(left: Quaternion, right: Quaternion): Quaternion {
+  return {
+    x: left.w * right.x + left.x * right.w + left.y * right.z - left.z * right.y,
+    y: left.w * right.y - left.x * right.z + left.y * right.w + left.z * right.x,
+    z: left.w * right.z + left.x * right.y - left.y * right.x + left.z * right.w,
+    w: left.w * right.w - left.x * right.x - left.y * right.y - left.z * right.z,
+  };
+}
+
+function motionQuaternion(pitch: number, yaw: number): Quaternion {
+  const halfPitch = pitch * 0.5;
+  const halfYaw = yaw * 0.5;
+  return {
+    x: Math.sin(halfPitch) * Math.cos(halfYaw),
+    y: Math.cos(halfPitch) * Math.sin(halfYaw),
+    z: -Math.sin(halfPitch) * Math.sin(halfYaw),
+    w: Math.cos(halfPitch) * Math.cos(halfYaw),
+  };
+}
+
+const SPEECH_VISEMES: string[] = [
+  'viseme_aa',
+  'viseme_E',
+  'viseme_O',
+  'viseme_PP',
+  'viseme_I',
+  'viseme_U',
+  'viseme_CH',
+];
+
+const ALL_VISEMES: string[] = [
+  'viseme_sil',
+  'viseme_PP',
+  'viseme_FF',
+  'viseme_TH',
+  'viseme_DD',
+  'viseme_kk',
+  'viseme_CH',
+  'viseme_SS',
+  'viseme_nn',
+  'viseme_RR',
+  'viseme_aa',
+  'viseme_E',
+  'viseme_I',
+  'viseme_O',
+  'viseme_U',
+];
+
+const EXPRESSION_MORPHS: string[] = [
+  'mouthOpen',
+  'jawOpen',
+  'mouthSmile',
+  'mouthPressLeft',
+  'mouthPressRight',
+  'browInnerUp',
+  'browOuterUpLeft',
+  'browOuterUpRight',
+  'eyeWideLeft',
+  'eyeWideRight',
+  'eyesLookDown',
+];
 
 function lookAt(node: Node, eye: Vec3, center: Vec3, up: Vec3): void {
   const forward = normalize(subtract(center, eye));
@@ -96,6 +161,8 @@ export struct NativeDigitalInterviewer {
   @Prop @Watch('onAvatarStateChanged') avatarState: NativeAvatarState = 'idle';
   @Prop compact: boolean = false;
   @Prop viewportHeight: number = 0;
+  @Prop fullStage: boolean = false;
+  @Prop showIdentity: boolean = true;
   @Prop profile: NativeAvatarProfile = DEFAULT_INTERVIEWER_PROFILE;
   @State private scene: Scene | undefined = undefined;
   @State private loadState: string = 'loading';
@@ -103,6 +170,11 @@ export struct NativeDigitalInterviewer {
   private loadSequence: number = 0;
   private talkingIndex: number = 0;
   private renderTimer: number = -1;
+  private motionStartedAt: number = 0;
+  private morphers: Morpher[] = [];
+  private avatarRootNode: Node | undefined = undefined;
+  private avatarBasePosition: Vec3 = { x: 0, y: 0, z: 0 };
+  private avatarBaseRotation: Quaternion = { x: 0, y: 0, z: 0, w: 1 };
 
   aboutToAppear(): void {
     void this.loadAvatar();
@@ -113,9 +185,12 @@ export struct NativeDigitalInterviewer {
     this.stopRenderLoop();
     this.scene?.destroy();
     this.scene = undefined;
+    this.morphers = [];
+    this.avatarRootNode = undefined;
   }
 
   private onAvatarStateChanged(): void {
+    console.info(`Native avatar state changed to ${this.avatarState}.`);
     this.playStateAnimation(this.avatarState);
   }
 
@@ -172,35 +247,87 @@ export struct NativeDigitalInterviewer {
 
   private async configureScene(scene: Scene): Promise<void> {
     if (!scene.root) throw new Error('Avatar scene has no root node.');
+    this.morphers = [];
+    this.collectMorphers(scene.root);
+    console.info(`Native avatar discovered ${this.morphers.length} morpher resources.`);
+    const avatarRootNode = scene.root.children.get(0);
+    if (avatarRootNode) {
+      this.avatarRootNode = avatarRootNode;
+      this.avatarBasePosition = {
+        x: avatarRootNode.position.x,
+        y: avatarRootNode.position.y,
+        z: avatarRootNode.position.z,
+      };
+      this.avatarBaseRotation = {
+        x: avatarRootNode.rotation.x,
+        y: avatarRootNode.rotation.y,
+        z: avatarRootNode.rotation.z,
+        w: avatarRootNode.rotation.w,
+      };
+    }
+    this.resetFacialMorphs();
+    this.motionStartedAt = Date.now();
+    const usesRocketboxFraming = this.profile.modelPath.includes('professional-interviewer-v4.glb') ||
+      this.profile.modelPath.includes('professional-interviewer-v5.glb');
+    const focusHeight = usesRocketboxFraming ? 1.55 : 0.54;
+    const cameraDistance = usesRocketboxFraming ? 1.18 : 1.12;
     const factory = scene.getResourceFactory();
     const camera = await factory.createCamera({ name: 'KongMingInterviewCamera' });
-    lookAt(camera, { x: 0, y: 0.95, z: 3.6 }, { x: 0, y: 0.95, z: 0 }, { x: 0, y: 1, z: 0 });
-    camera.fov = 0.72;
-    camera.nearPlane = 0.1;
+    lookAt(
+      camera,
+      { x: 0, y: focusHeight, z: cameraDistance },
+      { x: 0, y: focusHeight, z: 0 },
+      { x: 0, y: 1, z: 0 },
+    );
+    camera.fov = usesRocketboxFraming ? 0.52 : 0.56;
+    camera.nearPlane = 0.02;
     camera.farPlane = 100;
     camera.clearColor = { r: 0, g: 0, b: 0, a: 0 };
     camera.enabled = true;
     scene.root.children.append(camera);
 
     const keyLight = await factory.createLight({ name: 'KongMingKeyLight' }, LightType.DIRECTIONAL);
-    lookAt(keyLight, { x: -1.8, y: 2.4, z: 3.2 }, { x: 0, y: 0.9, z: 0 }, { x: 0, y: 1, z: 0 });
-    keyLight.color = { r: 1, g: 0.95, b: 0.88, a: 1 };
-    keyLight.intensity = 2.8;
+    lookAt(
+      keyLight,
+      { x: -1.2, y: focusHeight + 0.7, z: 1.7 },
+      { x: 0, y: focusHeight, z: 0 },
+      { x: 0, y: 1, z: 0 },
+    );
+    keyLight.color = { r: 1, g: 0.98, b: 0.94, a: 1 };
+    keyLight.intensity = 2.7;
     keyLight.shadowEnabled = false;
     keyLight.enabled = true;
     scene.root.children.append(keyLight);
 
     const fillLight = await factory.createLight({ name: 'KongMingFillLight' }, LightType.DIRECTIONAL);
-    lookAt(fillLight, { x: 2, y: 1.1, z: 2.2 }, { x: 0, y: 0.9, z: 0 }, { x: 0, y: 1, z: 0 });
-    fillLight.color = { r: 0.72, g: 0.86, b: 1, a: 1 };
-    fillLight.intensity = 1.2;
+    lookAt(
+      fillLight,
+      { x: 1.4, y: focusHeight + 0.3, z: 1.4 },
+      { x: 0, y: focusHeight, z: 0 },
+      { x: 0, y: 1, z: 0 },
+    );
+    fillLight.color = { r: 0.82, g: 0.9, b: 1, a: 1 };
+    fillLight.intensity = 1.4;
     fillLight.shadowEnabled = false;
     fillLight.enabled = true;
     scene.root.children.append(fillLight);
 
+    const rimLight = await factory.createLight({ name: 'KongMingRimLight' }, LightType.DIRECTIONAL);
+    lookAt(
+      rimLight,
+      { x: 0.8, y: focusHeight + 0.6, z: -1.2 },
+      { x: 0, y: focusHeight, z: 0 },
+      { x: 0, y: 1, z: 0 },
+    );
+    rimLight.color = { r: 0.84, g: 0.93, b: 1, a: 1 };
+    rimLight.intensity = 0.9;
+    rimLight.shadowEnabled = false;
+    rimLight.enabled = true;
+    scene.root.children.append(rimLight);
+
     scene.environment.backgroundType = EnvironmentBackgroundType.BACKGROUND_NONE;
-    scene.environment.indirectDiffuseFactor = { x: 1, y: 1, z: 1, w: 1 };
-    scene.environment.indirectSpecularFactor = { x: 0.35, y: 0.35, z: 0.35, w: 1 };
+    scene.environment.indirectDiffuseFactor = { x: 0.9, y: 0.9, z: 0.9, w: 1 };
+    scene.environment.indirectSpecularFactor = { x: 0.12, y: 0.12, z: 0.12, w: 1 };
     console.info(
       `Native avatar scene ready with ${scene.root.children.count()} root children and ${scene.animations.length} animations.`,
     );
@@ -209,10 +336,105 @@ export struct NativeDigitalInterviewer {
     }
   }
 
+  private collectMorphers(node: Node): void {
+    if (node.nodeType === NodeType.GEOMETRY) {
+      const geometry = node as Geometry;
+      console.info(`Native avatar geometry ${node.path} exposes morpher=${geometry.morpher ? 'yes' : 'no'}.`);
+      if (geometry.morpher) this.morphers.push(geometry.morpher);
+    }
+    for (let index = 0; index < node.children.count(); index += 1) {
+      const child = node.children.get(index);
+      if (child) this.collectMorphers(child);
+    }
+  }
+
+  private usesBakedFacialMotion(): boolean {
+    return this.profile.modelPath.includes('professional-interviewer-v3.glb');
+  }
+
+  private writeMorph(name: string, value: number): void {
+    for (const morpher of this.morphers) {
+      morpher.targets[name] = value;
+    }
+  }
+
+  private resetFacialMorphs(): void {
+    if (this.usesBakedFacialMotion()) return;
+    for (const name of ALL_VISEMES) this.writeMorph(name, 0);
+    for (const name of EXPRESSION_MORPHS) this.writeMorph(name, 0);
+    this.writeMorph('eyeBlinkLeft', 0);
+    this.writeMorph('eyeBlinkRight', 0);
+  }
+
+  private applyFacialState(elapsed: number): void {
+    if (this.morphers.length === 0 || this.usesBakedFacialMotion()) return;
+    for (const name of ALL_VISEMES) this.writeMorph(name, 0);
+    for (const name of EXPRESSION_MORPHS) this.writeMorph(name, 0);
+
+    if (this.avatarState === 'talking') {
+      const speechStep = elapsed / 150;
+      const speechIndex = Math.floor(speechStep) % SPEECH_VISEMES.length;
+      const speechPhase = speechStep - Math.floor(speechStep);
+      const nextSpeechIndex = (speechIndex + 1) % SPEECH_VISEMES.length;
+      const speechPulse = 0.18 + Math.sin(speechPhase * Math.PI) * 0.62;
+      this.writeMorph(SPEECH_VISEMES[speechIndex], speechPulse * (1 - speechPhase) * 0.62);
+      this.writeMorph(SPEECH_VISEMES[nextSpeechIndex], speechPulse * speechPhase * 0.62);
+      this.writeMorph('jawOpen', 0.04 + speechPulse * 0.12);
+      this.writeMorph('mouthOpen', 0.02 + speechPulse * 0.08);
+    } else if (this.avatarState === 'greeting') {
+      this.writeMorph('mouthSmile', 0.3);
+      this.writeMorph('browOuterUpLeft', 0.1);
+      this.writeMorph('browOuterUpRight', 0.1);
+    } else if (this.avatarState === 'listening') {
+      this.writeMorph('mouthSmile', 0.07);
+      this.writeMorph('browInnerUp', 0.045);
+    } else if (this.avatarState === 'thinking') {
+      this.writeMorph('eyesLookDown', 0.15);
+      this.writeMorph('browInnerUp', 0.1);
+      this.writeMorph('mouthPressLeft', 0.07);
+      this.writeMorph('mouthPressRight', 0.07);
+    } else if (this.avatarState === 'interrupted') {
+      this.writeMorph('eyeWideLeft', 0.14);
+      this.writeMorph('eyeWideRight', 0.14);
+      this.writeMorph('browInnerUp', 0.16);
+    } else {
+      this.writeMorph('mouthSmile', 0.035);
+    }
+
+    const blinkPhase = elapsed % 4400;
+    const blink = blinkPhase < 160 ? Math.sin(blinkPhase / 160 * Math.PI) : 0;
+    this.writeMorph('eyeBlinkLeft', blink);
+    this.writeMorph('eyeBlinkRight', blink);
+  }
+
+  private applyAvatarMotion(elapsed: number): void {
+    if (!this.avatarRootNode) return;
+    const talkingStrength = this.avatarState === 'talking' ? 1 : 0.45;
+    const listeningPitch = this.avatarState === 'listening' ? 0.006 : 0;
+    const yaw = Math.sin(elapsed / 1450) * 0.012 * talkingStrength;
+    const pitch = listeningPitch + Math.sin(elapsed / 2100) * 0.004;
+    this.avatarRootNode.position = {
+      x: this.avatarBasePosition.x + Math.sin(elapsed / 2300) * 0.0018,
+      y: this.avatarBasePosition.y + Math.sin(elapsed / 980) * 0.0025,
+      z: this.avatarBasePosition.z,
+    };
+    this.avatarRootNode.rotation = multiplyQuaternion(
+      this.avatarBaseRotation,
+      motionQuaternion(pitch, yaw),
+    );
+  }
+
+  private updateAvatarFrame(): void {
+    const elapsed = Date.now() - this.motionStartedAt;
+    this.applyFacialState(elapsed);
+    this.applyAvatarMotion(elapsed);
+  }
+
   private startRenderLoop(scene: Scene, sequence: number): void {
     this.stopRenderLoop();
     this.renderTimer = setInterval(() => {
       if (sequence !== this.loadSequence || this.scene !== scene) return;
+      this.updateAvatarFrame();
       scene.renderFrame({ alwaysRender: true });
     }, 33);
   }
@@ -233,8 +455,12 @@ export struct NativeDigitalInterviewer {
 
   private playStateAnimation(state: NativeAvatarState): void {
     if (!this.scene || this.loadState !== 'ready') return;
-    const animationName = this.animationNameForState(state);
     this.stopAnimations();
+    const animationName = this.animationNameForState(state);
+    if (animationName.length === 0) {
+      this.activeAnimationName = '';
+      return;
+    }
     const animation = this.findAnimation(animationName, this.animationIndexForState(state));
     if (!animation) {
       this.activeAnimationName = '';
@@ -267,131 +493,26 @@ export struct NativeDigitalInterviewer {
 
   @Builder
   private buildOfficeBackdrop(): void {
-    Stack({ alignContent: Alignment.Bottom }) {
-      Column() {
-        Blank()
-          .width('100%')
-          .height('68%')
-          .backgroundColor('#DDE7EA')
-        Blank()
-          .width('100%')
-          .layoutWeight(1)
-          .backgroundColor('#637177')
-      }
-      .width('100%')
-      .height('100%')
-
-      Row({ space: 18 }) {
-        Stack({ alignContent: Alignment.Bottom }) {
-          Row()
-            .width('100%')
-            .height('100%')
-            .backgroundColor('#B9D7E2')
-          Row({ space: 5 }) {
-            Blank().width(16).height('38%').backgroundColor('#8DAEBB')
-            Blank().width(20).height('56%').backgroundColor('#7697A4')
-            Blank().width(14).height('32%').backgroundColor('#A0BAC3')
-            Blank().width(24).height('48%').backgroundColor('#829FAA')
-          }
-          .alignItems(VerticalAlign.Bottom)
-          .width('100%')
-          .height('46%')
-          .padding({ left: 8, right: 8, bottom: 6 })
-          Row() {
-            Blank().width(4).height('100%').backgroundColor('#8198A2')
-          }
-          .width('100%')
-          .height('100%')
-          .justifyContent(FlexAlign.Center)
-          Column() {
-            Blank().width('100%').height(4).backgroundColor('#8198A2')
-          }
-          .width('100%')
-          .height('100%')
-          .justifyContent(FlexAlign.Center)
-        }
-        .width('38%')
-        .height('72%')
-        .border({ width: 5, color: '#8AA0AA' })
-        .shadow({ radius: 10, color: '#22000000', offsetY: 3 })
-
-        Blank()
-          .layoutWeight(1)
-
-        Column() {
-          Row({ space: 4 }) {
-            Blank().width(10).height(28).backgroundColor('#B4544C')
-            Blank().width(13).height(34).backgroundColor('#315E7A')
-            Blank().width(9).height(24).backgroundColor('#D19B4D')
-          }
-          .alignItems(VerticalAlign.Bottom)
-          .width('100%')
-          .layoutWeight(1)
-          .padding({ left: 10, right: 8, bottom: 6 })
-          Blank().width('100%').height(5).backgroundColor('#71838A')
-          Row({ space: 4 }) {
-            Blank().width(12).height(25).backgroundColor('#5E806F')
-            Blank().width(9).height(31).backgroundColor('#D4B06B')
-            Blank().width(14).height(22).backgroundColor('#496C86')
-          }
-          .alignItems(VerticalAlign.Bottom)
-          .width('100%')
-          .layoutWeight(1)
-          .padding({ left: 9, right: 8, bottom: 6 })
-        }
-        .width('23%')
-        .height('62%')
-        .backgroundColor('#AEBFC4')
-        .border({ width: 4, color: '#7F9299' })
-      }
-      .width('100%')
-      .height('61%')
-      .padding({ left: 24, right: 24, top: 24 })
-
-      Column({ space: 0 }) {
-        Row({ space: 0 }) {
-          Blank().width(24).height(24).backgroundColor('#4D7766').borderRadius(12)
-          Blank().width(30).height(30).backgroundColor('#608A76').borderRadius(15)
-        }
-        Blank().width(7).height(22).backgroundColor('#526B5D')
-        Blank()
-          .width(40)
-          .height(32)
-          .backgroundColor('#9A755B')
-          .borderRadius({ bottomLeft: 8, bottomRight: 8 })
-      }
-      .position({ x: '80%', y: '54%' })
-      .alignItems(HorizontalAlign.Center)
-
+    Stack() {
+      Image($r('app.media.interviewOfficeV3'))
+        .width('100%')
+        .height('100%')
+        .objectFit(ImageFit.Cover)
       Row()
         .width('100%')
-        .height(2)
-        .margin({ bottom: '31%' })
-        .backgroundColor('#536168')
+        .height('100%')
+        .backgroundColor('#0D071118')
     }
     .width('100%')
     .height('100%')
   }
 
   @Builder
-  private buildOfficeForeground(): void {
-    Stack({ alignContent: Alignment.Bottom }) {
-      Row()
-        .width('84%')
-        .height('12%')
-        .margin({ bottom: '-3%' })
-        .backgroundColor('#C99E6C')
-        .borderRadius({ topLeft: 7, topRight: 7 })
-        .shadow({ radius: 14, color: '#38000000', offsetY: -3 })
-      Row()
-        .width('88%')
-        .height(7)
-        .margin({ bottom: '8%' })
-        .backgroundColor('#8D6947')
-        .borderRadius(3)
-    }
-    .width('100%')
-    .height('100%')
+  private buildDeskForeground(): void {
+    Image($r('app.media.interviewDeskForeground'))
+      .width('100%')
+      .height('100%')
+      .objectFit(ImageFit.Cover)
   }
 
   @Builder
@@ -400,7 +521,7 @@ export struct NativeDigitalInterviewer {
       SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
         .fontSize(this.compact ? 56 : 76)
         .fontColor(['#304B57'])
-      Text(this.loadState === 'failed' ? '数字人暂时不可用' : '正在准备面试官')
+      Text(this.loadState === 'failed' ? '面试官画面暂时不可用' : '正在准备面试官')
         .fontSize(12)
         .fontColor('#435861')
       if (this.loadState === 'loading') {
@@ -416,30 +537,32 @@ export struct NativeDigitalInterviewer {
         Component3D({ scene: this.scene, modelType: ModelType.TEXTURE })
           .width('100%')
           .height('100%')
-          .renderWidth(this.compact ? 420 : 720)
-          .renderHeight(this.compact ? 420 : 720)
+          .renderWidth(this.fullStage ? (this.compact ? 960 : 1600) : (this.compact ? 900 : 1100))
+          .renderHeight(this.fullStage ? (this.compact ? 540 : 720) : (this.compact ? 720 : 760))
       } else {
         this.buildFallback()
       }
-      this.buildOfficeForeground()
-      Row({ space: 7 }) {
-        Blank()
-          .width(7)
-          .height(7)
-          .backgroundColor(this.loadState === 'ready' ? '#19A974' : '#D68C24')
-          .borderRadius(4)
-        Text(`${this.profile.displayName} · ${this.profile.roleLabel}`)
-          .fontSize(10)
-          .fontColor('#F8FBFC')
-          .maxLines(1)
+      this.buildDeskForeground()
+      if (this.showIdentity) {
+        Row({ space: 7 }) {
+          Blank()
+            .width(7)
+            .height(7)
+            .backgroundColor(this.loadState === 'ready' ? '#19A974' : '#D68C24')
+            .borderRadius(4)
+          Text(`${this.profile.displayName} · ${this.profile.roleLabel}`)
+            .fontSize(10)
+            .fontColor('#F8FBFC')
+            .maxLines(1)
+        }
+        .position({ x: 12, y: 12 })
+        .padding({ left: 9, right: 10, top: 6, bottom: 6 })
+        .backgroundColor('#B3233036')
+        .borderRadius(6)
       }
-      .position({ x: 12, y: 12 })
-      .padding({ left: 9, right: 10, top: 6, bottom: 6 })
-      .backgroundColor('#B3233036')
-      .borderRadius(6)
     }
     .width('100%')
-    .height(this.viewportHeight > 0 ? this.viewportHeight : (this.compact ? 300 : 430))
+    .height(this.fullStage ? '100%' : (this.viewportHeight > 0 ? this.viewportHeight : (this.compact ? 300 : 430)))
     .clip(true)
     .backgroundColor('#DDE7EA')
     .borderRadius(8)

@@ -75,7 +75,7 @@ logs/model-calls-sanitized.jsonl
 当前可选方案：
 
 1. 在 `server/arkCore.js` 的 `runArkCompletion` 中增加 requestId、开始时间、结束时间和状态记录。
-2. 在部署平台查看 `/api/ark` 函数日志，并人工整理脱敏摘要。
+2. 在部署平台查看 `/api/gateway` 的 `model` 操作日志，并人工整理脱敏摘要。
 3. 使用浏览器 DevTools Network 记录请求耗时，但不要导出包含敏感请求体的 HAR 文件。
 4. 对关键演示流程进行人工计时，并记录到性能测试报告中。
 

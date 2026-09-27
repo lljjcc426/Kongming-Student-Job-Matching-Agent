@@ -16,6 +16,8 @@
 | `@vitejs/plugin-react` | Vite React 插件 | MIT | 否 / 构建期 | 已按 lockfile 记录 |
 | `typescript` | 类型检查 | Apache-2.0 | 否 / 构建期 | 已按 lockfile 记录 |
 | `pdfjs-dist` | PDF 解析 | Apache-2.0 | 是 | 已按 lockfile 记录 |
+| `pdf-lib` | 鸿蒙端离线生成正式简历 PDF | MIT | 是，构建时打包至原生 JS 模块 | 正文许可随 HAP 分发 |
+| `@pdf-lib/fontkit` | 中文字体测量与子集嵌入 | MIT | 是，构建时打包至原生 JS 模块 | npm 与上游 README 声明 MIT，但未提供独立许可文件；保留真实作者元数据和 README 链接，未补造版权声明 |
 | `react-markdown` | Markdown 渲染 | MIT | 是 | 已按 lockfile 记录 |
 | `remark-gfm` | GFM Markdown 支持 | MIT | 是 | 已按 lockfile 记录 |
 | `recharts` | 图表展示 | MIT | 是 | 已按 lockfile 记录 |
@@ -45,8 +47,14 @@
 | `public/avatars/interviewer-live2d/*` | Live2D 模型 | 待确认 | 待确认 | 公开前补充来源 |
 | `public/vendor/pdfjs/cmaps/*` | PDF.js CMap | 待确认 | 待确认 | 公开前核对 License |
 | `public/vendor/live2d/live2dcubismcore.min.js` | Live2D runtime | 待确认 | 待确认 | 公开前核对 License |
+| `harmony/entry/src/main/resources/base/media/interviewOfficeV3.jpg` | 原生模拟面试办公室背景 | Wikimedia Commons 上的 [Leather chairs in meeting room](https://commons.wikimedia.org/wiki/File:Leather_chairs_in_meeting_room_(Unsplash).jpg)，作者 Breather | CC0 1.0，无需署名 | 已裁切、降饱和和调色；来源与许可证已确认 |
+| `harmony/entry/src/main/resources/rawfile/avatar/professional-interviewer-v5.glb` | 原生女性商务面试官 | Microsoft Rocketbox `Business_Female_04`，commit `0943055db6ec570bcef9f2c8b41c9e5467c808f9` | MIT | 许可证与来源记录保存在 `scripts/assets/rocketbox-business-female-04/`；项目仅保留 28 个运行时面部目标并嵌入 1K 纹理 |
 
 ## 4. 参考项目
+
+原生 PDF 引擎及其 `@pdf-lib/standard-fonts`、`@pdf-lib/upng`、`pako`、`tslib` 依赖的许可和版权说明由 `scripts/build-resume-pdf-engine.cjs` 收集到 `harmony/entry/src/main/resources/rawfile/licenses/resume-pdf.txt`。`@pdf-lib/fontkit` 的补充来源说明存于 `scripts/assets/licenses/pdf-lib-fontkit.txt`；生成的 JS 保留依赖内嵌许可注释。
+
+简历生成读取设备系统 `/system/fonts/HarmonyOS_Sans_SC.ttf`，不将系统字体打包或提交至仓库，只向用户 PDF 嵌入使用到的字形子集。本轮模拟器字体的 OS/2 `fsType` 标记允许可编辑嵌入与子集化；其他设备版本的字体可用性和授权仍需复核。
 
 参考项目与原创性说明见：
 

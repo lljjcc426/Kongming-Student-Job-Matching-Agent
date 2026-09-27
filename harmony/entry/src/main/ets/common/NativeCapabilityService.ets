@@ -17,6 +17,7 @@ const MICROPHONE_PERMISSION: Permissions = 'ohos.permission.MICROPHONE';
 export type NativeSpeechLifecycleState = 'idle' | 'speaking' | 'stopped' | 'error';
 export type NativeSpeechLifecycleListener = (state: NativeSpeechLifecycleState, message: string) => void;
 export type NativeRecognitionErrorListener = (message: string) => void;
+export type NativeRecognitionResultListener = (text: string, isFinal: boolean) => void;
 
 interface HuaweiAuthPayload {
   nativeAvailable: boolean;
@@ -56,6 +57,7 @@ export class NativeCapabilityService {
   private ttsRequestId: string = '';
   private ttsLifecycleListener: NativeSpeechLifecycleListener | undefined = undefined;
   private recognitionErrorListener: NativeRecognitionErrorListener | undefined = undefined;
+  private recognitionResultListener: NativeRecognitionResultListener | undefined = undefined;
 
   constructor(context: common.UIAbilityContext) {
     this.context = context;
@@ -69,6 +71,10 @@ export class NativeCapabilityService {
     this.recognitionErrorListener = listener;
   }
 
+  setRecognitionResultListener(listener: NativeRecognitionResultListener | undefined): void {
+    this.recognitionResultListener = listener;
+  }
+
   private notifyTtsLifecycle(state: NativeSpeechLifecycleState, message: string): void {
     this.ttsLifecycleListener?.(state, message);
   }
@@ -76,6 +82,10 @@ export class NativeCapabilityService {
   private notifyRecognitionError(message: string): void {
     this.speechActive = false;
     this.recognitionErrorListener?.(message);
+  }
+
+  private notifyRecognitionResult(text: string, isFinal: boolean): void {
+    this.recognitionResultListener?.(text, isFinal);
   }
 
   private serialize(message: string, errorCode?: number): string {
@@ -186,8 +196,10 @@ export class NativeCapabilityService {
         if (requestId === this.ttsRequestId) this.notifyTtsLifecycle('speaking', '面试官正在提问。');
       },
       onComplete: (requestId: string, response: textToSpeech.CompleteResponse): void => {
-        console.info(`Core Speech TTS completed: ${requestId} ${response}`);
-        if (requestId === this.ttsRequestId) this.notifyTtsLifecycle('idle', '问题播报完成，可以开始回答。');
+        console.info(`Core Speech TTS completed: ${requestId} type=${response.type} ${response.message}`);
+        if (requestId === this.ttsRequestId && response.type === 1) {
+          this.notifyTtsLifecycle('idle', '问题播报完成，可以开始回答。');
+        }
       },
       onStop: (requestId: string, response: textToSpeech.StopResponse): void => {
         console.info(`Core Speech TTS stopped: ${requestId} ${response}`);
@@ -203,7 +215,7 @@ export class NativeCapabilityService {
 
   async speakText(payload: string): Promise<string> {
     if (!this.isNativeCaller()) {
-      return JSON.stringify({ nativeAvailable: true, ok: false, message: '已拒绝非本地页面调用语音播报。' });
+      return JSON.stringify({ nativeAvailable: true, ok: false, message: '当前无法使用语音播报。' });
     }
     try {
       const parsed = JSON.parse(payload) as Record<string, string>;
@@ -215,17 +227,17 @@ export class NativeCapabilityService {
       engine.stop();
       this.ttsRequestId = `tts_${Date.now()}`;
       engine.speak(content, { requestId: this.ttsRequestId });
-      return JSON.stringify({ nativeAvailable: true, ok: true, message: '已使用 Core Speech 开始播报。' });
+      return JSON.stringify({ nativeAvailable: true, ok: true, message: '开始播报问题。' });
     } catch (error) {
       const businessError = error as BusinessError;
       console.error(`Core Speech TTS invocation failed: ${businessError.code} ${businessError.message}`);
-      return JSON.stringify({ nativeAvailable: true, ok: false, message: 'Core Speech 语音播报暂时不可用。', errorCode: businessError.code });
+      return JSON.stringify({ nativeAvailable: true, ok: false, message: '语音播报暂时不可用，请直接阅读问题。', errorCode: businessError.code });
     }
   }
 
   async stopSpeaking(): Promise<string> {
     if (!this.isNativeCaller()) {
-      return JSON.stringify({ nativeAvailable: true, ok: false, message: '已拒绝非本地页面停止语音播报。' });
+      return JSON.stringify({ nativeAvailable: true, ok: false, message: '当前无法停止语音播报。' });
     }
     if (this.ttsEngine) this.ttsEngine.stop();
     else this.notifyTtsLifecycle('stopped', '当前没有正在播报的问题。');
@@ -277,7 +289,7 @@ export class NativeCapabilityService {
 
   async startSpeechRecognition(): Promise<string> {
     if (!this.isNativeCaller()) {
-      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '已拒绝非本地页面调用语音识别。' });
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '当前无法使用语音输入。' });
     }
     if (this.speechActive) {
       return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '已有一段语音正在识别。' });
@@ -302,7 +314,10 @@ export class NativeCapabilityService {
           console.info(`Core Speech recognition event: ${sessionId} ${eventCode} ${eventMessage}`);
         },
         onResult: (sessionId: string, result: speechRecognizer.SpeechRecognitionResult): void => {
-          if (sessionId === this.speechSessionId && result.result.trim()) this.speechTranscript = result.result.trim();
+          if (sessionId === this.speechSessionId && result.result.trim()) {
+            this.speechTranscript = result.result.trim();
+            this.notifyRecognitionResult(this.speechTranscript, result.isFinal || result.isLast);
+          }
         },
         onComplete: (sessionId: string, eventMessage: string): void => {
           console.info(`Core Speech recognition completed: ${sessionId} ${eventMessage}`);
@@ -334,19 +349,19 @@ export class NativeCapabilityService {
       await this.audioCapturer.start();
       this.speechActive = true;
       this.speechCaptureTask = this.captureSpeechAudio();
-      return JSON.stringify({ nativeAvailable: true, ok: true, text: '', message: 'Core Speech 正在本机收听，最长 15 秒。' });
+      return JSON.stringify({ nativeAvailable: true, ok: true, text: '', message: '正在聆听，单次最长 15 秒。' });
     } catch (error) {
       const businessError = error as BusinessError;
       this.speechActive = false;
       console.error(`Core Speech recognition start failed: ${businessError.code} ${businessError.message}`);
-      this.notifyRecognitionError('Core Speech 语音识别无法启动，请改用文字输入。');
-      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: 'Core Speech 语音识别无法启动。', errorCode: businessError.code });
+      this.notifyRecognitionError('语音输入无法启动，请检查麦克风权限或改用文字输入。');
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '语音输入无法启动，请检查麦克风权限或改用文字输入。', errorCode: businessError.code });
     }
   }
 
   async stopSpeechRecognition(): Promise<string> {
     if (!this.isNativeCaller()) {
-      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '已拒绝非本地页面停止语音识别。' });
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '当前无法结束语音输入。' });
     }
     this.speechActive = false;
     if (this.speechCaptureTask) await this.speechCaptureTask;
@@ -355,7 +370,7 @@ export class NativeCapabilityService {
       nativeAvailable: true,
       ok,
       text: this.speechTranscript,
-      message: ok ? '已使用 Core Speech 完成本机语音识别。' : this.speechError || '未识别到有效语音，请重试或改用文字输入。',
+      message: ok ? '语音已转为文字。' : '未识别到有效语音，请重试或改用文字输入。',
     });
   }
 
@@ -414,10 +429,10 @@ export class NativeCapabilityService {
 
   async recognizeResumeImage(dataUrl: string): Promise<string> {
     if (!this.isNativeCaller()) {
-      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '已拒绝非本地页面调用本机 OCR。' });
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '当前无法识别图片文字。' });
     }
     if (!dataUrl.startsWith('data:image/') || dataUrl.length > 11000000) {
-      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '图片格式无效或超过本机 OCR 大小限制。' });
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '图片格式无效或文件过大，请重新选择。' });
     }
 
     const separator = dataUrl.indexOf(',');
@@ -433,7 +448,7 @@ export class NativeCapabilityService {
       pixelMap = await source.createPixelMap();
       const initialized = await textRecognition.init();
       if (!initialized) {
-        return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: 'Core Vision OCR 初始化失败。' });
+        return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '图片文字识别暂时不可用，请改用文字输入。' });
       }
       const result = await textRecognition.recognizeText({ pixelMap });
       const text = result.value.trim();
@@ -441,12 +456,12 @@ export class NativeCapabilityService {
         nativeAvailable: true,
         ok: text.length > 0,
         text,
-        message: text.length > 0 ? '已使用 Core Vision 在本机完成文字识别。' : '本机 OCR 未识别到文字。',
+        message: text.length > 0 ? '已提取图片中的文字。' : '未识别到有效文字，请换一张更清晰的图片。',
       });
     } catch (error) {
       const businessError = error as BusinessError;
       console.error(`Core Vision OCR failed: ${businessError.code} ${businessError.message}`);
-      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '本机 OCR 暂时不可用。', errorCode: businessError.code });
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '图片文字识别暂时不可用，请改用文字输入。', errorCode: businessError.code });
     } finally {
       if (pixelMap) {
         try {
@@ -472,7 +487,7 @@ export class NativeCapabilityService {
 
   async recognizeResumeImageUri(uri: string): Promise<string> {
     if (!this.isNativeCaller()) {
-      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '已拒绝非本地页面调用本机 OCR。' });
+      return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '当前无法识别图片文字。' });
     }
     if (!uri || uri.length > 4096) {
       return JSON.stringify({ nativeAvailable: true, ok: false, text: '', message: '图片地址无效，请重新选择图片。' });

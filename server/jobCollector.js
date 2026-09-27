@@ -1,4 +1,6 @@
 import { collectAshbyJobs } from "./jobs/adapters/ashby.js";
+import { collectBaiduJobs } from "./jobs/adapters/baidu.js";
+import { collectByteDanceJobs } from "./jobs/adapters/bytedance.js";
 import { collectGreenhouseJobs } from "./jobs/adapters/greenhouse.js";
 import { collectLeverJobs } from "./jobs/adapters/lever.js";
 import { collectMokaJobs } from "./jobs/adapters/moka.js";
@@ -15,6 +17,8 @@ const health = new Map();
 
 const ADAPTERS = {
   ashby: collectAshbyJobs,
+  baidu: collectBaiduJobs,
+  bytedance: collectByteDanceJobs,
   greenhouse: collectGreenhouseJobs,
   lever: collectLeverJobs,
   moka: collectMokaJobs,
@@ -78,16 +82,21 @@ const collectOneSource = async (source, context) => {
   }
 };
 
-const sourceMatches = (source, query, company) => {
+const sourceMatches = (source, query, company, market) => {
+  if (market === "cn" && source.market !== "cn") return false;
+  const queryText = sanitizeQuery(query).toLowerCase();
+  const studentIntent = /实习|校招|校园|应届|intern|graduate|campus/.test(queryText);
+  const socialIntent = /社招|社会招聘|experienced/.test(queryText);
+  if (studentIntent && source.audience === "social") return false;
+  if (socialIntent && source.audience === "student") return false;
   const companyNeedle = sanitizeQuery(company).toLowerCase();
   if (companyNeedle) return source.company.toLowerCase().includes(companyNeedle);
-  const queryText = sanitizeQuery(query).toLowerCase();
   const mentioned = getStructuredJobSources().filter((candidate) => queryText.includes(candidate.company.toLowerCase()));
   return !mentioned.length || mentioned.some((candidate) => candidate.id === source.id);
 };
 
-const discoveryTargetsFor = (query, company) => {
-  const targets = getOfficialCareerSources();
+const discoveryTargetsFor = (query, company, market) => {
+  const targets = getOfficialCareerSources().filter((target) => market !== "cn" || target.market === "cn");
   const needle = sanitizeQuery(company).toLowerCase();
   if (needle) return targets.filter((target) => target.company.toLowerCase().includes(needle));
   const queryText = sanitizeQuery(query).toLowerCase();
@@ -99,6 +108,7 @@ export async function collectPublicJobs(options = {}) {
   const fetchImpl = options.fetchImpl || fetch;
   const query = sanitizeQuery(options.query || "产品 技术 运营");
   const city = sanitizeQuery(options.city || "").slice(0, 24);
+  const market = sanitizeQuery(options.market || "cn").toLowerCase() === "all" ? "all" : "cn";
   const company = sanitizeQuery(options.company || "").slice(0, 80);
   const employmentType = sanitizeQuery(options.employmentType || "").slice(0, 32);
   const sourceType = sanitizeQuery(options.sourceType || "").slice(0, 40);
@@ -106,7 +116,7 @@ export async function collectPublicJobs(options = {}) {
   const cursor = sanitizeQuery(options.cursor || "").slice(0, 120);
   const limit = Math.max(1, Math.min(100, Number(options.limit) || 20));
   const refresh = options.refresh !== false;
-  const cacheKey = JSON.stringify({ query, city, company, employmentType, sourceType, updatedAfter, cursor, limit });
+  const cacheKey = JSON.stringify({ query, city, market, company, employmentType, sourceType, updatedAfter, cursor, limit });
   const cached = cache.get(cacheKey);
   if (refresh && cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return cached.value;
 
@@ -116,8 +126,8 @@ export async function collectPublicJobs(options = {}) {
   let failed = 0;
 
   if (refresh) {
-    const structuredSources = getStructuredJobSources().filter((source) => sourceMatches(source, query, company));
-    const targets = discoveryTargetsFor(query, company);
+    const structuredSources = getStructuredJobSources().filter((source) => sourceMatches(source, query, company, market));
+    const targets = discoveryTargetsFor(query, company, market);
     const structuredTasks = structuredSources.map((source) => async () => collectOneSource(source, {
       fetchImpl,
       query,
@@ -173,6 +183,7 @@ export async function collectPublicJobs(options = {}) {
   const result = await queryJobs({
     query,
     city,
+    market,
     company,
     employmentType,
     sourceType,
@@ -181,21 +192,27 @@ export async function collectPublicJobs(options = {}) {
     limit,
   });
   const stats = await repositoryStats();
+  if (refresh && attempted > 0 && succeeded === 0 && result.jobs.length === 0) {
+    throw new Error("All job sources are unavailable and no matching snapshot exists");
+  }
   const value = {
     ok: true,
     live: result.jobs.length > 0,
     stale: refresh && collectedJobs.length === 0 && result.jobs.length > 0,
     query,
     city,
+    market,
     company,
     collectedAt: new Date().toISOString(),
-    sourcePolicy: "仅收集企业官方招聘接口、公开 ATS 与公开招聘页面中的岗位信息；不使用登录 Cookie，不绕过验证码，不采集求职者或招聘人员个人信息。",
+    sourcePolicy: "默认优先中国市场的企业官方招聘接口、公开 ATS 与公开招聘页面，仅返回明确国内地点或地点待确认的岗位；不使用登录 Cookie，不绕过验证码，不采集求职者或招聘人员个人信息。",
     collection: { attempted, succeeded, failed, collected: collectedJobs.length },
     pagination: { total: result.total, nextCursor: result.nextCursor },
     repository: stats,
     jobs: result.jobs,
   };
-  if (refresh) cache.set(cacheKey, { createdAt: Date.now(), value });
+  if (refresh && (succeeded > 0 || result.jobs.length > 0)) {
+    cache.set(cacheKey, { createdAt: Date.now(), value });
+  }
   return value;
 }
 

@@ -1,6 +1,6 @@
 # HarmonyOS 原生构建证据（2026-09-20）
 
-补充验证日期：2026-09-22（原生投递闭环、简历版本绑定门禁、原生 AI 面试可信降级、成长证据账本、Calendar Kit 提醒、Form Kit 动态卡片端到端路由、可靠性加固、前端成熟化、数据与隐私中心及构建内存策略）。
+补充验证日期：2026-09-23（原生投递闭环、简历版本绑定门禁、原生 AI 面试可信降级、成长证据账本、Calendar Kit 提醒、Form Kit 动态卡片端到端路由、可靠性加固、前端成熟化、数据与隐私中心，以及 P0 面试档案、Camera Kit 候选人预览、Media Kit 录像链路、结构化评估契约与实时语音转写）。
 
 ## 构建环境
 
@@ -21,19 +21,19 @@ npm run dev -- --port 5173 --strictPort
 npm run build:harmony:local
 ```
 
-源码路径包含中文目录，Hvigor 直接从原路径执行会触发 `00306003 Specification Limit Violation`。构建脚本因此将 `harmony/` 临时复制到 D 盘 ASCII staging 目录 `D:\KongMing-Harmony-Build`，并把 `TEMP/TMP` 固定到 `D:\KongMing-Harmony-Temp`。Hvigor 使用内存优先和非并行模式；模拟器运行导致系统可提交内存不足时，先停止模拟器再编译。成功后 HAP 回写原工程并清理 staging 目录。本机服务版调试 HAP 通过字符串资源注入 `http://10.0.2.2:5173/api/jobs`、`http://10.0.2.2:5173/api/ark` 和 `http://10.0.2.2:5173/api/health`，源码资源保持空值；正式构建仍只接受 HTTPS 服务地址。
+源码路径包含中文目录，Hvigor 直接从原路径执行会触发 `00306003 Specification Limit Violation`。构建脚本因此将 `harmony/` 临时复制到 D 盘 ASCII staging 目录 `D:\KongMing-Harmony-Build`，把 `TEMP/TMP` 固定到 `D:\KongMing-Harmony-Temp`，并将 Hvigor、OHPM 和 pnpm 使用的 `USERPROFILE/HOME` 重定向到 `D:\KongMing-Harmony-User`。Hvigor 使用内存优先和非并行模式；模拟器运行导致系统可提交内存不足时，先停止模拟器再编译。成功后 HAP 回写原工程并清理 staging 目录。本机服务版调试 HAP 只通过字符串资源注入 `http://10.0.2.2:5173/api/gateway`，源码资源保持空值；正式构建仍只接受 HTTPS 服务地址。
 
 ## 构建结果
 
 | 项目 | 结果 |
 | --- | --- |
 | HAP | `harmony/entry/build/default/outputs/default/entry-default-unsigned.hap` |
-| 大小 | `15,267,137` bytes（2026-09-22 原生面试启动体验优化 HAP） |
-| SHA-256 | `0F1D3505AEB02A233774F68A5BA7F58B7A32FB65F734203147A61C89243DC925` |
+| 大小 | `12,303,602` bytes（2026-09-26 Rocketbox v5 单人物原生 HAP） |
+| SHA-256 | `AAD23AC930D5795AB02C9AD18C44B7C5D333AF2919231EB6CEAB5654E9AC4687` |
 | ArkTS 编译 | 通过 |
 | HAP 打包 | 通过 |
 | 签名 | unsigned；项目尚未配置 `signingConfigs` |
-| Web 资源 | 未打包 `resources/resfile`；HAP 内共 17 个条目，包含原生 GLB，未发现 `resfile` 或 `index.html` |
+| Web 资源 | 未打包 `resources/resfile`；HAP 仅包含 v5 默认人物，v3/v4 旧人物在 staging 阶段排除，未发现 `resfile` 或 `index.html` |
 
 ## 模拟器运行结果
 
@@ -44,7 +44,7 @@ npm run build:harmony:local
 | HDC 目标 | `127.0.0.1:5555`，TCP Connected |
 | HAP 安装 | 通过，`install bundle successfully` |
 | 原生入口启动 | 通过，`EntryAbility` 进入 `FOREGROUND` |
-| 最新包烟测 | 2026-09-22 原生核心页面产品化 HAP 覆盖安装并启动成功；简历、岗位、面试准备、面试启动区和成长页完成浅色标准字号视觉回归，原有横屏面试与键盘专注能力保留 |
+| 最新包烟测 | 2026-09-26 Rocketbox v5 单人物 HAP 覆盖安装并启动成功；包内清单确认仅保留 v5 默认人物，默认女性商务人物材质、中性灯光、横屏构图和正式运行时状态恢复均完成 API 24 模拟器回归 |
 | 原生开场动效截图 | 已归档至 `docs/evidence-screenshots/harmony-native-intro-mature-20260921.jpeg` |
 | 原生首页截图 | 已归档至 `docs/evidence-screenshots/harmony-native-home-mature-20260921.jpeg` |
 | 核心页面截图 | `docs/evidence-screenshots/harmony-native-resume-mature-20260921.jpeg`、`harmony-native-jobs-mature-20260921.jpeg`、`harmony-native-interview-mature-20260921.jpeg`、`harmony-native-digital-interviewer-20260922.jpeg`、`harmony-native-growth-mature-20260921.jpeg` |
@@ -54,14 +54,20 @@ npm run build:harmony:local
 | 前端视觉成熟化 | 全局浅色与深色令牌改为中性灰底、靛蓝主操作、青绿成功态和琥珀待办态；收紧品牌栏、页面标题、指标卡和导航尺寸，首页由大面积品牌蓝改为工作台式下一行动面板，四段求职主线合并为单一进度区。五个主页面统一使用“场景标签 + 页面标题 + 说明”的标题结构，底部导航以顶部指示条替代整块选中背景。证据见 `docs/evidence-screenshots/harmony-native-workbench-polish-20260922.jpeg`、`docs/evidence-screenshots/harmony-native-jobs-polish-20260922.jpeg` |
 | 核心页面产品化 | 简历页新增资料完整度并按基础画像、经历证据分组；岗位页前置搜索、追踪、核对三步流程；面试准备页将配置置于数字人之前，手机预览收紧至 184vp，以原生开关管理智能增强，并新增真实语音试听状态和始终可见的固定启动栏；成长页新增行动进度并将验证记录收敛为状态头、摘要和来源状态。证据见 `docs/evidence-screenshots/harmony-native-resume-workspace-polish-20260922.jpeg`、`harmony-native-jobs-workflow-polish-20260922.jpeg`、`harmony-native-interview-setup-polish-20260922.jpeg`、`harmony-native-interview-launch-polish-20260922.jpeg`、`harmony-native-growth-queue-polish-20260922.jpeg` |
 | 草稿状态与就地保存 | 简历画像、岗位资料和投递日程继续按当前值与已保存基线的真实差异计算脏状态；存在修改时以顶部原生状态条明确未保存范围并提供就地保存入口，同时保留离开确认保护。保存仍进入各表单既有校验，不绕过真实性和来源约束。证据见 `docs/evidence-screenshots/harmony-native-draft-status-20260922.jpeg` |
-| 原生 3D 数字面试官 | `@kit.ArkGraphics3D` 直接加载 `rawfile/avatar/kongming-interviewer.glb`，人物配置、模型路径、动作索引和语音 Provider 均可替换；办公室背景由 ArkUI 原生绘制，不引入 ArkWeb。Idle、Waving、Listening 与三组 Talking 动画分别映射准备、问候、聆听和播报状态。证据见 `docs/evidence-screenshots/harmony-native-digital-interviewer-20260922.jpeg` |
-| 实时语音交互 | 当前 `CoreSpeechInterviewProvider` 封装 Core Speech TTS/ASR；播报开始切到 Talking，回答开始会先打断播报再切到 Listening，生成追问时切到 Thinking。Provider 接口隔离语音厂商，后续可替换讯飞实现。模拟器无麦克风输入返回 `6800301` 时会退出聆听态并提供文字降级，证据见 `docs/evidence-screenshots/harmony-native-digital-interviewer-recovery-20260922.jpeg` |
+| 原生 3D 数字面试官 | `@kit.ArkGraphics3D` 默认加载 `rawfile/avatar/professional-interviewer-v5.glb`；人物为 Microsoft Rocketbox `Business_Female_04`，保留 28 个运行时 Morph Target 和 15/15 viseme，由 ArkTS 状态机驱动口型、眨眼、表情与轻微头部动作。办公室背景由 ArkUI 原生绘制，不引入 ArkWeb。证据见 `docs/evidence-screenshots/harmony-native-avatar-rocketbox-v5-20260926.jpeg` |
+| 实时语音交互 | 当前 `CoreSpeechInterviewProvider` 封装 Core Speech TTS/ASR；`onResult` 会把中间识别结果实时写入回答框，停止识别后不会重复追加。播报开始切到 Talking，回答开始会先打断播报再切到 Listening，生成追问时切到 Thinking；Provider 接口隔离语音厂商，后续可替换讯飞实现。模拟器无可用麦克风输入时仍会退出聆听态并提供文字降级，证据见 `docs/evidence-screenshots/harmony-native-digital-interviewer-recovery-20260922.jpeg` |
 | 完整面试会话配置 | 开始前可选择综合面、技术面或 HR 面，设置基础、标准或高压追问强度及 10/15/20 分钟训练时长；页面同时展示目标岗位、简历画像状态、语音与数字人准备状态。难度会进入本机题目和外部模型提示上下文。证据见 `docs/evidence-screenshots/harmony-native-interview-session-setup-20260922.jpeg` |
 | 面试计时与控制 | 会话中展示轮次、已用时、目标时长和进度；原生 Symbol 按钮支持暂停/恢复与提前结束确认。暂停或到时会停止 TTS/ASR 并禁用回答提交，到时可加时 5 分钟。证据见 `docs/evidence-screenshots/harmony-native-interview-session-active-20260922.jpeg`、`docs/evidence-screenshots/harmony-native-interview-session-paused-20260922.jpeg` |
+| 面试提前结束保护 | 结束确认只把已提交或达到 20 字要求的回答视为反馈材料；不足要求的当前草稿不会再阻塞退出。无合格回答时返回竖屏准备页且不生成记录，已有合格回答时忽略未完成草稿并生成反馈 |
 | 面试会话恢复 | Preferences 持久化难度、时长、已用时、会话阶段和更新时间；活动会话重启后补偿离线时长，暂停会话重启后保持计时冻结。已强制停止 `cn.kongming.jobmatch` 并验证暂停状态、轮次和回答入口恢复。证据见 `docs/evidence-screenshots/harmony-native-interview-session-recovery-20260922.jpeg` |
 | 横屏全屏正式面试 | 仅在活动或暂停会话中通过 ArkUI Window API 锁定横屏并隐藏状态栏、导航栏、应用品牌栏和底部导航；左侧为 ArkGraphics3D 面试官与语音状态，右侧固定展示问题、回答框及朗读、语音、追问、反馈操作。无软键盘时返回键和页签切换先触发结束确认。证据见 `docs/evidence-screenshots/harmony-native-interview-landscape-active-20260922.jpeg` |
+| 横屏作答控制优化 | 朗读和语音改为固定尺寸原生 Symbol 工具按钮，提交与结束复盘保留清晰命令文字；四项操作在 `2688 x 1216` 横屏首屏中完整显示，无文字截断或控件重叠。证据见 `docs/evidence-screenshots/harmony-native-interview-controls-20260922.jpeg` |
 | 横屏回答专注模式 | ArkUI `keyboardHeightChange` 驱动紧凑布局；系统软键盘出现时隐藏顶部栏、数字人和工具栏，只保留当前问题、实时字数、回答框和完成按钮。完成按钮或系统返回键收起键盘后恢复双栏；返回事件在键盘关闭竞态窗口内被消费，不会误弹结束确认。证据见 `docs/evidence-screenshots/harmony-native-interview-keyboard-focus-20260922.jpeg` |
 | 横屏暂停与恢复 | 暂停态使用全屏遮罩，支持继续和结束；强制停止后重启会自动恢复横屏暂停态。结束无回答会话后已验证窗口恢复 `1216 x 2688` 竖屏准备页；输入 53 字有效回答并生成本机反馈后，也会恢复竖屏完成页。证据见 `docs/evidence-screenshots/harmony-native-interview-landscape-paused-20260922.jpeg`、`docs/evidence-screenshots/harmony-native-interview-landscape-recovery-20260922.jpeg`、`docs/evidence-screenshots/harmony-native-interview-feedback-portrait-20260922.jpeg` |
+| 结构化面试复盘 | 完成会话后不再重复展示配置与数字人预览，直接进入训练报告；本机启发式分析给出总分、回答结构、证据可信度、岗位关联和表达清晰度，并明确不代表招聘结论。页面同时保留岗位化反馈、可展开的逐轮问答、成长任务和重新训练入口。证据见 `docs/evidence-screenshots/harmony-native-interview-report-20260922.jpeg`、`docs/evidence-screenshots/harmony-native-interview-report-detail-20260922.jpeg` |
+| 面试档案与趋势 | 每次完成面试后自动保存岗位、公司、类型、难度、时长、问答、反馈、模型来源、总分、四维分数、评估版本和证据引用；旧版完成态可迁移为历史记录，本机最多保留 30 次。历史页展示最近得分、证据可信度和同岗位前后变化，证据见 `docs/evidence-screenshots/harmony-native-p0-history-20260922.jpeg` |
+| 候选人实时镜头与录像 | `@kit.CameraKit` 使用前置摄像头和 `XComponentType.SURFACE` 提供横屏画中画预览；用户主动点击后才请求权限，暂停、结束或退出会话时释放相机资源。`@kit.MediaKit` 在用户再次主动点击录制后才初始化 video-only `AVRecorder`，不占用实时 ASR 的麦克风；成功录像计划保存到应用私有目录并关联面试档案，历史页使用 ArkUI `Video` 回看，可单独删除录像而保留问答与评分。API 24 模拟器的编码器在 `prepare` 返回 I/O 错误，当前仅验收了预览持续、明确降级和空文件清理，实际 MP4 生成、回看与删除仍需真机验收。降级截图中的候选人画面已作隐私遮挡。证据见 `docs/evidence-screenshots/harmony-native-p0-camera-preview-20260922.jpeg`、`harmony-native-p0-camera-state-20260922.jpeg`、`harmony-native-p0-camera-result-20260922.jpeg`、`harmony-native-p0-camera-recording-fallback-20260923.jpeg` |
+| 结构化 AI 评估契约 | 外部模型反馈使用固定 JSON 协议，包含总分、五项分数、优势、缺口、行动、最强维度、优先改进和回答证据引用；客户端校验分数范围及总体分一致性。解析失败时保留模型文本并回退本机启发式评分，不输出录用概率或招聘结论。当前没有真实外部模型成功调用证据 |
 | 编辑保护与键盘避让 | 简历、岗位和投递日程均按当前字段与已保存基线的真实差异计算脏状态，受控输入初始化不再误报未保存；存在真实修改时切换页签仍显示原生确认对话框。ArkUI `KeyboardAvoidMode.RESIZE` 下焦点输入框和底栏不被软键盘遮挡。证据见 `docs/evidence-screenshots/harmony-native-unsaved-dialog-20260921.jpeg`、`docs/evidence-screenshots/harmony-native-keyboard-avoid-20260921.jpeg` |
 | 系统显示适配 | `AppScope` 跟随系统字号并限制最大缩放为 `1.75`；深色资源限定目录与亮色语义令牌一一对应；`600vp` 起切换左侧导航轨，页面内容最大宽度为 `1040vp`；系统状态栏和底部手势区使用原生安全区扩展。证据见 `docs/evidence-screenshots/harmony-native-display-adaptation-20260921.jpeg`、`harmony-native-dark-mode-20260921.jpeg`、`harmony-native-wide-layout-20260921.jpeg`、`harmony-native-large-font-20260921.jpeg` |
 | 首次任务优先级 | 简历经历为空时，首页主任务、操作按钮、待处理计数与 Form Kit 路由统一优先指向简历页，不再跳过画像直接进入面试；证据见 `docs/evidence-screenshots/harmony-native-first-task-20260922.jpeg` |
@@ -74,7 +80,7 @@ npm run build:harmony:local
 | 原生视觉回归 | 保留蓝青机器人开场；统一亮暗语义色、8vp 卡片、紧凑品牌栏、固定字段标签、语义化状态提示和系统 Symbol 图标导航；首页将“今日重点”提升为第一操作位；手机、大字体与宽屏页面未发现不可访问的文字重叠、底栏遮挡或异常换行 |
 | 真实岗位录入 | 原生岗位页支持岗位、公司、来源链接和 JD 本机保存；空提交会显示字段校验，不生成虚构企业或招聘信息 |
 | 岗位页截图 | `docs/evidence-screenshots/harmony-native-job-tracking-20260920.jpeg`、`docs/evidence-screenshots/harmony-native-job-validation-20260920.jpeg` |
-| 官方岗位网络链路 | `@kit.NetworkKit` 原生 HTTP 客户端读取 `/api/jobs`；本机 API 经模拟器宿主网关 `10.0.2.2` 联调成功，截图时 11/12 个官方来源可用、收集 647 条，严格意图筛选后展示 1 条 |
+| 官方岗位网络链路 | `@kit.NetworkKit` 原生 HTTP 客户端读取 `/api/gateway?operation=jobs`；本机 API 经模拟器宿主网关 `10.0.2.2` 联调成功，截图时 11/12 个官方来源可用、收集 647 条，严格意图筛选后展示 1 条 |
 | 原生岗位列表与详情 | `docs/evidence-screenshots/harmony-native-official-jobs-20260920.jpeg`、`docs/evidence-screenshots/harmony-native-job-detail-20260920.jpeg` |
 | 网络失败降级 | 服务不可用时不生成替代岗位、不清空上次成功结果，并继续提供本机真实岗位录入；证据见 `docs/evidence-screenshots/harmony-native-job-offline-fallback-20260920.jpeg`、`harmony-native-job-service-state-20260922.jpeg` |
 | 原生投递阶段 | 同一真实岗位支持已收藏、准备中、已投递、面试中、Offer、已结束六阶段；证据见 `docs/evidence-screenshots/harmony-native-application-stage-20260921.jpeg` |
@@ -86,11 +92,13 @@ npm run build:harmony:local
 | Form Kit 成长摘要 | 服务卡片新增成长证据完成数、实证覆盖率与进度条；工作区加载和保存时同步卡片数据，不包含简历正文；数值、文本、覆盖率、路由与 Form ID 在持久化和绑定前统一清洗 |
 | Form Kit 精准路由 | 动态卡片根据当前下一行动传递 `resume/jobs/interview/growth/home`，点击通过官方 `postCardAction` 发送 `router` 事件；`EntryAbility` 解析系统封装的 `want.parameters.params`、执行白名单校验并通过唯一 `AppStorage` 请求驱动原生页签。API 24 模拟器已验证应用内刷新、覆盖安装保留、强制停止后桌面存续，以及真实点击冷启动直接进入成长页。证据见 `docs/evidence-screenshots/harmony-native-form-desktop-20260921.jpeg`、`docs/evidence-screenshots/harmony-native-form-coldstart-growth-20260921.jpeg`；参数路由辅助截图见 `docs/evidence-screenshots/harmony-native-form-route-growth-20260921.jpeg` |
 | Form Kit 失败隔离 | `ApplicationFormAbility` 的添加、更新和移除后台任务统一捕获 Promise 拒绝；卡片准备或更新失败只记录错误并返回更新数，不再把已成功的主工作区保存误报为失败 |
-| 原生 AI 面试链路 | `@kit.NetworkKit` POST `/api/ark`，复用 `career-chat` 协议；包含会话级授权、发送前敏感字段脱敏、最多三轮问答和最终反馈，模型密钥不进入客户端 |
-| 原生 AI 无密钥降级 | 当前宿主服务未配置 `ARK_API_KEY`；提交首轮回答后页面明确提示模型不可用，使用本机规则进入第 2 轮，不伪装为模型结果；证据见 `docs/evidence-screenshots/harmony-native-ai-fallback-20260921.jpeg` |
+| 原生 AI 面试链路 | `@kit.NetworkKit` POST `/api/gateway?operation=model`，复用 `career-chat` 协议；包含会话级授权、发送前敏感字段脱敏、星火岗位化首题与追问、按 10/15/20 分钟执行 3/4/5 轮问答和最终反馈，供应商端点和模型密钥不进入客户端 |
+| 面试产品边界 | 当前客户端不展示供应商、模型名称、网关状态或配置诊断。用户只选择标准题库或个性化追问；请求失败时直接提供可继续训练的标准问题。服务状态仅用于服务端运维验证 |
+| 讯飞星火服务端适配 | `server/modelProvider.js` 与 `server/sparkWebSocket.js` 已同时支持 OpenAI 兼容端点 APIPassword Bearer 鉴权和 APPID/APIKey/APISecret HMAC WebSocket 鉴权，并实现文本模型端点选择、视觉模型显式门禁和无密钥健康状态；Mock 验证确认两种请求参数正确且响应不泄露密钥。2026-09-23 已使用本地忽略配置真实验证 `4.0Ultra` 首题、历史追问和严格 JSON 评分 |
+| 原生 AI 无密钥降级 | 2026-09-21 的无密钥环境验证了明确降级路径：提交首轮回答后页面提示模型不可用，使用本机规则进入第 2 轮，不伪装为模型结果；证据见 `docs/evidence-screenshots/harmony-native-ai-fallback-20260921.jpeg` |
 | 原生 AI 反馈与成长 | 已验证本机反馈生成、STAR 复盘任务和原生成长驾驶舱跳转；证据见 `docs/evidence-screenshots/harmony-native-ai-feedback-20260921.jpeg`、`harmony-native-ai-growth-task-20260921.jpeg` |
 | 原生 AI 本机恢复 | 强制停止 `cn.kongming.jobmatch` 后重新启动，恢复第 2 轮问题、首轮回答和反馈；外部模型授权按会话边界重置；证据见 `docs/evidence-screenshots/harmony-native-ai-restored-20260921.jpeg` |
-| 原生 AI 调用结论 | 链路已实现并通过 ArkTS 编译，可信降级已在模拟器验收；本次环境没有真实模型成功调用证据，不能宣称原生 HAP 已完成真实模型端到端验收 |
+| 原生 AI 调用结论 | 链路已实现并通过 ArkTS 编译；API 24 模拟器已完成讯飞星火 `4.0Ultra` 首题、第 2 轮上下文追问和结构化评分报告的真实端到端验收。证据见 `harmony-native-spark-first-question-20260923.jpeg`、`harmony-native-spark-followup-20260923.jpeg`、`harmony-native-spark-report-20260923.jpeg` |
 | 原生成长来源拦截 | `https://127.0.0.1/evidence` 被公开地址策略拒绝，任务保持 `+9%` 待提交状态，实证覆盖保持 `42%`，账本有效记录保持 `0` |
 | 原生成长证据提交 | Network Kit 对公开 GitHub 来源执行 `HEAD` 核验并返回 `HTTP 200`；经用户真实性确认后生成 `KM-543A7715` 本机内容指纹，任务变为“证据已通过”，实证覆盖即时从 `42%` 更新为 `51%` |
 | 来源核验兼容性 | 当前源码与 HAP 先通过 Network Kit DNS 查询拒绝非公网解析结果和自动重定向，再在 HEAD 失败或 `400/403/405/406/501` 时使用流式 `GET` + `Range: bytes=0-0` 降级，并在账本保存实际方法；本轮尚未形成限制 HEAD 站点的模拟器成功截图 |
@@ -107,7 +115,7 @@ npm run build:harmony:local
 - ArkTS 编译输出了 `preferences` 异常处理建议，未形成编译错误。
 - Account Kit、Core Vision、Share Kit、Core Speech 和部分 API 输出设备能力覆盖提示，未形成编译错误。
 - Network Kit 岗位请求、服务地址资源注入、官方链接系统打开和 ArkUI 详情页均通过 ArkTS 编译。
-- Network Kit 模型请求、会话授权、发送前脱敏、超时处理、追问/反馈解析和本机回退均通过 ArkTS 编译；当前仅完成无密钥降级运行验证。
+- Network Kit 模型请求、会话授权、发送前脱敏、超时处理、首题/追问/反馈解析和本机回退均通过 ArkTS 编译；无密钥降级与讯飞星火真实调用均已完成模拟器运行验证。
 - 原生成长证据摘要、Network Kit 公开 HTTPS 可访问性核验、私网地址拦截、用户确认、内容指纹、撤销审计、覆盖率即时刷新和 ArkData 恢复均通过 ArkTS 编译及模拟器运行验证；HTTP 成功和本机指纹不代表内容归属或第三方真实性认证。
 - 原生投递阶段、日程、Calendar Kit 事件编辑器、简历版本冻结与绑定门禁、时间线、ArkData 恢复以及 Form Kit 成长摘要、数据清洗、异步失败隔离和精准路由均通过 ArkTS 编译；Calendar Kit 预填和取消路径、动态卡片桌面刷新、覆盖安装保留、进程终止后存续和真实点击冷启动精准路由已在模拟器验收，真机日历保存和服务卡片差异仍待验收。
 - DevEco Studio 报告 unsigned HAP 跳过签名；该产物仅用于开发/模拟器验证，不代表可发布安装包。
@@ -117,4 +125,7 @@ npm run build:harmony:local
 - 尚未完成真机验收；模拟器安装、原生入口启动和文件选择链路已通过，Core Vision OCR 识别结果仍需在支持该能力的鸿蒙真机验收。
 - 尚未配置比赛或正式发布所需的签名、App ID、证书和 Profile。
 - 官方岗位已完成本机 API 到模拟器的端到端验证；尚未使用公网 HTTPS 服务地址完成正式环境验证。
-- 原生 AI 面试尚未在配置真实 `ARK_API_KEY`、`ARK_BASE_URL` 和 `ARK_MODEL` 的服务端环境取得成功调用证据。
+- 原生 AI 面试尚未在配置真实 `IFLYTEK_SPARK_API_PASSWORD` 或完整 `APPID/APIKey/APISecret`，且已开通对应星火模型的服务端环境取得成功调用证据；既有 Gitee AI 历史调用不能替代本次星火端到端验收。
+- 候选人视频录制、私有目录保存、档案关联、原生回看和独立删除链路已实现并通过 ArkTS 编译；API 24 模拟器不提供可用编码器，`AVRecorder.prepare` 返回 I/O 错误，因此实际 MP4 生成、播放与删除仍需鸿蒙真机验收。当前未实现基于视频的行为分析。
+- 结构化 AI 评估协议已编译并完成本机回退验证，尚未在真实外部模型服务上验证 JSON 输出稳定性和证据引用质量。
+- 相机、麦克风与 Core Speech 仍需在鸿蒙真机完成权限、前后台切换、长时会话和真实语音输入验收。

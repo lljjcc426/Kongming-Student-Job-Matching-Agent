@@ -145,7 +145,7 @@ export async function shareTextWithHarmony(title: string, content: string): Prom
 export async function recognizeImageWithHarmony(dataUrl: string): Promise<NativeOcrResult> {
   const bridge = window.kongmingNative;
   if (!bridge?.recognizeResumeImage) {
-    return { nativeAvailable: false, ok: false, text: "", message: "当前环境没有鸿蒙本机 OCR。" };
+    return { nativeAvailable: false, ok: false, text: "", message: "当前环境不支持图片文字识别。" };
   }
   try {
     const parsed = JSON.parse(await bridge.recognizeResumeImage(dataUrl)) as Partial<NativeOcrResult>;
@@ -157,27 +157,27 @@ export async function recognizeImageWithHarmony(dataUrl: string): Promise<Native
       errorCode: typeof parsed.errorCode === "number" ? parsed.errorCode : undefined,
     };
   } catch {
-    return { nativeAvailable: true, ok: false, text: "", message: "无法读取鸿蒙本机 OCR 返回结果。" };
+    return { nativeAvailable: true, ok: false, text: "", message: "图片文字识别未完成，请重新选择或改用文字输入。" };
   }
 }
 
 export async function speakTextWithHarmony(content: string): Promise<NativeActionResult> {
   const bridge = window.kongmingNative;
-  if (!bridge?.speakText) return { nativeAvailable: false, ok: false, message: "当前环境没有鸿蒙 Core Speech。" };
+  if (!bridge?.speakText) return { nativeAvailable: false, ok: false, message: "当前环境不支持语音播报。" };
   try {
     return parseNativeAction(await bridge.speakText(JSON.stringify({ content })));
   } catch {
-    return { nativeAvailable: true, ok: false, message: "Core Speech 语音播报调用失败。" };
+    return { nativeAvailable: true, ok: false, message: "语音播报暂时不可用，请直接阅读问题。" };
   }
 }
 
 export async function stopSpeakingWithHarmony(): Promise<NativeActionResult> {
   const bridge = window.kongmingNative;
-  if (!bridge?.stopSpeaking) return { nativeAvailable: false, ok: false, message: "当前环境没有鸿蒙 Core Speech。" };
+  if (!bridge?.stopSpeaking) return { nativeAvailable: false, ok: false, message: "当前环境不支持语音播报。" };
   try {
     return parseNativeAction(await bridge.stopSpeaking());
   } catch {
-    return { nativeAvailable: true, ok: false, message: "Core Speech 停止播报调用失败。" };
+    return { nativeAvailable: true, ok: false, message: "暂时无法停止语音播报。" };
   }
 }
 
@@ -196,27 +196,27 @@ const parseNativeSpeechRecognition = (payload: string): NativeSpeechRecognitionR
       errorCode: typeof parsed.errorCode === "number" ? parsed.errorCode : undefined,
     };
   } catch {
-    return { nativeAvailable: true, ok: false, text: "", message: "无法读取 Core Speech 语音识别结果。" };
+    return { nativeAvailable: true, ok: false, text: "", message: "语音转写未完成，请重试或改用文字输入。" };
   }
 };
 
 export async function startSpeechRecognitionWithHarmony(): Promise<NativeSpeechRecognitionResult> {
   const bridge = window.kongmingNative;
-  if (!bridge?.startSpeechRecognition) return { nativeAvailable: false, ok: false, text: "", message: "当前环境没有鸿蒙 Core Speech。" };
+  if (!bridge?.startSpeechRecognition) return { nativeAvailable: false, ok: false, text: "", message: "当前环境不支持语音输入。" };
   try {
     return parseNativeSpeechRecognition(await bridge.startSpeechRecognition());
   } catch {
-    return { nativeAvailable: true, ok: false, text: "", message: "Core Speech 语音识别无法启动。" };
+    return { nativeAvailable: true, ok: false, text: "", message: "语音输入无法启动，请检查麦克风权限或改用文字输入。" };
   }
 }
 
 export async function stopSpeechRecognitionWithHarmony(): Promise<NativeSpeechRecognitionResult> {
   const bridge = window.kongmingNative;
-  if (!bridge?.stopSpeechRecognition) return { nativeAvailable: false, ok: false, text: "", message: "当前环境没有鸿蒙 Core Speech。" };
+  if (!bridge?.stopSpeechRecognition) return { nativeAvailable: false, ok: false, text: "", message: "当前环境不支持语音输入。" };
   try {
     return parseNativeSpeechRecognition(await bridge.stopSpeechRecognition());
   } catch {
-    return { nativeAvailable: true, ok: false, text: "", message: "Core Speech 语音识别未能完成。" };
+    return { nativeAvailable: true, ok: false, text: "", message: "语音转写未完成，请重试或改用文字输入。" };
   }
 }
 

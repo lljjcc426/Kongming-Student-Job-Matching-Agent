@@ -1,14 +1,15 @@
 import {
   NativeCapabilityService,
   NativeRecognitionErrorListener,
+  NativeRecognitionResultListener,
   NativeSpeechLifecycleListener,
 } from './NativeCapabilityService';
 
 export interface NativeInterviewSpeechProvider {
   readonly providerId: string;
-  readonly providerName: string;
   setLifecycleListener(listener: NativeSpeechLifecycleListener | undefined): void;
   setRecognitionErrorListener(listener: NativeRecognitionErrorListener | undefined): void;
+  setRecognitionResultListener(listener: NativeRecognitionResultListener | undefined): void;
   speak(content: string): Promise<string>;
   stopSpeaking(): Promise<string>;
   startListening(): Promise<string>;
@@ -17,7 +18,6 @@ export interface NativeInterviewSpeechProvider {
 
 export class CoreSpeechInterviewProvider implements NativeInterviewSpeechProvider {
   readonly providerId: string = 'huawei-core-speech';
-  readonly providerName: string = 'Core Speech';
   private capabilityService: NativeCapabilityService;
 
   constructor(capabilityService: NativeCapabilityService) {
@@ -30,6 +30,10 @@ export class CoreSpeechInterviewProvider implements NativeInterviewSpeechProvide
 
   setRecognitionErrorListener(listener: NativeRecognitionErrorListener | undefined): void {
     this.capabilityService.setRecognitionErrorListener(listener);
+  }
+
+  setRecognitionResultListener(listener: NativeRecognitionResultListener | undefined): void {
+    this.capabilityService.setRecognitionResultListener(listener);
   }
 
   speak(content: string): Promise<string> {

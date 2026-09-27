@@ -8,7 +8,8 @@ const rss = `<?xml version="1.0"?><rss><channel><item>
 </item></channel></rss>`;
 
 async function main() {
-  const { collectPublicJobs } = await import("../server/jobCollector.js");
+  const { collectPublicJobs, resetJobCollectorCacheForTests } = await import("../server/jobCollector.js");
+  const { resetJobRepositoryForTests } = await import("../server/jobs/jobRepository.js");
   const fakeFetch = async (url) => {
     if (String(url).includes("tencentcareer/api/post/Query")) {
       return { ok: true, status: 200, json: async () => ({ Code: 200, Data: { Count: 0, Posts: [] } }) };
@@ -37,7 +38,7 @@ async function main() {
         json: async () => ({
           Code: 200,
           Data: {
-            Count: 1,
+            Count: 3,
             Posts: [{
               PostId: "20260717",
               RecruitPostName: "前端开发工程师",
@@ -49,6 +50,26 @@ async function main() {
               PostURL: "http://careers.tencent.com/jobdesc.html?postId=20260717",
               IsValid: true,
               RequireWorkYearsName: "一年以上工作经验",
+            }, {
+              PostId: "20260718",
+              RecruitPostName: "前端开发工程师-日本",
+              LocationName: "東京 Japan",
+              CategoryName: "技术",
+              ProductName: "海外业务",
+              Responsibility: "负责 React、TypeScript 产品开发。",
+              LastUpdateTime: "2026年07月18日",
+              PostURL: "https://careers.tencent.com/jobdesc.html?postId=20260718",
+              IsValid: true,
+            }, {
+              PostId: "20260719",
+              RecruitPostName: "Sales Intern, Cloud & AI",
+              LocationName: "迪拜",
+              CategoryName: "销售",
+              ProductName: "云与智慧产业",
+              Responsibility: "负责中东区域云产品销售支持。",
+              LastUpdateTime: "2026年07月19日",
+              PostURL: "https://careers.tencent.com/jobdesc.html?postId=20260719",
+              IsValid: true,
             }],
           },
         }),
@@ -59,10 +80,35 @@ async function main() {
   };
   const official = await collectPublicJobs({ query: "前端开发", city: "深圳", limit: 5, fetchImpl: tencentFetch });
   assert.equal(official.jobs.length, 1);
+  assert.equal(official.market, "cn");
   assert.equal(official.jobs[0].company, "腾讯");
+  assert.equal(official.jobs.some((job) => /東京|Japan|迪拜|Dubai|UAE/i.test(job.city)), false);
   assert.equal(official.jobs[0].verification, "official-live-api");
   assert.equal(official.jobs[0].publishedAt, "2026-07-16T16:00:00.000Z");
   assert.equal(official.jobs[0].sourceUrl.startsWith("https://careers.tencent.com/"), true);
+
+  resetJobCollectorCacheForTests();
+  resetJobRepositoryForTests();
+  const recoveryQuery = "离线恢复前端";
+  await assert.rejects(
+    collectPublicJobs({
+      query: recoveryQuery,
+      city: "深圳",
+      company: "腾讯",
+      limit: 5,
+      fetchImpl: async () => { throw new Error("network offline"); },
+    }),
+    /All job sources are unavailable/,
+  );
+  const recovered = await collectPublicJobs({
+    query: recoveryQuery,
+    city: "深圳",
+    company: "腾讯",
+    limit: 5,
+    fetchImpl: tencentFetch,
+  });
+  assert.equal(recovered.jobs.length, 1);
+  assert.equal(recovered.jobs[0].company, "腾讯");
   console.log("job collector verification passed");
 }
 

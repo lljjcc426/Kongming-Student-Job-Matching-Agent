@@ -65,21 +65,40 @@
 | 当前原生岗位服务状态 | `docs/evidence-screenshots/harmony-native-job-service-state-20260922.jpeg` | 在线岗位服务未连接时显示独立失败态，不误报为搜索无结果，并继续衔接本机真实岗位录入 | 已补充 |
 | 当前原生面试训练 | `docs/evidence-screenshots/harmony-native-interview-mature-20260921.jpeg` | 面试模式分段选择、会话授权、问题与回答入口的原生页面 | 已补充 |
 | 当前原生 3D 数字面试官 | `docs/evidence-screenshots/harmony-native-digital-interviewer-20260922.jpeg` | ArkGraphics3D 原生加载可替换 GLB，办公室场景中展示职业面试官，并由 Core Speech 状态驱动动作 | 已补充 |
+| 当前 Rocketbox 女性商务面试官 | `docs/evidence-screenshots/harmony-native-avatar-rocketbox-v5-20260926.jpeg` | 默认人物切换为 Microsoft Rocketbox `Business_Female_04`；ArkGraphics3D 原生渲染 8.52 MB GLB，15/15 viseme 与运行时表情目标完整，中性灯光、横屏办公室构图和覆盖安装已通过 API 24 模拟器验证 | 已补充 |
+| 当前原生面试办公室 V3 | `docs/evidence-screenshots/harmony-native-interview-office-v3-20260925.jpeg` | CC0 真实办公室背景按 20:9 原生舞台裁切调色，中央人物安全区、两侧景深和桌面前景叠层已通过 API 24 模拟器验证 | 已补充 |
 | 当前原生语音异常收口 | `docs/evidence-screenshots/harmony-native-digital-interviewer-recovery-20260922.jpeg` | 模拟器无可用麦克风输入时退出聆听态，人物回到待机并明确提供重试或文字输入路径 | 已补充 |
 | 当前原生面试会话配置 | `docs/evidence-screenshots/harmony-native-interview-session-setup-20260922.jpeg` | 面试类型、追问强度、训练时长、岗位上下文、语音状态和智能增强授权集中配置 | 已补充 |
 | 当前原生面试会话控制 | `docs/evidence-screenshots/harmony-native-interview-session-active-20260922.jpeg` | 手机宽度下展示轮次、已用时、时长进度、暂停与提前结束控制，无文字或按钮重叠 | 已补充 |
 | 当前原生面试暂停态 | `docs/evidence-screenshots/harmony-native-interview-session-paused-20260922.jpeg` | 暂停后计时与语音停止，回答草稿保留，可继续当前问题或提前结束 | 已补充 |
 | 当前原生面试暂停恢复 | `docs/evidence-screenshots/harmony-native-interview-session-recovery-20260922.jpeg` | 强制停止应用并重新启动后恢复暂停状态、当前轮次、已用时和回答入口 | 已补充 |
 | 当前原生横屏全屏面试 | `docs/evidence-screenshots/harmony-native-interview-landscape-active-20260922.jpeg` | 正式会话自动进入横屏沉浸模式，系统栏、品牌栏和底部导航隐藏；数字人、问题、回答与四项操作均在首屏完整可见 | 已补充 |
+| 当前岗位驱动横屏面试 | `docs/evidence-screenshots/harmony-native-job-driven-interview-20260927.jpeg` | 面试准备页采用技术面推荐方案后进入横屏第 1/4 轮，首题直接核验“算法与 AI 实践”，岗位、类型和核验重点贯通 | 已补充 |
+| 当前原生横屏作答控制 | `docs/evidence-screenshots/harmony-native-interview-controls-20260922.jpeg` | 朗读与语音采用固定尺寸原生 Symbol，提交本轮和结束复盘保留明确命令；四项操作在横屏首屏完整显示且无文字截断 | 已补充 |
 | 当前原生横屏回答专注模式 | `docs/evidence-screenshots/harmony-native-interview-keyboard-focus-20260922.jpeg` | 系统软键盘弹出后仅保留问题、字数、回答框和完成按钮；关闭键盘恢复双栏，系统返回键不会误触发结束面试 | 已补充 |
 | 当前原生横屏暂停态 | `docs/evidence-screenshots/harmony-native-interview-landscape-paused-20260922.jpeg` | 横屏全屏暂停遮罩提供继续和结束入口，背景会话上下文保留且无控件裁切 | 已补充 |
 | 当前原生横屏恢复 | `docs/evidence-screenshots/harmony-native-interview-landscape-recovery-20260922.jpeg` | 强制停止并重新启动后自动恢复横屏暂停态、轮次、计时和回答入口 | 已补充 |
 | 当前原生反馈竖屏回退 | `docs/evidence-screenshots/harmony-native-interview-feedback-portrait-20260922.jpeg` | 横屏正式会话输入有效回答并生成本机反馈后，自动恢复竖屏完成页与标准应用导航 | 已补充 |
+| 当前原生结构化面试报告 | `docs/evidence-screenshots/harmony-native-interview-report-20260922.jpeg` | 完成态直接展示本机训练总分与结构、证据、岗位关联、表达四维分析，并明确评分边界 | 已补充 |
+| 当前原生面试复盘详情 | `docs/evidence-screenshots/harmony-native-interview-report-detail-20260922.jpeg` | 本轮诊断、岗位化反馈和逐轮问答记录按复盘顺序呈现，问答可展开收起并衔接成长任务或重新训练 | 已补充 |
+| 当前原生面试历史趋势 | `docs/evidence-screenshots/harmony-native-p0-history-20260922.jpeg` | 已完成会话自动归档，展示最近得分、同岗位前后变化、四维评分、用时、反馈与改进项；本机最多保留 30 次 | 已补充 |
+| 当前原生候选人镜头入口 | `docs/evidence-screenshots/harmony-native-p0-camera-preview-20260922.jpeg` | 横屏会话提供候选人画中画入口，默认关闭，需用户主动开启；录像同样必须由用户主动触发 | 已补充 |
+| 当前原生相机权限确认 | `docs/evidence-screenshots/harmony-native-p0-camera-state-20260922.jpeg` | 首次开启候选人镜头时由系统弹出相机权限确认，拒绝后仍可继续文字或语音面试 | 已补充 |
+| 当前原生候选人实时预览 | `docs/evidence-screenshots/harmony-native-p0-camera-result-20260922.jpeg` | Camera Kit 前置摄像头通过原生 `XComponent` 显示实时画面；退出、暂停或结束会话时释放相机资源 | 已补充 |
+| 当前原生录像可信降级 | `docs/evidence-screenshots/harmony-native-p0-camera-recording-fallback-20260923.jpeg` | API 24 模拟器的 `AVRecorder.prepare` 返回 I/O 错误后，候选人实时画面继续工作并显示“录像不可用 · 预览正常”，失败输出文件已清理；截图中的候选人画面已作隐私遮挡 | 已补充 |
 | 当前原生成长计划 | `docs/evidence-screenshots/harmony-native-growth-mature-20260921.jpeg` | 当前覆盖、完成后预测、有效证据和待办任务的统一工作流 | 已补充 |
 | 当前原生真实岗位录入 | `docs/evidence-screenshots/harmony-native-job-tracking-20260920.jpeg` | 岗位、公司、来源链接和 JD 由 ArkUI 原生表单录入并保存到本机 | 已补充 |
 | 当前原生岗位字段校验 | `docs/evidence-screenshots/harmony-native-job-validation-20260920.jpeg` | 空提交显示明确错误，不生成虚构岗位数据 | 已补充 |
 | 当前原生官方岗位列表 | `docs/evidence-screenshots/harmony-native-official-jobs-20260920.jpeg` | Network Kit 读取官方招聘源并按目标岗位严格筛选，保留来源状态和验证标签 | 已补充 |
 | 当前原生岗位详情 | `docs/evidence-screenshots/harmony-native-job-detail-20260920.jpeg` | ArkUI 原生详情展示来源、JD、保存追踪和系统官方投递入口 | 已补充 |
+| 当前岗位推荐 2.0 | `docs/evidence-screenshots/harmony-native-job-recommendation-v2-20260927.jpeg` | compact 手机展示期望城市、求职阶段、毕业年份、月薪、行业和企业偏好；偏好与岗位反馈只保存在本机并参与排序 | 已补充 |
+| 当前原生岗位准备清单 | `docs/evidence-screenshots/harmony-native-job-readiness-20260927.jpeg` | 当前岗位按真实 JD、简历画像、冻结版本、岗位面试和关键日程显示 `x/5` 离散状态，首个未完成项提供直接行动入口，不表示录用概率 | 已补充 |
+| 当前原生多岗位对比 | `docs/evidence-screenshots/harmony-native-job-comparison-20260927.jpeg` | 最多选择 3 个本机岗位，并排核对阶段、准备项、版本、面试次数、关键节点和下一行动；支持切换当前岗位与岗位驱动面试，不生成录用概率 | 已补充 |
+| 当前原生岗位发现工作区 | `docs/evidence-screenshots/harmony-native-job-discovery-workspace-20260927.jpeg` | 搜索与投递管理分离；企业/关键词/城市和搜索命令优先展示，偏好编辑默认收起，删除内部配置状态徽标 | 已补充 |
+| 当前原生投递管理列表 | `docs/evidence-screenshots/harmony-native-application-workspace-20260927.jpeg` | 六阶段筛选、公司/岗位/JD 搜索、分组计数、日程排序和过期日程提示；截图为六条匿名测试记录，不是企业实际招聘或个人投递证据 | 已补充 |
+| 当前原生独立投递详情 | `docs/evidence-screenshots/harmony-native-application-detail-20260927.jpeg` | 当前岗位版本、准备清单与材料入口独立于列表；模拟器验证返回保留搜索/筛选，未保存修改先确认 | 已补充 |
+| 当前原生投递材料草稿 | `docs/evidence-screenshots/harmony-native-job-materials-resume-20260927.jpeg` | 岗位独立简历草稿、相对起始正文的段落增删和冻结版本绑定；修改不覆盖通用简历画像 | 已补充 |
+| 当前原生岗位项目案例 | `docs/evidence-screenshots/harmony-native-job-materials-stories-20260927.jpeg` | 案例关联岗位要求，保留同岗位面试原问题/原回答，STAR 与支持证据由用户编辑；填写数量不表示真实性核验 | 已补充 |
 | 当前原生岗位离线降级 | `docs/evidence-screenshots/harmony-native-job-offline-fallback-20260920.jpeg` | 服务不可用时明确提示并保留本机真实岗位录入，不展示伪造岗位 | 已补充 |
 | 当前原生投递阶段 | `docs/evidence-screenshots/harmony-native-application-stage-20260921.jpeg` | ArkUI 原生六阶段投递看板、截止/面试日程和阶段化下一行动 | 已补充 |
 | 当前原生投递时间线 | `docs/evidence-screenshots/harmony-native-application-timeline-20260921.jpeg` | 阶段变更追加本机事件，并已验证强制停止后二次启动恢复 | 已补充 |
@@ -90,7 +109,11 @@
 | 当前原生投递版本门禁 | `docs/evidence-screenshots/harmony-native-application-version-gate-20260921.jpeg` | 未绑定当前岗位的实际简历版本时，原生看板阻止进入已投递、面试和 Offer | 已补充 |
 | 当前原生简历版本绑定 | `docs/evidence-screenshots/harmony-native-resume-version-binding-20260921.jpeg` | ArkUI 原生保存两版完整简历、展示差异摘要、切换绑定并保护当前绑定版本 | 已补充 |
 | 当前原生 AI 会话授权 | `docs/evidence-screenshots/harmony-native-ai-consent-20260921.jpeg` | 外部模型默认未授权；授权说明包含发送前脱敏和服务端密钥边界 | 已补充 |
-| 当前原生 AI 面试开始 | `docs/evidence-screenshots/harmony-native-ai-started-20260921.jpeg` | 授权后由本机首题开始，页面显示题型、轮次和回答入口 | 已补充 |
+| 历史原生服务联调截图 | `docs/evidence-screenshots/harmony-native-spark-consent-on-20260923.jpeg` | 仅用于证明 2026-09-23 的服务联调结果；其中供应商就绪提示已从当前产品界面移除，不作为现行 UI 证据 | 历史留档 |
+| 当前原生动态轮次设置 | `docs/evidence-screenshots/harmony-native-spark-setup-20260923.jpeg` | 20 分钟训练明确显示计划 5 轮；源码同时覆盖 10/15/20 分钟对应 3/4/5 轮 | 已补充 |
+| 当前原生星火首题 | `docs/evidence-screenshots/harmony-native-spark-first-question-20260923.jpeg` | 横屏原生面试由讯飞星火 `4.0Ultra` 生成第 1/5 轮岗位化问题，客户端不含模型密钥 | 已补充 |
+| 当前原生星火追问 | `docs/evidence-screenshots/harmony-native-spark-followup-20260923.jpeg` | 提交测试回答后，讯飞星火基于可用性测试和错误追踪内容生成第 2/5 轮证据追问 | 已补充 |
+| 当前原生星火评分报告 | `docs/evidence-screenshots/harmony-native-spark-report-20260923.jpeg` | 结束训练后解析严格 JSON，显示总分、四维分数与证据化改进建议；当前产品不展示供应商来源 | 已补充 |
 | 当前原生 AI 可信降级 | `docs/evidence-screenshots/harmony-native-ai-fallback-20260921.jpeg` | 无 `ARK_API_KEY` 时进入本机第 2 轮并明确提示模型不可用，首轮回答保留 | 已补充 |
 | 当前原生 AI 本机反馈 | `docs/evidence-screenshots/harmony-native-ai-feedback-20260921.jpeg` | 本机反馈明确给出证据状态、主要缺口和下一轮行动 | 已补充 |
 | 当前原生 AI 成长任务 | `docs/evidence-screenshots/harmony-native-ai-growth-task-20260921.jpeg` | 面试反馈生成 STAR 复盘任务并进入原生成长驾驶舱 | 已补充 |
@@ -111,8 +134,14 @@
 | 核心可信性 | `npm run verify:evidence` | 已通过，含 20 组对抗样例和版本绑定测试 |
 | 旧评分退出检查 | `npm run verify:claims` | 已通过，同时扫描源码与 HAP 静态资源 |
 | UI 验证 | `npm run verify:ui` | 已通过，含版本保存、投递绑定和刷新恢复 |
-| HAP 构建 | `npm run build:harmony` | 已通过，2026-09-22，SHA-256 已记录 |
-| HAP 模拟器安装/启动 | `npm run run:harmony:emulator` | 本轮已通过，HAP 安装成功，`EntryAbility` 进入前台，五个主页面与开场动效完成视觉回归 |
+| HAP 构建 | `npm run build:harmony:local` | 已通过，2026-09-27，16,435,818 bytes，SHA-256 `8F3A76B49BB247C3B5A69E39A6B94D77D7830FE2F24B165181598E6E6BA831E0`；原生 unsigned 调试包 |
+| HAP 模拟器安装/启动 | `npm run run:harmony:emulator` | 本轮已通过，HAP 安装成功，`EntryAbility` 进入前台；面试历史趋势、候选人实时预览、结构化评估回退和实时转写状态完成回归 |
+| 原生多尺寸适配 | `docs/competition/02_TEST_PLAN_AND_REPORT.md`；`docs/evidence-screenshots/harmony-native-responsive-*-20260927.jpeg` | compact、medium、expanded 三档模拟尺寸与运行时旋转通过，5 份布局树可见节点均未越界；真实平板和 2in1 仍待真机复核 |
+| 原生岗位材料 | `npm run verify:materials`；`docs/competition/02_TEST_PLAN_AND_REPORT.md` | 草稿隔离、存储默认值、段落差异、原回答来源与文本格式行为测试通过；模拟器验证保存、重复操作、案例编辑和冷启动恢复，系统导出文件正文回读待真机复核 |
+| 原生正式简历 PDF | `docs/competition/02_TEST_PLAN_AND_REPORT.md`；`scripts/verify-resume-pdf.cjs` | 匿名 2033 字正文生成 3 页 PDF，全文和 A4 边界核对、逐页渲染、后台生成、原生缩放滚动、系统保存与取消通过；共享目录文件外部读取/分享待真机复核 |
+| 原生投递工作区 | `npm run verify:applications`；`docs/competition/02_TEST_PLAN_AND_REPORT.md` | 搜索、计数、阶段筛选、稳定排序、非法日期与旧日程排除行为测试通过；模拟器验证详情/对比/材料往返、草稿保护、冷启动恢复与空列表；原数据双 Preferences 哈希已恢复 |
+| 原生面试记录中心 | `npm run verify:interview-history`；`docs/competition/02_TEST_PLAN_AND_REPORT.md` | 完整存档搜索、同岗位选择、评分/日期校验和对比边界行为测试通过；API 24 模拟器验证超过八条记录的检索、完整长回答/改写、历史资料与当前重练版本隔离、筛选计数和返回路径。录像播放与真实在线评分不属于本轮验证 |
+| 投递前检查与预览 | `docs/evidence-screenshots/harmony-native-resume-preflight-*-20260927.jpeg`；`docs/evidence-screenshots/harmony-native-resume-pdf-*-20260927.*` | 本人确认、旧版本拦截、原生预览/多页滚动及实际 PDF 渲染均有匿名截图 |
 | 真实模型调用耗时 | `docs/REAL_MODEL_CALL_EVIDENCE.md`；`docs/PERFORMANCE_TEST_REPORT.md` | 已补充 Gitee AI 控制台记录 |
 | 模型调用成功率 | `docs/REAL_MODEL_CALL_EVIDENCE.md`；`docs/PERFORMANCE_TEST_REPORT.md` | 已补充 200 状态调用记录 |
 
@@ -136,6 +165,8 @@
 | 模型调用记录 | `docs/REAL_MODEL_CALL_EVIDENCE.md` | 已记录 |
 
 ## 7. 证据脱敏要求
+
+2026-09-27 公开提交检查：compact 首页截图中的个人姓名，以及旧面试状态/相机结果/录像回退截图中的相机画面已使用不透明区域遮蔽并注明。其余界面与测试结论未修改；未遮蔽原图仅保存在 D 盘忽略目录 `tmp/public-screenshot-originals/`，不随 GitHub 提交公开。
 
 整理证据材料时，需要确认：
 

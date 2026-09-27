@@ -39,16 +39,32 @@ flowchart TD
     B --> C[前端状态与解析协调层 App.tsx]
     C --> D[本地规则模块]
     C --> E[模型代理客户端 arkClient.ts]
-    E --> F[/api/ark]
-    F --> G[server/arkCore.js]
-    G --> H[Ark 兼容 chat/completions]
-    G --> I[公开招聘搜索补充链接]
+    E --> F[/api/gateway operation=model]
+    F --> G[server/publicGateway.js]
+    G --> N[server/arkCore.js]
+    N --> H[服务端模型 Provider]
+    N --> I[公开招聘搜索补充链接]
     D --> J[证据矩阵/事实约束改写/报告生成]
     H --> K[结构化模型输出]
     K --> L[modelParsers.ts 容错解析]
     L --> J
     J --> M[页面展示和 Markdown 报告]
 ```
+
+HarmonyOS 原生岗位链路与 Web 智能体链路相互独立：
+
+```mermaid
+flowchart LR
+    A[NativeIndex ArkUI] -->|q、company、city、market=cn、limit| B[NativeJobService]
+    B --> C[/api/gateway operation=jobs]
+    C -->|岗位、JD、来源置信度| B
+    D[本机简历画像与目标岗位] --> E[NativeJobRecommendationService]
+    B --> E
+    E --> F[本机个性化排序与证据解释]
+    F --> A
+```
+
+该链路不会把简历正文作为岗位检索参数发送到服务端。服务端负责收集和规范化真实岗位，默认只启用中国市场来源；岗位地点须命中国内地点白名单或明确标记为待确认，未识别的具体海外地点默认不进入结果。设备端负责个性化排序和第二次地点兜底过滤，因此岗位来源真实性和个人画像隐私分别由对应边界处理。
 
 ### 前端层
 
@@ -60,7 +76,7 @@ flowchart TD
 
 ### 模型代理层
 
-`src/arkClient.ts` 将前端模型请求统一发送到 `/api/ark`。本地开发时由 `vite.config.ts` 挂载代理，生产环境由 `api/ark.js` 处理请求，二者都调用 `server/arkCore.js`。
+`src/arkClient.ts`、`src/jobApi.ts` 和 `src/serviceHealth.ts` 只访问同源 `/api/gateway`。本地开发由 `vite.config.ts` 挂载，生产环境由 `api/gateway.js` 处理；两者都调用 `server/publicGateway.js`，再按 `operation` 进入岗位聚合、状态检查或模型核心。网关实施精确 CORS、独立限流、请求大小限制和错误脱敏，不向客户端透传供应商端点、鉴权字段或底层错误。
 
 ### 展示层
 
@@ -117,6 +133,9 @@ flowchart TD
 - `src/core/job/repositories.ts`
 - `src/domain/internetTech.ts`
 - `server/arkCore.js`
+- `harmony/entry/src/main/ets/common/NativeJobService.ets`
+- `harmony/entry/src/main/ets/common/NativeJobRecommendationService.ets`
+- `harmony/entry/src/main/ets/pages/NativeIndex.ets`
 
 设计说明：
 
@@ -124,6 +143,12 @@ flowchart TD
 - 模型 `job-recommendations` 只生成 `career-direction`，会剥离投递链接。
 - 三类数据使用独立仓储和页签，不进行混排。
 - 互联网与数字技术适配器对岗位族、技能别名、硬性条件和支持领域进行统一判断。
+- HarmonyOS 原生端通过 `NativeJobService` 使用 `q`、`company`、`city` 和固定上限检索官方岗位，不上传简历正文。
+- 岗位服务默认使用 `market=cn`，优先腾讯、字节、网易、百度、华为等国内头部企业；原生页可通过六个快捷按钮限定企业，雇主优先级只影响候选排序，不进入简历证据匹配分。
+- 服务端与原生端都采用“国内地点放行、未知地点待确认、其他具体地点拒绝”的保守策略，并保留海外国家与城市黑名单作为优先否决条件。
+- BOSS 直聘作为系统浏览器中的第三方补充检索入口，不抓取登录后数据，也不与官方岗位混排。
+- `NativeJobRecommendationService` 在设备端按岗位方向（35）、技能证据（40）、阶段与学历/经验约束（约 15）及简历证据质量（10）计算 0–100 的证据覆盖分，并按分数、来源置信度和发布时间排序。方向判断以岗位标题为强信号；JD 正文中偶然出现的 AI/算法词只作为弱关联，标题明确属于其他岗位族时会降权并提示人工核对。
+- 原生岗位卡片和详情同时展示命中技能、待核对技能、匹配依据和风险；分数只用于候选岗位比较，不表示企业筛选或录用概率。
 
 ### 岗位匹配模块
 
@@ -274,7 +299,14 @@ flowchart LR
 | `ARK_API_KEY` | 模型接口密钥 |
 | `ARK_BASE_URL` | 模型接口地址 |
 | `ARK_REQUEST_TIMEOUT_MS` | 服务端模型请求超时 |
-| `VITE_ARK_API_URL` | 前端模型代理地址 |
+| `AI_MODEL_PROVIDER` | 服务端模型 Provider 选择，讯飞星火使用 `iflytek-spark` |
+| `IFLYTEK_SPARK_API_PASSWORD` | 星火 OpenAI 兼容接口 APIPassword，仅服务端保存 |
+| `IFLYTEK_SPARK_APP_ID/API_KEY/API_SECRET` | 星火原生 WebSocket HMAC 鉴权三元组，仅服务端保存 |
+| `IFLYTEK_SPARK_BASE_URL` | 星火接口地址，默认 `https://spark-api-open.xf-yun.com/v1` |
+| `IFLYTEK_SPARK_WS_URL` | 可选 WebSocket 地址覆盖，默认按模型选择官方端点 |
+| `IFLYTEK_SPARK_MODEL` | 星火文本模型名称 |
+| `PUBLIC_APP_ORIGINS` | 额外受信任的浏览器来源白名单；不接受通配符 |
+| `KONGMING_GATEWAY_URL` | HarmonyOS 构建阶段注入的唯一公共网关 URL |
 | `VITE_AVATAR_MODE` | 数字人模式标记 |
 
 ### 依赖设计

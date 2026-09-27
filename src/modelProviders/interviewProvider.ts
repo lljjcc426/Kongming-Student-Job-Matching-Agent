@@ -128,12 +128,12 @@ const parseFeedback = (content: string): InterviewFeedbackReport => {
       logic: "unavailable",
       improvements: ["保留真实经历，同时补充任务目标、个人动作和量化结果。", "面向目标岗位补充关键词和岗位职责对应关系。"],
       optimizedAnswer: "建议用“我负责什么、怎么推进、结果如何、复盘学到什么”的结构重新组织回答。",
-      summary: content ? "模型返回内容无法验证为结构化反馈，请根据真实回答记录人工复盘。" : "模型未返回有效反馈，请根据真实回答记录人工复盘。",
+      summary: content ? "本轮复盘生成不完整，请根据真实回答记录自行复盘。" : "本轮暂未生成有效复盘，请根据真实回答记录自行复盘。",
     };
   }
 };
 
-export class DoubaoInterviewProvider implements InterviewModelProvider {
+export class GatewayInterviewProvider implements InterviewModelProvider {
   async generateInterviewReply(input: InterviewModelInput) {
     const latestStudent = [...input.messages].reverse().find((message) => message.role === "student")?.content;
     if (!latestStudent && input.currentRound <= 1) {
@@ -195,4 +195,4 @@ export class DoubaoInterviewProvider implements InterviewModelProvider {
   }
 }
 
-export const getInterviewModelProvider = (): InterviewModelProvider => new DoubaoInterviewProvider();
+export const getInterviewModelProvider = (): InterviewModelProvider => new GatewayInterviewProvider();

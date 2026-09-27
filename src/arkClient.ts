@@ -1,6 +1,7 @@
 import type { Job } from "./data";
 import type { MatchResult } from "./matchEngine";
 import { defaultPrivacyPreferences, redactUnknownPayload, type PrivacyPreferences } from "./core/privacy/redaction";
+import { publicGatewayUrl } from "./gatewayClient";
 
 export type ArkTask = "match-analysis" | "resume-vision" | "resume-structure" | "resume-rewrite" | "job-recommendations" | "jd-analysis" | "interview-feedback" | "career-chat";
 
@@ -26,7 +27,6 @@ export type ArkRequest = {
 
 export type ArkResponse = {
   ok: boolean;
-  model?: string;
   content?: string;
   error?: string;
 };
@@ -64,16 +64,15 @@ export async function callArkAgent(payload: ArkRequest, options: { timeoutMs?: n
   if (includesSensitiveInput(payload) && !privacyPolicy.externalModelConsent) {
     return {
       ok: false,
-      error: "请先阅读隐私说明并同意将本次内容发送到外部模型服务。",
+      error: "请先确认本次处理授权，再继续分析。",
     };
   }
   const securedPayload = redactUnknownPayload(payload, privacyPolicy.preferences) as ArkRequest;
-  const configuredEndpoint = import.meta.env.VITE_ARK_API_URL?.trim();
-  const endpoint = configuredEndpoint || (window.location.protocol === "file:" ? "" : "/api/ark");
+  const endpoint = publicGatewayUrl("model");
   if (!endpoint) {
     return {
       ok: false,
-      error: "当前安装包尚未配置模型服务地址。请在构建 HAP 时设置 VITE_ARK_API_URL，模型密钥只保存在服务端。",
+      error: "个性化分析暂时不可用，你仍可继续编辑本地内容。",
     };
   }
 
@@ -82,7 +81,7 @@ export async function callArkAgent(payload: ArkRequest, options: { timeoutMs?: n
   let response: Response;
 
   try {
-    response = await fetch(endpoint, {
+    response = await fetch(endpoint.toString(), {
       method: "POST",
       signal: controller.signal,
       headers: {
@@ -93,7 +92,7 @@ export async function callArkAgent(payload: ArkRequest, options: { timeoutMs?: n
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error && error.name === "AbortError" ? "模型请求超时，已跳过该子任务。" : "模型服务暂不可用。",
+      error: error instanceof Error && error.name === "AbortError" ? "处理时间较长，本次未完成，请稍后重试。" : "个性化分析暂时不可用，请稍后重试。",
     };
   } finally {
     if (timeoutId) window.clearTimeout(timeoutId);
@@ -103,7 +102,7 @@ export async function callArkAgent(payload: ArkRequest, options: { timeoutMs?: n
   if (!response.ok || !data.ok) {
     return {
       ok: false,
-      error: data.error || "模型服务暂不可用。",
+      error: "个性化分析暂时不可用，请稍后重试。",
     };
   }
 

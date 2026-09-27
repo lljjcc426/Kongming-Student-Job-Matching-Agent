@@ -21,7 +21,7 @@
 | 核心 UI | ArkUI/ArkTS 原生页面，由 `pages/NativeIndex.ets` 渲染 |
 | 请求权限 | INTERNET、CAMERA、MICROPHONE（相机和麦克风仅使用时申请） |
 | 正式签名 | 未配置 |
-| 后端 | 仓库含 `/api/ark`、`/api/jobs`、`/api/job-sources`、`/api/health`；当前 HAP 注入本机联调地址，未注入生产 HTTPS 地址 |
+| 后端 | 仓库只部署 `/api/gateway` 公共入口；岗位、状态和模型由服务端按操作分流，当前 HAP 注入本机联调地址，未注入生产 HTTPS 地址 |
 
 ## 已接入原生能力
 
@@ -34,7 +34,7 @@
 | Core Speech Kit | TTS 与短语音识别已接入，原生失败时降级浏览器/文字 | ArkTS 构建通过；真机权限、音频和网络异常待验 |
 | Form Kit | 今日行动、成长任务完成度、实证覆盖率、目标路由和 `ApplicationFormAbility` 已实现；摘要、路由、Form ID 统一清洗，后台任务拒绝被显式捕获 | `bm dump` 确认 Extension 注册；模拟器已验证桌面添加与刷新、覆盖安装保留、进程终止后存续和实际点击冷启动进入成长页；卡片同步失败与主工作区保存结果隔离 |
 | Calendar Kit | 投递截止与面试时间通过 `editEvent` 打开系统事件编辑器，由用户确认保存 | 模拟器已验证编辑器、预填字段和取消不保存；真机保存和设备不支持路径待验 |
-| Network Kit | 原生请求 `/api/jobs`，展示官方来源、验证状态、详情和投递入口 | 本机 API 经 `10.0.2.2` 在 API 24 模拟器联调通过；公网 HTTPS 待部署 |
+| Network Kit | 原生请求统一网关的 `jobs` 操作，展示官方来源、验证状态、详情和投递入口 | 本机 API 经 `10.0.2.2` 在 API 24 模拟器联调通过；公网 HTTPS 待部署 |
 
 ## 原生迁移后的验证边界
 

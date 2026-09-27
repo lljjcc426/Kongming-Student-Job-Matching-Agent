@@ -10,6 +10,10 @@ out/
 *.tsbuildinfo
 artifacts/
 output/
+tmp/
+tmp/pdfs/
+tmp/application-workspace/
+tmp/interview-history/
 
 # Environment
 .env
@@ -18,6 +22,12 @@ output/
 
 # Huawei AppGallery Connect local configuration
 harmony/entry/agconnect-services.json
+
+# Local legacy avatar sources excluded from release builds
+harmony/entry/src/main/resources/rawfile/avatar/professional-interviewer-v3.glb
+harmony/entry/src/main/resources/rawfile/avatar/professional-interviewer-v4.glb
+scripts/assets/rocketbox-business-male-02/
+scripts/assets/professional-interviewer-v2.glb
 
 # Logs
 *.log

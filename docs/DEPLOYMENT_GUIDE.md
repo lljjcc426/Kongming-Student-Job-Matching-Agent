@@ -33,6 +33,18 @@ npm install
 如需启用真实模型能力，在本地创建 `.env.local`：
 
 ```bash
+AI_MODEL_PROVIDER=iflytek-spark
+IFLYTEK_SPARK_APP_ID=your_iflytek_app_id
+IFLYTEK_SPARK_API_KEY=your_iflytek_api_key
+IFLYTEK_SPARK_API_SECRET=your_iflytek_api_secret
+IFLYTEK_SPARK_MODEL=4.0Ultra
+IFLYTEK_SPARK_REQUEST_TIMEOUT_MS=65000
+```
+
+继续使用 Ark/Gitee AI 兼容服务时改为：
+
+```bash
+AI_MODEL_PROVIDER=ark
 ARK_API_KEY=your_model_api_key
 ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 ARK_MODEL=Qwen3-4B
@@ -44,8 +56,8 @@ ARK_REQUEST_TIMEOUT_MS=65000
 可选配置：
 
 ```bash
-VITE_ARK_API_URL=/api/ark
 VITE_AVATAR_MODE=static
+PUBLIC_APP_ORIGINS=https://your-frontend.example
 ```
 
 注意：
@@ -56,7 +68,7 @@ VITE_AVATAR_MODE=static
 
 ### 模型服务说明
 
-当前 `server/arkCore.js` 按 OpenAI 兼容的 `chat/completions` 接口调用模型，并已完成 Gitee AI / 沐曦 Token 资源包适配。配置 `ARK_BASE_URL=https://ai.gitee.com/v1`、`ARK_PACKAGE=1492`、`ARK_MODEL=Qwen3-4B`、`ARK_VISION_MODEL=Qwen3-VL-8B-Instruct` 后，可通过 `/api/ark` 完成真实模型调用。真实调用证据见 `docs/REAL_MODEL_CALL_EVIDENCE.md`。
+当前 `server/modelProvider.js` 负责选择讯飞星火或原 Ark/Gitee AI 兼容服务，`server/arkCore.js` 统一构建任务提示，再按配置调用星火 HMAC WebSocket、星火 OpenAI 兼容 HTTP 或原兼容接口。客户端只调用 `/api/gateway`，由 `server/publicGateway.js` 分流岗位、状态和模型任务并统一执行来源校验、限流与错误脱敏；客户端不接触供应商端点或密钥。星火详细配置见 `docs/IFLYTEK_SPARK_INTEGRATION.md`；既有 Gitee AI 真实调用证据见 `docs/REAL_MODEL_CALL_EVIDENCE.md`。
 
 ## 4. 本地运行
 
@@ -72,7 +84,7 @@ Vite 会输出本地访问地址，通常为：
 http://localhost:5173
 ```
 
-开发环境中，`vite.config.ts` 会挂载 `/api/ark` 代理，直接调用 `server/arkCore.js`。
+开发环境中，`vite.config.ts` 只挂载 `/api/gateway`，并复用生产环境的 `server/publicGateway.js` 访问控制和响应协议。
 
 ## 5. 构建验证
 
@@ -117,7 +129,7 @@ npm run verify:ui
 用途：
 
 - 使用 Playwright 验证核心 UI 流程。
-- 脚本会 Mock `/api/ark` 与 `/api/jobs`，覆盖隐私门禁、简历确认、版本保存、投递绑定、刷新恢复、模拟面试和 AI 助手页面。
+- 脚本会按 `operation` Mock `/api/gateway`，覆盖隐私门禁、简历确认、版本保存、投递绑定、刷新恢复、模拟面试和 AI 助手页面。
 - Mock 测试通过不表示生产岗位或模型服务已上线。
 
 运行 `verify:ui` 前需要先启动本地开发服务器：
@@ -136,14 +148,7 @@ npm run verify:ui
 
 ## 7. Vercel 部署建议
 
-当前仓库包含：
-
-- `api/ark.js`
-- `api/jobs.js`
-- `api/job-sources.js`
-- `api/health.js`
-- `vercel.json`
-- `vite.config.ts`
+当前仓库的生产 API 入口只有 `api/gateway.js`；`vite.config.ts` 在本地提供相同协议。供应商调用、岗位采集和模型健康信息都位于 `server/`，不作为独立公网路由部署。
 
 适合部署到 Vercel。
 
@@ -155,9 +160,20 @@ npm run verify:ui
 | Install Command | `npm install` |
 | Build Command | `npm run build` |
 | Output Directory | `dist` |
-| API Routes | `api/ark.js`、`api/jobs.js`、`api/job-sources.js`、`api/health.js` |
+| API Routes | `api/gateway.js` |
 
 部署平台环境变量：
+
+```text
+AI_MODEL_PROVIDER=iflytek-spark
+IFLYTEK_SPARK_APP_ID=your_iflytek_app_id
+IFLYTEK_SPARK_API_KEY=your_iflytek_api_key
+IFLYTEK_SPARK_API_SECRET=your_iflytek_api_secret
+IFLYTEK_SPARK_MODEL=4.0Ultra
+PUBLIC_APP_ORIGINS=https://your-frontend.example
+```
+
+或继续配置兼容服务：
 
 ```text
 ARK_API_KEY=your_model_api_key
@@ -177,7 +193,7 @@ ARK_REQUEST_TIMEOUT_MS=65000
 6. 进入模拟面试页面，验证问题生成、文本回答和反馈。
 7. 进入 AI 助手页面，验证多轮问答。
 8. 检查部署平台日志中是否出现模型请求错误。
-9. 请求 `/api/health`，确认岗位与模型配置状态符合预期。
+9. 请求 `/api/gateway?operation=status`，确认岗位与模型配置状态符合预期。
 
 ## 9. HarmonyOS 安装包
 
@@ -189,13 +205,13 @@ npm run build:harmony:local
 npm run run:harmony:emulator
 ```
 
-本地调试 HAP 使用模拟器宿主网关 `http://10.0.2.2:5173/api/*`。源码中的 `job_service_url` 保持为空，构建脚本只在 D 盘 staging 工程中注入地址；未配置或服务不可用时，原生岗位页保留本机真实岗位录入。
+本地调试 HAP 使用模拟器宿主网关 `http://10.0.2.2:5173/api/gateway`。源码中的 `gateway_service_url` 保持为空，构建脚本只在 D 盘 staging 工程中注入地址；未配置或服务不可用时，原生岗位页保留本机真实岗位录入。
 
 正式 HAP 必须使用公网 HTTPS API：
 
 ```powershell
 npm run build:harmony:release -- `
-  -PublicApiBaseUrl https://your-domain.example/api
+  -PublicApiBaseUrl https://your-domain.example
 ```
 
 发布构建会拒绝非 HTTPS 地址。当前仓库没有签名证书和 Profile，生成的是 unsigned 调试 HAP；签名、App ID、包名和华为账号指纹需要在团队开发者账号下配置。
@@ -209,13 +225,14 @@ npm run build:harmony:release -- `
 表现：
 
 ```text
-当前运行环境未配置 ARK_API_KEY，模型能力不可用。
+当前运行环境未配置讯飞星火 APIPassword，或完整的 APPID/APIKey/APISecret，模型能力不可用。
 ```
 
 处理：
 
 - 检查本地 `.env.local` 或部署平台环境变量。
-- 确认变量名为 `ARK_API_KEY`。
+- 星火模式确认 `AI_MODEL_PROVIDER=iflytek-spark`，并配置 `IFLYTEK_SPARK_API_PASSWORD`，或完整的 `IFLYTEK_SPARK_APP_ID/API_KEY/API_SECRET`；模型名必须与账号实际开通能力一致。
+- Ark 兼容模式确认 `AI_MODEL_PROVIDER=ark` 与 `ARK_API_KEY`。
 - 确认服务重启后重新读取环境变量。
 
 ### PDF 识别不完整

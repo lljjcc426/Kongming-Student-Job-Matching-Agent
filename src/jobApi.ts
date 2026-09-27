@@ -1,4 +1,5 @@
 import type { Job } from "./data";
+import { publicGatewayUrl } from "./gatewayClient";
 
 type PublicJobRecord = {
   id: string;
@@ -21,6 +22,8 @@ type PublicJobRecord = {
   lastSeenAt?: string;
   verification: string;
   confidence: number;
+  market?: string;
+  employerPriority?: number;
 };
 
 type PublicJobsResponse = {
@@ -108,27 +111,26 @@ const mapPublicJob = (job: PublicJobRecord): Job => {
   };
 };
 
-export async function fetchPublicJobs(input: { query?: string; city?: string; limit?: number } = {}): Promise<PublicJobFeed> {
-  const configuredEndpoint = import.meta.env.VITE_JOBS_API_URL?.trim();
-  const endpoint = configuredEndpoint || (window.location.protocol === "file:" ? "" : "/api/jobs");
+export async function fetchPublicJobs(input: { query?: string; city?: string; limit?: number; market?: "cn" | "all" } = {}): Promise<PublicJobFeed> {
+  const endpoint = publicGatewayUrl("jobs");
   if (!endpoint) {
-    throw new Error("当前 HAP 未配置岗位服务地址，请在构建时设置 VITE_JOBS_API_URL。");
+    throw new Error("在线岗位搜索暂时不可用，你仍可手动添加目标岗位。");
   }
-  const url = new URL(endpoint, window.location.href);
+  const url = new URL(endpoint);
   if (input.query?.trim()) url.searchParams.set("q", input.query.trim());
   if (input.city?.trim()) url.searchParams.set("city", input.city.trim());
+  url.searchParams.set("market", input.market || "cn");
   url.searchParams.set("limit", String(Math.max(1, Math.min(60, input.limit || 30))));
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 35_000);
   try {
     const response = await fetch(url.toString(), { signal: controller.signal, headers: { Accept: "application/json" } });
     const payload = await response.json().catch(() => ({})) as PublicJobsResponse;
-    if (!response.ok || !payload.ok) throw new Error(payload.error || "岗位服务暂时不可用。");
+    if (!response.ok || !payload.ok) throw new Error("暂时无法搜索岗位，请稍后重试。");
     const jobs = (payload.jobs || []).map(mapPublicJob);
-    const collection = payload.collection;
-    const sourceSummary = collection
-      ? `${collection.succeeded}/${collection.attempted} 个来源可用，本次收集 ${collection.collected} 条`
-      : "已读取岗位缓存";
+    const sourceSummary = jobs.length
+      ? `已找到 ${payload.pagination?.total || jobs.length} 个相关岗位`
+      : "暂时没有找到符合条件的岗位";
     return {
       jobs,
       total: payload.pagination?.total || jobs.length,

@@ -34,6 +34,25 @@ export const sanitizeQuery = (value) => sanitizeText(value, 80)
   .replace(/\s+/g, " ")
   .trim();
 
+export const jobSearchQueries = (value) => {
+  const normalized = sanitizeQuery(value);
+  if (!normalized) return ["互联网岗位"];
+  let alternatives = normalized
+    .split(/\s*(?:\/|\||、|；|;|\s+或\s+)\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (alternatives.length === 1
+    && /^(?:产品|技术|运营)(?:\s+(?:产品|技术|运营)){1,}$/.test(normalized)) {
+    alternatives = normalized.split(/\s+/);
+  }
+  const queries = alternatives.map((item) => {
+    const withoutAudience = item.replace(/(?:实习生|实习岗位|实习|校招岗位|校招|应届生|应届|社会招聘|社招)$/i, "").trim();
+    const withoutRoleSuffix = withoutAudience.replace(/(?:开发)?工程师$/i, "").trim();
+    return withoutRoleSuffix.length >= 2 ? withoutRoleSuffix : item;
+  });
+  return [...new Set(queries)].slice(0, 3);
+};
+
 export const normalizeUrl = (value) => {
   try {
     const url = new URL(String(value || "").trim());
@@ -166,6 +185,8 @@ export const buildNormalizedJob = (source, raw, query = "", requestedCity = "") 
     status: raw.status === "closed" ? "closed" : "open",
     verification: raw.verification || (source.sourceType === "official-api" ? "official-live-api" : "official-ats"),
     confidence: Number(raw.confidence) || (source.sourceType === "search-index" ? 0.65 : 0.95),
+    market: sanitizeText(raw.market || source.market, 16) || "unknown",
+    employerPriority: Math.max(0, Math.min(100, Number(raw.employerPriority ?? source.employerPriority) || 0)),
     collectedAt: now,
   };
   return { ...job, contentHash: contentHash(job) };

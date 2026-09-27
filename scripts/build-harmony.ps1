@@ -4,11 +4,10 @@ param(
   [string]$PnpmBin = 'E:\npm-global',
   [string]$LocalDevApiBaseUrl = '',
   [string]$PublicApiBaseUrl = '',
-  [string]$JobsApiUrl = '',
-  [string]$ArkApiUrl = '',
-  [string]$HealthApiUrl = '',
+  [string]$GatewayApiUrl = '',
   [string]$AsciiBuildRoot = 'D:\KongMing-Harmony-Build',
   [string]$TempRoot = 'D:\KongMing-Harmony-Temp',
+  [string]$UserHomeRoot = 'D:\KongMing-Harmony-User',
   [switch]$IncludeWebCompatibility,
   [switch]$RequireOnlineServices
 )
@@ -27,6 +26,9 @@ $hvigor = Join-Path $DevEcoRoot 'tools\hvigor\bin\hvigorw.bat'
 $sdkRoot = Join-Path $DevEcoRoot 'sdk'
 $hapPath = Join-Path $harmonyRoot 'entry\build\default\outputs\default\entry-default-unsigned.hap'
 
+& node (Join-Path $PSScriptRoot 'build-resume-pdf-engine.cjs')
+if ($LASTEXITCODE -ne 0) { throw 'Native resume PDF engine build failed.' }
+
 foreach ($requiredPath in @($harmonyRoot, $nodeBin, $ohpm, $hvigor, $sdkRoot)) {
   if (-not (Test-Path -LiteralPath $requiredPath)) {
     throw "Required HarmonyOS path not found: $requiredPath"
@@ -34,24 +36,21 @@ foreach ($requiredPath in @($harmonyRoot, $nodeBin, $ohpm, $hvigor, $sdkRoot)) {
 }
 
 if ($LocalDevApiBaseUrl) {
-  if ($PublicApiBaseUrl -or $JobsApiUrl -or $ArkApiUrl -or $HealthApiUrl) {
+  if ($PublicApiBaseUrl -or $GatewayApiUrl) {
     throw 'LocalDevApiBaseUrl cannot be combined with public service URL parameters.'
   }
   $normalizedApiBase = $LocalDevApiBaseUrl.TrimEnd('/')
-  $env:VITE_JOBS_API_URL = "$normalizedApiBase/api/jobs"
-  $env:VITE_ARK_API_URL = "$normalizedApiBase/api/ark"
-  $env:VITE_HEALTH_API_URL = "$normalizedApiBase/api/health"
+  $env:KONGMING_GATEWAY_URL = "$normalizedApiBase/api/gateway"
   Write-Output "Embedding local development API base: $normalizedApiBase"
 } else {
   if ($PublicApiBaseUrl) {
+    if ($GatewayApiUrl) {
+      throw 'PublicApiBaseUrl cannot be combined with GatewayApiUrl.'
+    }
     $normalizedApiBase = $PublicApiBaseUrl.TrimEnd('/')
-    $JobsApiUrl = "$normalizedApiBase/api/jobs"
-    $ArkApiUrl = "$normalizedApiBase/api/ark"
-    $HealthApiUrl = "$normalizedApiBase/api/health"
+    $GatewayApiUrl = "$normalizedApiBase/api/gateway"
   }
-  if ($JobsApiUrl) { $env:VITE_JOBS_API_URL = $JobsApiUrl }
-  if ($ArkApiUrl) { $env:VITE_ARK_API_URL = $ArkApiUrl }
-  if ($HealthApiUrl) { $env:VITE_HEALTH_API_URL = $HealthApiUrl }
+  if ($GatewayApiUrl) { $env:KONGMING_GATEWAY_URL = $GatewayApiUrl }
 }
 
 function Assert-ServiceUrl([string]$Name, [string]$Value, [bool]$AllowHttpLocalhost) {
@@ -68,18 +67,14 @@ function Assert-ServiceUrl([string]$Name, [string]$Value, [bool]$AllowHttpLocalh
 }
 
 $allowLocalHttp = [bool]$LocalDevApiBaseUrl
-Assert-ServiceUrl 'VITE_JOBS_API_URL' $env:VITE_JOBS_API_URL $allowLocalHttp
-Assert-ServiceUrl 'VITE_ARK_API_URL' $env:VITE_ARK_API_URL $allowLocalHttp
-Assert-ServiceUrl 'VITE_HEALTH_API_URL' $env:VITE_HEALTH_API_URL $allowLocalHttp
+Assert-ServiceUrl 'KONGMING_GATEWAY_URL' $env:KONGMING_GATEWAY_URL $allowLocalHttp
 
 if ($RequireOnlineServices) {
-  foreach ($requiredVariable in @('VITE_JOBS_API_URL', 'VITE_ARK_API_URL', 'VITE_HEALTH_API_URL')) {
-    if (-not (Get-Item -Path "Env:$requiredVariable" -ErrorAction SilentlyContinue).Value) {
-      throw "$requiredVariable is required for an online release HAP. Use -PublicApiBaseUrl or the explicit URL parameters."
-    }
+  if (-not $env:KONGMING_GATEWAY_URL) {
+    throw 'KONGMING_GATEWAY_URL is required for an online release HAP. Use -PublicApiBaseUrl or -GatewayApiUrl.'
   }
-} elseif (-not $env:VITE_JOBS_API_URL -or -not $env:VITE_ARK_API_URL) {
-  Write-Warning 'Building an offline-capable HAP without all public service URLs. Local data remains usable; online jobs/model features will report unavailable.'
+} elseif (-not $env:KONGMING_GATEWAY_URL) {
+  Write-Warning 'Building an offline-capable HAP without a public gateway URL. Local data remains usable; online jobs/model features will report unavailable.'
 }
 
 if ($IncludeWebCompatibility) {
@@ -112,9 +107,18 @@ $env:TEMP = $resolvedTempRoot
 $env:TMP = $resolvedTempRoot
 Write-Output "Using D-drive temporary path: $resolvedTempRoot"
 
+$resolvedUserHomeRoot = [System.IO.Path]::GetFullPath($UserHomeRoot)
+New-Item -ItemType Directory -Path $resolvedUserHomeRoot -Force | Out-Null
+$homeDrive = Split-Path -Qualifier $resolvedUserHomeRoot
+$env:USERPROFILE = $resolvedUserHomeRoot
+$env:HOME = $resolvedUserHomeRoot
+$env:HOMEDRIVE = $homeDrive
+$env:HOMEPATH = $resolvedUserHomeRoot.Substring($homeDrive.Length)
+Write-Output "Using D-drive tool home: $resolvedUserHomeRoot"
+
 $buildHarmonyRoot = $harmonyRoot
 $stagedBuildRoot = ''
-$needsBuildStaging = $harmonyRoot -match '[^\x00-\x7F]' -or [bool]$env:VITE_JOBS_API_URL
+$needsBuildStaging = $harmonyRoot -match '[^\x00-\x7F]' -or [bool]$env:KONGMING_GATEWAY_URL
 if ($needsBuildStaging) {
   $stagedBuildRoot = [System.IO.Path]::GetFullPath($AsciiBuildRoot).TrimEnd('\')
   $sourceHarmonyRoot = [System.IO.Path]::GetFullPath($harmonyRoot).TrimEnd('\')
@@ -136,6 +140,15 @@ if ($needsBuildStaging) {
   }
   $buildHarmonyRoot = $stagedBuildRoot
   Write-Output "Using ASCII staging path: $buildHarmonyRoot"
+
+  $excludedAvatarNames = @('professional-interviewer-v3.glb', 'professional-interviewer-v4.glb')
+  foreach ($avatarName in $excludedAvatarNames) {
+    $legacyAvatar = Join-Path $buildHarmonyRoot "entry\src\main\resources\rawfile\avatar\$avatarName"
+    if (Test-Path -LiteralPath $legacyAvatar) {
+      Remove-Item -LiteralPath $legacyAvatar -Force
+    }
+  }
+  Write-Output 'Excluded legacy v3 and v4 avatars from the packaged HAP.'
 }
 
 function Set-NativeStringResource([string]$ProjectRoot, [string]$ResourceName, [string]$Value) {
@@ -155,14 +168,9 @@ function Set-NativeStringResource([string]$ProjectRoot, [string]$ResourceName, [
   [System.IO.File]::WriteAllText($resourcePath, $serialized, $utf8NoBom)
 }
 
-if ($env:VITE_JOBS_API_URL) {
-  Set-NativeStringResource $buildHarmonyRoot 'job_service_url' $env:VITE_JOBS_API_URL
-  Write-Output "Embedding native job service URL: $env:VITE_JOBS_API_URL"
-}
-
-if ($env:VITE_ARK_API_URL) {
-  Set-NativeStringResource $buildHarmonyRoot 'ark_service_url' $env:VITE_ARK_API_URL
-  Write-Output "Embedding native model service URL: $env:VITE_ARK_API_URL"
+if ($env:KONGMING_GATEWAY_URL) {
+  Set-NativeStringResource $buildHarmonyRoot 'gateway_service_url' $env:KONGMING_GATEWAY_URL
+  Write-Output "Embedding native public gateway URL: $env:KONGMING_GATEWAY_URL"
 }
 
 $hapPath = Join-Path $buildHarmonyRoot 'entry\build\default\outputs\default\entry-default-unsigned.hap'

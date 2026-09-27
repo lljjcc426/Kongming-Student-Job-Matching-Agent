@@ -74,7 +74,27 @@ const QUERY_SYNONYMS = new Map([
   ["设计", ["设计", "design", "ux", "ui", "视觉", "交互"]],
   ["数据", ["数据", "data", "analytics", "分析"]],
   ["人工智能", ["人工智能", "ai", "machine learning", "算法", "大模型"]],
+  ["算法", ["算法", "人工智能", "ai", "machine learning", "机器学习", "深度学习", "大模型"]],
+  ["大模型", ["大模型", "llm", "ai", "人工智能", "算法"]],
 ]);
+
+const CHINA_LOCATION_PATTERN = /中国|china|全国|国内|内地|大陆|北京|上海|天津|重庆|河北|山西|辽宁|吉林|黑龙江|江苏|浙江|安徽|福建|江西|山东|河南|湖北|湖南|广东|海南|四川|贵州|云南|陕西|甘肃|青海|台湾|内蒙古|广西|西藏|宁夏|新疆|香港|澳门|深圳|广州|杭州|成都|武汉|南京|西安|苏州|长沙|厦门|珠海|合肥|青岛|济南|郑州|东莞|佛山|无锡|宁波|沈阳|大连|长春|哈尔滨|福州|泉州|南昌|烟台|潍坊|洛阳|宜昌|襄阳|南宁|海口|三亚|贵阳|昆明|拉萨|兰州|西宁|银川|乌鲁木齐|石家庄|太原|呼和浩特|包头|温州|嘉兴|绍兴|金华|常州|南通|徐州|扬州|镇江|泰州|惠州|中山|江门|湛江|绵阳|hong kong|macau|beijing|shanghai|shenzhen|guangzhou|hangzhou|chengdu|wuhan|nanjing|xian|xi'an|suzhou|changsha|chongqing|tianjin|xiamen|zhuhai|hefei|qingdao|jinan|zhengzhou|dongguan|foshan|wuxi|ningbo/i;
+const OVERSEAS_LOCATION_PATTERN = /日本|東京|东京|大阪|京都|横滨|横浜|japan|tokyo|osaka|美国|美國|纽约|紐約|西雅图|洛杉矶|旧金山|波士顿|united states|new york|seattle|los angeles|san francisco|boston|英国|英國|伦敦|倫敦|united kingdom|london|新加坡|singapore|加拿大|canada|多伦多|toronto|温哥华|vancouver|澳大利亚|澳洲|australia|悉尼|sydney|墨尔本|melbourne|印度|india|班加罗尔|bengaluru|德国|germany|柏林|berlin|法国|france|巴黎|paris|荷兰|netherlands|韩国|韓國|首尔|首爾|south korea|seoul|阿联酋|阿聯酋|迪拜|杜拜|united arab emirates|dubai|\buae\b|泰国|泰國|曼谷|thailand|bangkok|马来西亚|馬來西亞|吉隆坡|malaysia|kuala lumpur|印度尼西亚|印度尼西亞|印尼|雅加达|雅加達|indonesia|jakarta|越南|河内|河內|胡志明市|vietnam|hanoi|ho chi minh|菲律宾|菲律賓|马尼拉|馬尼拉|philippines|manila|爱尔兰|愛爾蘭|都柏林|ireland|dublin|瑞士|苏黎世|蘇黎世|switzerland|zurich|西班牙|马德里|馬德里|巴塞罗那|巴塞羅那|spain|madrid|barcelona|意大利|義大利|米兰|米蘭|罗马|羅馬|italy|milan|rome|波兰|波蘭|华沙|華沙|poland|warsaw|以色列|特拉维夫|特拉維夫|israel|tel aviv|沙特|沙特阿拉伯|利雅得|saudi arabia|riyadh|卡塔尔|卡塔爾|多哈|qatar|doha|新西兰|新西蘭|奥克兰|奧克蘭|new zealand|auckland|巴西|圣保罗|聖保羅|brazil|sao paulo|墨西哥|墨西哥城|mexico|mexico city|南非|约翰内斯堡|約翰內斯堡|south africa|johannesburg|俄罗斯|俄羅斯|莫斯科|russia|moscow/i;
+const UNKNOWN_LOCATION_PATTERN = /^(?:地点见原岗位页|地点待确认|地点不限|未注明|待确认|暂无)?$/i;
+const CHINA_EMPLOYER_PATTERN = /腾讯|字节跳动|阿里巴巴|蚂蚁集团|百度|美团|京东|小米|网易|快手|华为|滴滴|哔哩哔哩|小红书|携程|搜狐|新浪|微博|联想|大疆|OPPO|vivo|完美世界|高途|微步在线/i;
+
+export const isChinaMarketJob = (job) => {
+  const market = String(job?.market || "").toLowerCase();
+  if (market === "global") return false;
+  const locations = [job?.city || "", ...(job?.locations || [])]
+    .map((location) => String(location).trim())
+    .filter(Boolean);
+  const locationText = locations.join(" ");
+  if (OVERSEAS_LOCATION_PATTERN.test(locationText)) return false;
+  if (CHINA_LOCATION_PATTERN.test(locationText)) return true;
+  if (locations.length && !locations.every((location) => UNKNOWN_LOCATION_PATTERN.test(location))) return false;
+  return market === "cn" || CHINA_EMPLOYER_PATTERN.test(String(job?.company || ""));
+};
 
 const queryTerms = (query) => {
   const tokens = sanitizeQuery(query).toLowerCase().split(/\s+/).filter((item) => item.length >= 2);
@@ -112,7 +132,7 @@ const scoreJob = (job, terms, intentGroups, city) => {
   const freshness = new Date(job.updatedAt || job.publishedAt || job.lastSeenAt || 0).getTime();
   const freshDays = Math.max(0, Math.min(14, (Date.now() - freshness) / 86_400_000));
   return intentTitleHits * 80 + titleHits * 40 + hits * 8 + (city && String(job.city).includes(city) ? 10 : 0)
-    + Number(job.confidence || 0) * 10 - freshDays;
+    + Number(job.confidence || 0) * 10 + Number(job.employerPriority || 0) * 0.45 - freshDays;
 };
 
 const decodeCursor = (cursor) => {
@@ -127,6 +147,7 @@ export const queryJobs = async (filters = {}) => {
   await load();
   const query = sanitizeQuery(filters.query || "");
   const city = sanitizeQuery(filters.city || "");
+  const market = sanitizeQuery(filters.market || "all").toLowerCase();
   const company = sanitizeQuery(filters.company || "").toLowerCase();
   const employmentType = sanitizeQuery(filters.employmentType || "").toLowerCase();
   const sourceType = sanitizeQuery(filters.sourceType || "").toLowerCase();
@@ -138,6 +159,7 @@ export const queryJobs = async (filters = {}) => {
   const deduped = new Map();
   for (const job of records.values()) {
     if (isExpired(job)) continue;
+    if (market === "cn" && !isChinaMarketJob(job)) continue;
     if (company && !String(job.company).toLowerCase().includes(company)) continue;
     if (city && !String(job.city).includes(city) && !(job.locations || []).some((item) => String(item).includes(city))) continue;
     if (employmentType && String(job.employmentType).toLowerCase() !== employmentType) continue;

@@ -59,7 +59,6 @@ import { parseCustomJob } from "./jobParser";
 import { fetchPublicJobs } from "./jobApi";
 import {
   getHuaweiAuthState,
-  getHarmonyNativeCapabilities,
   initialHuaweiAuthState,
   loginWithHuawei,
   logoutHuawei,
@@ -72,7 +71,6 @@ import { analyzeMatch, type MatchResult } from "./matchEngine";
 import { parseJdAnalysis, parseModelJobs, parseStructuredResume, profileFromStructuredResume, type StructuredResume } from "./modelParsers";
 import { buildMatchReport, downloadTextFile } from "./report";
 import { buildOptimizedResumeDraft, formatOptimizedResumeDraft, validateOptimizedResumeDraft } from "./resumeOptimizer";
-import { checkServiceHealth, initialServiceHealth } from "./serviceHealth";
 import type { InterviewCompletion } from "./types/interview";
 import HomePage from "./pages/HomePage";
 import GrowthPlanPage from "./pages/GrowthPlanPage";
@@ -230,7 +228,7 @@ const emptyJob: Job = {
   track: "待识别",
   city: "不限",
   level: "岗位",
-  companyScenario: "等待模型输出",
+  companyScenario: "等待分析结果",
   summary: "",
   responsibilities: [],
   requirements: [],
@@ -342,7 +340,6 @@ function App() {
   const [huaweiAuth, setHuaweiAuth] = useState<HuaweiAuthState>(initialHuaweiAuthState);
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountNotice, setAccountNotice] = useState("");
-  const [serviceHealth, setServiceHealth] = useState(initialServiceHealth);
   const [selectedJobId, setSelectedJobId] = useState(initialWorkspace.selectedJobId);
   const [resumeText, setResumeText] = useState(initialWorkspace.resumeText);
   const [customTitle, setCustomTitle] = useState(initialWorkspace.customTitle);
@@ -391,13 +388,7 @@ function App() {
 
   useEffect(() => {
     void getHuaweiAuthState().then(setHuaweiAuth);
-    void checkServiceHealth().then(setServiceHealth);
   }, []);
-
-  const refreshServiceHealth = async () => {
-    setServiceHealth((current) => ({ ...current, status: "checking", message: "正在重新检查联网服务" }));
-    setServiceHealth(await checkServiceHealth());
-  };
 
   useEffect(() => {
     if (!accountNotice) return;
@@ -481,7 +472,6 @@ function App() {
   const careerOpsEvaluation = useMemo(() => buildCareerOpsEvaluation(activeProfile, selectedJob, result), [activeProfile, selectedJob, result]);
   const trackedApplication = applications.find((application) => application.jobId === selectedJob.id) ?? null;
   const dailyApplicationActions = useMemo(() => buildDailyApplicationActions(applications), [applications]);
-  const nativeCapabilities = getHarmonyNativeCapabilities();
   const [copyStatus, setCopyStatus] = useState("复制优化稿");
   const [resumeVersionStatus, setResumeVersionStatus] = useState("");
   const [shareStatus, setShareStatus] = useState("");
@@ -595,7 +585,7 @@ function App() {
 
   const runJobRecommendations = async (nextResumeText: string, nextResume: StructuredResume) => {
     setPipelineStep("jobs");
-    setModelMessage("职业方向智能体正在生成互联网与数字技术方向建议");
+    setModelMessage("正在根据简历生成互联网与数字技术方向建议");
     const agents = buildJobDiscoveryAgents(nextResume);
     const responses = await Promise.allSettled(
       agents.map((agent) =>
@@ -626,7 +616,7 @@ function App() {
     if (!parsedJobs.length) {
       setModelStatus("error");
       setPipelineStep("error");
-      setModelMessage("岗位推荐子任务均未返回有效结果，请补充简历信息后重试。");
+      setModelMessage("暂时无法生成职业方向建议，请补充简历信息后重试。");
       return;
     }
 
@@ -642,7 +632,7 @@ function App() {
     if (!nextResumeText.trim()) return;
     setModelStatus("loading");
     setPipelineStep("structure");
-    setModelMessage("正在调用模型解析简历并生成职业方向建议");
+    setModelMessage("正在解析简历并生成职业方向建议");
     setStructuredResume(null);
     setModelJobs([]);
     setResumeConfirmed(false);
@@ -651,7 +641,7 @@ function App() {
     if (!structureResponse.ok || !structureResponse.content) {
       setModelStatus("error");
       setPipelineStep("error");
-      setModelMessage(structureResponse.error || "模型简历解析失败。");
+      setModelMessage(structureResponse.error || "简历解析未完成，请稍后重试。");
       return;
     }
 
@@ -663,7 +653,7 @@ function App() {
     } catch (error) {
       setModelStatus("error");
       setPipelineStep("error");
-      setModelMessage(error instanceof Error ? `模型返回格式无法解析：${error.message}` : "模型返回格式无法解析。");
+      setModelMessage("简历解析未完成，请检查内容后重试。");
     }
   };
 
@@ -875,7 +865,7 @@ function App() {
   };
 
   const clearLocalCareerData = () => {
-    const shouldClear = window.confirm("将清除本次会话中的简历、岗位、模型对话和修改记录；华为账号登录状态不受影响。确定继续吗？");
+    const shouldClear = window.confirm("将清除本次会话中的简历、岗位、分析记录和修改记录；华为账号登录状态不受影响。确定继续吗？");
     if (!shouldClear) return;
     setResumeText("");
     setStructuredResume(null);
@@ -919,23 +909,23 @@ function App() {
       const nativeResult = await recognizeImageWithHarmony(imageDataUrls[index]);
       if (nativeResult.ok && nativeResult.text.trim()) {
         nativePageCount += 1;
-        pageResults.push(`【本机 OCR 第 ${pageNumber} 页】\n${nativeResult.text.trim()}`);
+        pageResults.push(`【本机识别第 ${pageNumber} 页】\n${nativeResult.text.trim()}`);
         continue;
       }
       if (!externalModelConsent) {
-        errors.push(`${nativeResult.message} 如需外部视觉模型兜底，请先同意本次会话处理。`);
+        errors.push(`第 ${pageNumber} 页未识别完成。确认本次处理授权后可继续尝试。`);
         continue;
       }
 
-      setModelMessage(`本机 OCR 不可用，正在使用外部视觉模型识别第 ${pageNumber}/${imageDataUrls.length} 页`);
+      setModelMessage(`正在继续识别简历图片第 ${pageNumber}/${imageDataUrls.length} 页`);
       const response = await callArkAgent(
         { task: "resume-vision", imageDataUrls: [imageDataUrls[index]], resumeText: extractedText },
         { timeoutMs: RESUME_VISION_TIMEOUT_MS },
       );
       if (response.ok && response.content?.trim()) {
-        pageResults.push(`【外部视觉识别第 ${pageNumber} 页】\n${response.content.trim()}`);
+        pageResults.push(`【云端识别第 ${pageNumber} 页】\n${response.content.trim()}`);
       } else {
-        errors.push(response.error || `第 ${pageNumber} 页识别失败`);
+        errors.push(`第 ${pageNumber} 页识别失败`);
       }
     }
 
@@ -954,7 +944,7 @@ function App() {
     }
     setModelStatus("idle");
     setPipelineStep("intake");
-    setModelMessage("简历内容已在本地读取，尚未发送外部模型；同意本次会话处理后可继续结构化解析。");
+    setModelMessage("简历内容已在本地读取。确认本次处理授权后，可继续生成画像和职业方向。");
   };
 
   const handleResumeUpload = async (file?: File) => {
@@ -966,27 +956,27 @@ function App() {
       return;
     }
     const analysisOutcome = externalModelConsent
-      ? "已进入外部模型结构化解析流程。"
-      : "内容已留在本地，尚未进行外部模型结构化解析。";
+      ? "已开始生成简历画像和职业方向。"
+      : "内容保存在本地，尚未开始画像分析。";
     if (file.type.startsWith("image/")) {
       setModelStatus("loading");
       setPipelineStep("intake");
-      setModelMessage("正在优先使用鸿蒙本机 OCR 识别图片简历");
+      setModelMessage("正在本机识别图片简历");
       const imageDataUrl = await readImageAsCompressedDataUrl(file);
       const response = await recognizeResumeVisionPages([imageDataUrl]);
       if (response.ok && response.content) {
         setResumeText(response.content);
         setModelInsight(response.content);
         setModelStatus("ready");
-        setModelMessage(response.nativePageCount > 0 ? "已使用 Core Vision 在本机完成图片识别" : "已使用外部视觉模型完成图片识别");
+        setModelMessage(response.nativePageCount > 0 ? "已在本机完成图片文字识别" : "已完成图片文字识别");
         setUploadMessage(`已识别 ${file.name}；${analysisOutcome}`);
-        setResumeSource(response.nativePageCount > 0 ? "Core Vision 本机 OCR" : "外部图片视觉识别");
+        setResumeSource(response.nativePageCount > 0 ? "图片文字识别（本机）" : "图片文字识别（云端）");
         await continueResumeAnalysis(response.content);
         return;
       }
       setModelStatus("error");
       setPipelineStep("error");
-      setModelMessage(response.error || "图片简历识别失败；可改用文本简历，或同意外部视觉模型兜底。");
+      setModelMessage("图片简历识别失败，请上传更清晰的图片或改用文字输入。");
       return;
     }
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
@@ -1015,8 +1005,8 @@ function App() {
           setModelMessage("PDF 文本层质量较低，已完成视觉识别");
           setUploadMessage(`已识别 ${file.name}；${analysisOutcome}`);
           setResumeSource(response.nativePageCount > 0
-            ? `PDF Core Vision 本机 OCR，文本层质量 ${Math.round(pdfResult.quality * 100)}%`
-            : `PDF 外部视觉识别，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
+            ? `PDF 图片文字识别（本机），文本质量 ${Math.round(pdfResult.quality * 100)}%`
+            : `PDF 图片文字识别（云端），文本质量 ${Math.round(pdfResult.quality * 100)}%`);
           await continueResumeAnalysis(combinedText);
           return;
         }
@@ -1025,13 +1015,13 @@ function App() {
           setModelStatus("ready");
           setModelMessage(externalModelConsent ? "PDF 视觉识别未完成，已使用可读取文本层继续分析" : "PDF 视觉识别未完成，已在本地保留可读取文本层");
           setUploadMessage(`已读取 ${file.name} 的 PDF 文本层，视觉识别不稳定；${analysisOutcome}`);
-          setResumeSource(`PDF 文本层兜底，质量 ${Math.round(pdfResult.quality * 100)}%`);
+          setResumeSource(`PDF 文本读取，质量 ${Math.round(pdfResult.quality * 100)}%`);
           await continueResumeAnalysis(pdfResult.text);
           return;
         }
         setModelStatus("error");
         setPipelineStep("error");
-        setModelMessage(response.error || "PDF 文本层质量较低，视觉识别未完成。");
+        setModelMessage("PDF 文字识别未完成，请上传更清晰的图片或可复制文字的 PDF。");
         setUploadMessage(`未能稳定识别 ${file.name}，请尝试上传清晰图片或可复制文字的 PDF。`);
         setResumeSource(`PDF 识别失败，文本层质量 ${Math.round(pdfResult.quality * 100)}%`);
         return;
@@ -1042,7 +1032,7 @@ function App() {
         setModelStatus("ready");
         setModelMessage(externalModelConsent ? "PDF 页面渲染失败，已使用可读取文本层继续分析" : "PDF 页面渲染失败，已在本地保留可读取文本层");
         setUploadMessage(`已读取 ${file.name} 的 PDF 文本层，页面渲染不稳定；${analysisOutcome}`);
-        setResumeSource(`PDF 文本层兜底，质量 ${Math.round(pdfResult.quality * 100)}%`);
+        setResumeSource(`PDF 文本读取，质量 ${Math.round(pdfResult.quality * 100)}%`);
         await continueResumeAnalysis(pdfResult.text);
         return;
       }
@@ -1064,12 +1054,12 @@ function App() {
   const handleModelAnalysis = async () => {
     if (!hasResume || !hasAnalysis) {
       setModelStatus("error");
-      setModelMessage("请先完成模型简历解析和岗位推荐，再进行模型增强分析。");
+      setModelMessage("请先完成简历解析和职业方向建议，再生成补充建议。");
       return;
     }
     setModelStatus("loading");
     setPipelineStep("analysis");
-    setModelMessage("正在调用模型生成增强分析");
+    setModelMessage("正在生成补充建议");
     const response = await callArkAgent({
       task: "match-analysis",
       resumeText,
@@ -1081,13 +1071,13 @@ function App() {
       setModelInsight(response.content);
       setModelStatus("ready");
       setPipelineStep("done");
-      setModelMessage("已完成增强分析");
+      setModelMessage("已生成补充建议");
       return;
     }
 
     setModelStatus("error");
     setPipelineStep("error");
-    setModelMessage(response.error || "模型增强分析失败，请检查运行环境。");
+    setModelMessage("补充建议暂时无法生成，请稍后重试。");
   };
 
   const handleSpeechInput = () => {
@@ -1146,7 +1136,7 @@ function App() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       mediaStreamRef.current = stream;
       setVideoMode("preview");
-      setInterviewMessage("视频面试预览已开启；后续可接入实时对话或数字人渲染。");
+      setInterviewMessage("摄像头已开启，请检查构图、光线和坐姿。");
       window.setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -1171,7 +1161,7 @@ function App() {
     }
 
     setInterviewStatus("loading");
-    setInterviewMessage("正在调用模型评估面试回答");
+    setInterviewMessage("正在评估本轮面试回答");
     const response = await callArkAgent({
       task: "interview-feedback",
       selectedJob,
@@ -1187,7 +1177,7 @@ function App() {
     }
 
     setInterviewStatus("error");
-    setInterviewMessage(response.error || "模拟面试反馈生成失败，请检查模型服务。");
+    setInterviewMessage("本轮反馈暂时无法生成，请稍后重试。");
   };
 
   const handleChatSpeechInput = () => {
@@ -1311,35 +1301,11 @@ function App() {
           <Panel eyebrow="Profile" title="学生画像" icon={<FileText size={18} />}>
             <details className="privacy-center" open={!externalModelConsent}>
               <summary>
-                <span><ShieldCheck size={15} />隐私与外部模型说明</span>
+                <span><ShieldCheck size={15} />隐私与云端处理</span>
                 <b>{externalModelConsent ? "已同意本次会话" : "待确认"}</b>
               </summary>
               <div className="privacy-center-body">
-                <p>文本文件与 PDF 文本层可先在本地读取；鸿蒙安装包会优先使用 Core Vision 在本机识别图片。只有继续进行模型解析，或本机 OCR 不可用且需要视觉兜底时，才会在本次会话同意后把所选内容发送至外部模型代理；模型密钥仅保存在服务端。</p>
-                <div className={`service-health service-${serviceHealth.status}`} role="status">
-                  <div>
-                    <strong>联网服务：{serviceHealth.status === "ready" ? "可用" : serviceHealth.status === "checking" ? "检查中" : serviceHealth.status === "offline" ? "未配置" : "部分可用"}</strong>
-                    <span>岗位 {serviceHealth.jobsConfigured ? "已配置" : "未配置"} · 模型 {serviceHealth.modelConfigured ? "已配置" : "未配置"}</span>
-                    <p>{serviceHealth.message}</p>
-                  </div>
-                  <button type="button" className="secondary-action compact-action" onClick={() => void refreshServiceHealth()} disabled={serviceHealth.status === "checking"}>重新检查</button>
-                </div>
-                <div className="native-capability-grid" aria-label="运行时能力状态">
-                  {([
-                    ["运行环境", nativeCapabilities.runtime === "harmony", nativeCapabilities.runtime === "harmony" ? "鸿蒙安装包" : "浏览器回退"],
-                    ["华为账号", nativeCapabilities.account, nativeCapabilities.account ? "可调用" : "仅安装包可用"],
-                    ["本机 OCR", nativeCapabilities.ocr, nativeCapabilities.ocr ? "Core Vision" : "需外部识别"],
-                    ["语音播报", nativeCapabilities.speechSynthesis, nativeCapabilities.speechSynthesis ? "Core Speech" : "浏览器回退"],
-                    ["语音转写", nativeCapabilities.speechRecognition, nativeCapabilities.speechRecognition ? "Core Speech" : "浏览器回退"],
-                    ["求职卡片", nativeCapabilities.applicationForm, nativeCapabilities.applicationForm ? "可同步" : "仅安装包可用"],
-                    ["系统分享", nativeCapabilities.share, nativeCapabilities.share ? "可调用" : "不可用"],
-                  ] as Array<[string, boolean, string]>).map(([label, available, detail]) => (
-                    <div key={label} className={available ? "available" : "fallback"}>
-                      <span>{label}</span>
-                      <strong>{detail}</strong>
-                    </div>
-                  ))}
-                </div>
+                <p>简历文件会优先在本机读取。只有在你确认本次处理授权后，所选内容才会用于生成简历画像、职业方向和图片文字识别；敏感信息会按下方设置处理。</p>
                 <div className="privacy-options">
                   {([
                     ["hidePhone", "隐藏手机号"],
@@ -1360,7 +1326,7 @@ function App() {
                 </div>
                 <label className="privacy-consent">
                   <input type="checkbox" checked={externalModelConsent} onChange={(event) => setExternalModelConsent(event.target.checked)} />
-                  我已了解数据用途，并同意在本次会话中将所选内容发送至外部模型服务。
+                  我已了解数据用途，并同意本次会话按上述范围处理所选内容。
                 </label>
                 <button type="button" className="secondary-action compact-action" onClick={clearLocalCareerData}>
                   <Trash2 size={15} />
@@ -1372,11 +1338,11 @@ function App() {
 
             <div className="identity-card">
               <div>
-                <span>{structuredResume?.education[0] || "等待模型解析"}</span>
+                <span>{structuredResume?.education[0] || "等待简历解析"}</span>
                 <strong>{activeProfile.name}</strong>
                 <p>{activeProfile.target}</p>
               </div>
-              <small>{structuredResume?.summary || "上传简历后由模型提取学生画像。"}</small>
+              <small>{structuredResume?.summary || "上传简历后生成学生画像。"}</small>
             </div>
 
             <ResumeSections structuredResume={structuredResume} />
@@ -1424,7 +1390,7 @@ function App() {
                   setModelMessage("");
                   setPipelineStep(event.target.value.trim() ? "intake" : "idle");
                   setResumeSource(event.target.value.trim() ? "手动文本输入" : "等待上传");
-                  setUploadMessage(`已读取当前文本 ${event.target.value.trim().length} 字。点击下方按钮后由模型解析画像和岗位。`);
+                  setUploadMessage(`已读取当前文本 ${event.target.value.trim().length} 字。点击下方按钮后生成画像和职业方向。`);
                 }}
                 aria-label="简历文本"
               />
@@ -1708,11 +1674,11 @@ function App() {
 
                 <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()} disabled={modelStatus === "loading" || !hasResume || !hasAnalysis}>
                   <FontAwesomeShapeIcon icon={faWandMagicSparkles} size={16} />
-                  {modelStatus === "loading" ? "模型分析中" : "模型增强分析"}
+                  {modelStatus === "loading" ? "建议生成中" : "生成补充建议"}
                 </button>
 
                 {(modelMessage || modelInsight) && (
-                  <InfoBlock title="模型增强结果">
+                  <InfoBlock title="补充建议">
                     <div className={`model-insight ${modelStatus}`}>
                       {modelMessage ? <strong>{modelMessage}</strong> : null}
                       {modelInsight ? <ModelInsightMarkdown content={modelInsight} /> : null}
@@ -1862,10 +1828,10 @@ function App() {
                 <EmptyState title="等待分析" text="当前没有简历或岗位输入。上传简历后，这里会生成匹配结论、关键词覆盖、优化动作和投递清单。" />
                 <button type="button" className="secondary-action" onClick={() => void handleModelAnalysis()}>
                   <FontAwesomeShapeIcon icon={faWandMagicSparkles} size={16} />
-                  模型增强分析
+                  生成补充建议
                 </button>
                 {modelMessage ? (
-                  <InfoBlock title="模型增强结果">
+                  <InfoBlock title="补充建议">
                     <div className={`model-insight ${modelStatus}`}>
                       <strong>{modelMessage}</strong>
                     </div>
@@ -2169,7 +2135,7 @@ function IntroExperience({ onComplete }: { onComplete: () => void }) {
           </div>
         </div>
         <div className="intro-loading-copy">
-          <strong>AI 求职引擎加载中...</strong>
+          <strong>正在准备你的求职工作台...</strong>
           <div className="intro-progress-value">{progress}%</div>
           <div className="intro-step-track">
             <span className={progress >= 18 ? "done" : ""}>解析简历</span>
@@ -2385,7 +2351,7 @@ function Hero({ result, selectedJob, isReady, onStart }: { result: MatchResult; 
           <span className="planet-ring ring-tilt" />
         </div>
         <div className="hero-match-hub" aria-hidden="true">
-          <span>AI 智能匹配中</span>
+          <span>岗位匹配进行中</span>
           <strong>{isReady ? `${result.evidenceCoverage}%` : "Evidence"}</strong>
           <em />
         </div>
@@ -2467,7 +2433,7 @@ function ResumeSections({ structuredResume }: { structuredResume: StructuredResu
         {sections.map((section) => (
           <details key={section.title} className="resume-section-card" open={section.title === "学历"}>
             <summary>{section.title}</summary>
-            <p>等待模型解析。</p>
+            <p>等待简历解析。</p>
           </details>
         ))}
       </div>
@@ -2614,7 +2580,7 @@ function ProcessState({
   const items = [
     { label: "简历识别", value: hasResume ? resumeSource : "等待上传" },
     { label: "意向岗位", value: customJobCount ? `已添加 ${customJobCount} 个` : "可继续添加" },
-    { label: "模型状态", value: modelStatus === "loading" ? "处理中" : modelStatus === "ready" ? "已完成" : modelStatus === "error" ? "需处理" : "待调用" },
+    { label: "分析状态", value: modelStatus === "loading" ? "处理中" : modelStatus === "ready" ? "已完成" : modelStatus === "error" ? "需处理" : "等待开始" },
   ];
   return (
     <section className="process-state" aria-label="分析状态">
@@ -2626,7 +2592,7 @@ function ProcessState({
         <p>{modelStatus === "loading" ? "正在处理当前简历。" : modelStatus === "ready" ? "当前分析已完成。" : modelStatus === "error" ? "处理未完成，请查看提示。" : "等待输入简历。"}</p>
       </div>
       <div className={`pipeline-progress ${modelStatus}`}>
-        <div className="pipeline-bar" aria-label="模型解析进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} role="progressbar">
+        <div className="pipeline-bar" aria-label="简历解析进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} role="progressbar">
           <i style={{ width: `${progress}%` }} />
         </div>
         <div className="pipeline-steps">

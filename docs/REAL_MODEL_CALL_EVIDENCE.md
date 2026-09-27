@@ -9,7 +9,7 @@
 | 资源包编号 | 1492 |
 | 文本模型 | Qwen3-4B |
 | 视觉模型 | Qwen3-VL-8B-Instruct |
-| 项目调用入口 | `/api/ark` 后端代理 |
+| 项目调用入口 | `/api/gateway?operation=model` 统一业务网关 |
 | 证据截图 | `docs/evidence-screenshots/gitee-ai-real-call-record-20260708.png` |
 
 ## 2. 代码接入方式

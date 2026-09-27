@@ -47,17 +47,17 @@ export class NativeAvatarProfile {
 }
 
 export const DEFAULT_INTERVIEWER_PROFILE: NativeAvatarProfile = new NativeAvatarProfile(
-  'professional-man-v1',
+  'professional-interviewer-v5',
   '孔明面试官',
   'AI 岗位面试官',
   'huawei-core-speech',
-  'avatar/kongming-interviewer.glb',
-  'Idle',
-  'Waving',
-  'Listening',
-  ['Talking1', 'Talking2', 'Talking3'],
-  0,
-  5,
-  1,
-  [2, 3, 4],
+  'avatar/professional-interviewer-v5.glb',
+  '',
+  '',
+  '',
+  [],
+  -1,
+  -1,
+  -1,
+  [],
 );

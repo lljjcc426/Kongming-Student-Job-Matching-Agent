@@ -177,7 +177,7 @@ export default function LoadingScreen({ onFinish }: LoadingScreenProps) {
             </div>
           </div>
           <div className="loading-brand-progress-status">
-            <span>AI 求职引擎加载中...</span>
+            <span>正在准备你的求职工作台...</span>
             <strong>{roundedProgress}%</strong>
           </div>
           <div

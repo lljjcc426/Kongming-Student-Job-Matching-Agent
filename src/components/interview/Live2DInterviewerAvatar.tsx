@@ -241,11 +241,11 @@ export default function Live2DInterviewerAvatar({ status = "idle", className = "
   }, [mode]);
 
   return (
-    <div className={`live2d-interviewer-avatar ${normalizedStatus} ${className}`.trim()} aria-label="AI 面试官数字人" ref={rootRef}>
+    <div className={`live2d-interviewer-avatar ${normalizedStatus} ${className}`.trim()} aria-label="模拟面试官" ref={rootRef}>
       <div className="live2d-avatar-aura" />
       <div className="live2d-avatar-stage">
         {mode === "fallback" ? (
-          <img className="live2d-avatar-fallback-image" src={FALLBACK_AVATAR_SRC} alt="AI 面试官" draggable={false} />
+          <img className="live2d-avatar-fallback-image" src={FALLBACK_AVATAR_SRC} alt="模拟面试官" draggable={false} />
         ) : (
           <>
             <div className="live2d-canvas-host" ref={canvasHostRef} />

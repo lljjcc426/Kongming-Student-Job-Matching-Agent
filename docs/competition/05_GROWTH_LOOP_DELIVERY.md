@@ -16,7 +16,7 @@
 | 原生真实岗位追踪 | 用户录入岗位、公司、来源链接和 JD；技能证据只读取简历正文；六阶段投递状态、截止/面试日程、追加式时间线和岗位专属简历版本由 ArkData 持久化；未绑定当前岗位版本时阻止进入已投递、面试或 Offer | `harmony/entry/src/main/ets/pages/NativeIndex.ets`、`harmony/entry/src/main/ets/components/NativeApplicationTracker.ets`、`harmony/entry/src/main/ets/components/NativeResumeVersionPanel.ets`、`harmony/entry/src/main/ets/common/NativeWorkspaceModel.ets` |
 | 原生官方岗位检索 | Network Kit 读取可追溯官方岗位，按岗位意图过滤后展示列表和原生详情；服务不可用时保留手动录入 | `harmony/entry/src/main/ets/common/NativeJobService.ets`、`harmony/entry/src/main/ets/pages/NativeIndex.ets` |
 | Web 面试诊断 | 面试完成时保留面试类型、回答轮次和反馈等级 | `src/types/interview.ts`、`src/pages/InterviewPage.tsx` |
-| 原生 AI 面试诊断 | ArkUI 原生综合面、技术面和 HR 面；会话授权后由 Network Kit 调用 `/api/ark` 生成追问和反馈，发送前脱敏；未授权、未配置或请求失败时明确回退本机规则，并持久化问题、回答、反馈和来源 | `harmony/entry/src/main/ets/common/NativeAiService.ets`、`harmony/entry/src/main/ets/common/NativeWorkspaceModel.ets`、`harmony/entry/src/main/ets/pages/NativeIndex.ets` |
+| 原生 AI 面试诊断 | ArkUI 原生综合面、技术面和 HR 面；会话授权后由 Network Kit 调用统一网关的 `model` 操作生成追问和反馈，发送前脱敏；未授权、未配置或请求失败时明确回退本机规则，并持久化问题、回答、反馈和来源 | `harmony/entry/src/main/ets/common/NativeAiService.ets`、`harmony/entry/src/main/ets/common/NativeWorkspaceModel.ets`、`harmony/entry/src/main/ets/pages/NativeIndex.ets` |
 | 成长任务 | 将岗位缺口转换为最多三条实践、面试训练或简历证据任务 | `src/features/growth/growthEngine.ts` |
 | 原生来源核验 | Network Kit 先确认 DNS 结果均为公网地址并拒绝自动重定向，再发 HEAD；站点限制 HEAD 时使用流式 Range GET，账本保存实际方法、状态码和核验时间 | `harmony/entry/src/main/ets/common/NativeEvidenceService.ets` |
 | 证据审核 | 本地检查个人行动、产出物/结果、文本长度和链接格式 | `src/features/growth/growthEngine.ts` |
@@ -24,6 +24,8 @@
 | 本地恢复 | 成长计划和审核结果保存到 `localStorage`，刷新后恢复 | `src/features/growth/growthRepository.ts` |
 | 鸿蒙原生证据账本 | Network Kit 先核验公开 HTTPS 来源可访问并阻止本机、内网和自定义端口；通过后保存主机、HTTP 状态、核验时间和确定性内容指纹；撤销时任务与实证覆盖回退，但保留审计记录 | `harmony/entry/src/main/ets/common/NativeEvidenceService.ets`、`harmony/entry/src/main/ets/components/NativeEvidenceLedger.ets`、`harmony/entry/src/main/ets/common/NativeWorkspaceModel.ets`、`harmony/entry/src/main/ets/pages/NativeIndex.ets` |
 | 鸿蒙原生闭环 | ArkUI 原生成长驾驶舱、投递看板与简历版本管理，ArkData 本机状态、Core Speech 语音交互，以及只同步阶段和摘要行动的 Form Kit 服务卡片 | `harmony/entry/src/main/ets/pages/NativeIndex.ets`、`harmony/entry/src/main/ets/components/NativeApplicationTracker.ets`、`harmony/entry/src/main/ets/components/NativeResumeVersionPanel.ets`、`harmony/entry/src/main/ets/common/NativeCapabilityService.ets` |
+| 原生专项复测 | 从回答结构、证据可信度、岗位关联和表达清晰度中选择最低维度，生成三项专项训练及 `+12` 分复测目标；完成证据任务后进入同岗位复测，报告展示基线、本次、目标、达标状态和同岗位趋势。历史计划没有评分基线时只重建新基线，不生成虚假的前后分差 | `harmony/entry/src/main/ets/pages/NativeIndex.ets`、`harmony/entry/src/main/ets/common/NativeWorkspaceModel.ets` |
+| 岗位能力题谱 | 根据岗位说明、目标技术方向和面试类型生成 3–5 项核验重点；正式复测时首轮优先验证专项弱项。在线追问接收当前重点和已覆盖项，标准题库也按同一轮次规划；每项已回答能力由本机确定性规则检查回答长度、个人行动、结果数据、可核验材料和能力专属关键词，报告引用真实回答摘录并给出待补证据；历史档案只摘要证据最弱项，旧记录不补造评分 | `harmony/entry/src/main/ets/pages/NativeIndex.ets`、`harmony/entry/src/main/ets/common/NativeAiService.ets`、`harmony/entry/src/main/ets/common/NativeWorkspaceModel.ets` |
 
 ## 2. 可信性边界
 
@@ -31,8 +33,9 @@
 - `预测覆盖` 只是完成剩余任务后的估计，不会被展示为已经掌握的能力。
 - 证据审核仍是确定性启发式校验；Network Kit 的 `HTTP 200` 只证明核验时公开地址可访问，本机 `KM-XXXXXXXX` 指纹只用于发现提交内容变化。两者都不等同于数字签名、提交归属、人工审核或外部平台真实性认证。
 - 当前实现沿用证据覆盖与岗位要求矩阵，不声称旧版本未实现的“五维能力评分”。
+- 能力题谱逐项分数是训练反馈，不是录用概率、招聘结论或实际胜任水平；证据摘录只截取本轮真实回答，不由模型补写。
 - 外部模型仍受会话级隐私授权控制；未同意时面试和其他模型增强流程必须本地降级，不能偷偷发送敏感内容。
-- 模型密钥只在服务端保存；当前 2026-09-21 原生模拟器证据验证的是无密钥可信降级，不代表真实模型成功调用。
+- 模型密钥只在服务端本地忽略配置中保存，不进入 HAP、仓库、日志或截图；2026-09-21 的证据验证无密钥可信降级，2026-09-23 已另行完成讯飞星火真实首题、追问与结构化评分验收。
 
 ## 3. 鸿蒙原生评审演示路径
 
@@ -59,7 +62,7 @@
 | `npm run build` | TypeScript 与生产构建 | 通过 |
 | `npm run verify:core` | 解析、证据、岗位、HarmonyOS 和发布声明检查 | 通过 |
 
-API 24 模拟器另已完成人工原生回归：未绑定门禁、两版冻结与差异摘要、绑定切换、当前版本禁删、进入已投递，以及强制停止后版本、绑定、阶段和时间线恢复。原生 AI 面试另验证了默认未授权、无密钥明确降级、本机第 2 轮、反馈、成长任务和强制停止后记录恢复；会话授权在重启后按设计清除。原生成长账本验证了私网来源拒绝、GitHub `HTTP 200`、`42% → 51% → 42%` 的即时变化、`KM-543A7715` 指纹、有效/已撤销记录、撤销时间，以及来源元数据和账本状态的强制停止恢复。
+API 24 模拟器另已完成人工原生回归：未绑定门禁、两版冻结与差异摘要、绑定切换、当前版本禁删、进入已投递，以及强制停止后版本、绑定、阶段和时间线恢复。原生 AI 面试已同时验证默认未授权、无密钥明确降级、本机反馈、强制停止后记录恢复，以及讯飞星火 `4.0Ultra` 首题、基于历史回答追问和结构化评分；会话授权在重启后按设计清除。原生成长账本验证了私网来源拒绝、GitHub `HTTP 200`、`42% → 51% → 42%` 的即时变化、`KM-543A7715` 指纹、有效/已撤销记录、撤销时间，以及来源元数据和账本状态的强制停止恢复。
 
 本轮浏览器闭环的关键输出：
 

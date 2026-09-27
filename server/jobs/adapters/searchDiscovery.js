@@ -3,6 +3,7 @@ import {
   decodeEntities,
   fetchWithTimeout,
   hostMatches,
+  jobSearchQueries,
   normalizeUrl,
   sanitizeText,
   SEARCH_TIMEOUT_MS,
@@ -101,6 +102,8 @@ const verifyAndEnrich = async (fetchImpl, job, target, query, city) => {
       id: `jsonld-${target.id}`,
       company: sanitizeText(jobPosting.hiringOrganization?.name, 80) || target.company,
       sourceType: "official-jsonld",
+      market: target.market,
+      employerPriority: target.employerPriority,
       domains: target.domains,
     };
     return buildNormalizedJob(jsonLdSource, {
@@ -129,7 +132,8 @@ const verifyAndEnrich = async (fetchImpl, job, target, query, city) => {
 const searchChunk = async (fetchImpl, targets, query, city) => {
   const domains = targets.flatMap((target) => target.domains);
   const siteQuery = domains.map((domain) => `site:${domain}`).join(" OR ");
-  const searchQuery = `${query || "互联网岗位"} ${city || ""} (实习 OR 校招 OR 应届 OR 社招) (${siteQuery})`;
+  const roleQuery = jobSearchQueries(query).map((item) => `"${item}"`).join(" OR ");
+  const searchQuery = `(${roleQuery}) ${city || ""} (实习 OR 校招 OR 应届 OR 社招) (${siteQuery})`;
   const endpoint = `${SEARCH_ENDPOINT}?format=rss&count=20&q=${encodeURIComponent(searchQuery)}`;
   const response = await fetchWithTimeout(fetchImpl, endpoint, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/rss+xml,text/xml" },
@@ -143,6 +147,8 @@ const searchChunk = async (fetchImpl, targets, query, city) => {
       id: `search-${target.id}`,
       company: target.company,
       sourceType: "search-index",
+      market: target.market,
+      employerPriority: target.employerPriority,
       domains: target.domains,
     };
     const title = sanitizeText(item.title, 120)

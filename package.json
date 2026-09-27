@@ -13,6 +13,8 @@
     "build:harmony:web-compat": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1 -IncludeWebCompatibility",
     "build:harmony:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1 -RequireOnlineServices",
     "build:harmony:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-harmony.ps1 -LocalDevApiBaseUrl http://10.0.2.2:5173",
+    "build:avatar:lipsync": "node scripts/build-avatar-lipsync.cjs scripts/assets/professional-interviewer-v2.glb harmony/entry/src/main/resources/rawfile/avatar/professional-interviewer-v3.glb",
+    "build:avatar:rocketbox": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-rocketbox-avatar.ps1",
     "run:harmony:emulator": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-harmony-emulator.ps1",
     "preview": "vite preview --host 0.0.0.0",
     "verify:parsers": "node scripts/verify-parsers.cjs",
@@ -20,11 +22,17 @@
     "verify:claims": "node scripts/verify-release-claims.cjs",
     "verify:jobs": "node scripts/verify-job-collector.cjs",
     "verify:job-sources": "node scripts/verify-job-sources.cjs",
+    "verify:model-provider": "node scripts/verify-model-provider.cjs",
+    "verify:gateway": "node scripts/verify-public-gateway.cjs",
+    "verify:product-copy": "node scripts/verify-product-copy.cjs",
     "verify:growth": "node scripts/verify-growth.cjs",
     "verify:growth:ui": "node scripts/verify-growth-ui.cjs",
     "verify:harmony": "node scripts/verify-harmony-project.cjs",
+    "verify:materials": "node scripts/verify-job-materials.cjs",
+    "verify:applications": "node scripts/verify-application-workspace.cjs",
+    "verify:interview-history": "node scripts/verify-interview-history.cjs",
     "verify:ui": "node scripts/verify-ui.cjs",
-    "verify:core": "npm run verify:parsers && npm run verify:evidence && npm run verify:growth && npm run verify:jobs && npm run verify:job-sources && npm run verify:harmony && npm run verify:claims"
+    "verify:core": "npm run verify:parsers && npm run verify:evidence && npm run verify:growth && npm run verify:jobs && npm run verify:job-sources && npm run verify:model-provider && npm run verify:gateway && npm run verify:materials && npm run verify:applications && npm run verify:interview-history && npm run verify:harmony && npm run verify:product-copy && npm run verify:claims"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
@@ -45,11 +53,14 @@
     "recharts": "^3.6.0",
     "remark-gfm": "^4.0.1",
     "three": "^0.184.0",
-    "vite": "^7.2.7"
+    "vite": "^7.2.7",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "pdf-lib": "^1.17.1",
     "playwright": "^1.60.0",
     "typescript": "^5.9.3"
   }

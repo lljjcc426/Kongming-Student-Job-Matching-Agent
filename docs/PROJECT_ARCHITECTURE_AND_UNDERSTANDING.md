@@ -53,8 +53,8 @@
 
 | 路径 | 内容 | 运行链路关系 | 维护重点 |
 | --- | --- | --- | --- |
-| `api/` | Vercel Serverless API 入口 | 生产环境 `/api/ark` 请求入口 | `api/ark.js` 的请求方法、安全头、body 限制 |
-| `server/` | 模型代理核心逻辑 | 本地 Vite 代理和 Vercel API 共同调用 | 任务校验、模型请求、搜索链接补充 |
+| `api/` | Vercel Serverless API 入口 | 生产环境唯一 `/api/gateway` 请求入口 | 方法、请求体和响应边界 |
+| `server/` | 公共网关、岗位聚合与模型代理核心 | 本地 Vite 代理和 Vercel API 共同调用 | 来源校验、限流、错误脱敏、任务校验和供应商调用 |
 | `harmony/` | HarmonyOS Stage 工程 | ArkUI/ArkTS 原生工作台、HAP 构建、账号/OCR/分享/语音/Form 能力 | API 版本、系统能力、权限与签名 |
 | `src/` | 前端应用主代码 | 用户交互、状态流、智能体结果展示 | `App.tsx`、智能体、解析器、页面模块 |
 | `src/core/` | 业务基础设施 | 岗位仓储、隐私脱敏、本机追踪 | 数据边界、版本化持久化 |
@@ -84,9 +84,10 @@
 | 简历结构解析 | `src/modelParsers.ts` | 解析模型返回的简历 JSON、岗位 JSON、JD 分析 JSON，并提供宽松修复 | 模型文本结果 | `StructuredResume`、`Job[]`、`JdAnalysis` | 被 `App.tsx` 调用 |
 | PDF 简历读取 | `src/pdfResumeReader.ts` | 使用 PDF.js 读取文本层，必要时渲染页面图片供视觉模型识别 | PDF 文件 | 文本、质量分、页数、图片 DataURL | 被 `App.tsx` 动态导入 |
 | 模型客户端 | `src/arkClient.ts` | 前端统一请求模型代理，处理超时和错误 | `ArkRequest` | `ArkResponse` | 被主流程和面试 Provider 调用 |
-| 模型代理核心 | `server/arkCore.js` | 校验任务、构建模型请求、调用 chat/completions，并为具体 JD 提供受限链接查询 | HTTP body、环境变量 | HTTP 状态和 JSON payload | 被 `api/ark.js` 和 `vite.config.ts` 调用 |
-| Vercel API | `api/ark.js` | 生产环境 API 入口和安全头 | POST 请求 | JSON 响应 | 调用 `runArkCompletion` |
-| Vite 本地代理 | `vite.config.ts` | 本地开发时挂载 `/api/ark` | 本地 POST 请求 | JSON 响应 | 调用 `runArkCompletion` |
+| 公共业务网关 | `server/publicGateway.js` | 统一岗位、状态和模型操作，实施 CORS、独立限流和错误脱敏 | 方法、`operation`、查询参数或 JSON body | 稳定公共 JSON 协议 | 被 `api/gateway.js` 和 `vite.config.ts` 调用 |
+| 模型代理核心 | `server/arkCore.js` | 校验任务、构建模型请求、调用供应商服务，并为具体 JD 提供受限链接查询 | 网关转交的 body、服务端环境变量 | 内部 HTTP 状态和 JSON payload | 仅由服务端网关调用 |
+| Vercel API | `api/gateway.js` | 生产环境唯一公共 API 入口和 8 MB body 限制 | GET/POST/OPTIONS | JSON 响应 | 调用 `handlePublicGatewayRequest` |
+| Vite 本地代理 | `vite.config.ts` | 本地开发时挂载 `/api/gateway` | 本地 GET/POST/OPTIONS | JSON 响应 | 复用 `handlePublicGatewayRequest` |
 | JD 规则解析 | `src/jobParser.ts` | 在模型 JD 分析前生成本地岗位草稿 | 岗位名称、JD 文本 | `Job` 草稿 | 被 `App.tsx` 调用 |
 | 简历优化 | `src/resumeOptimizer.ts` | 生成个人总结、项目经历改写和技能关键词行 | 学生画像、岗位、匹配结果 | `OptimizedResumeDraft` | 被 `App.tsx` 和报告调用 |
 | 报告生成 | `src/report.ts` | 生成 Markdown 分析报告并触发下载 | 学生画像、岗位、评分、简历、优化稿 | `.md` 文本文件 | 被 `App.tsx` 调用 |
@@ -103,7 +104,7 @@
 
 1. 执行 `npm install` 安装依赖。
 2. 执行 `npm run dev` 启动 Vite。
-3. Vite 通过 `arkDevProxy` 挂载本地 `/api/ark`。
+3. Vite 通过 `publicGatewayDevProxy` 挂载本地 `/api/gateway`。
 4. 浏览器访问页面，React 从 `src/main.tsx` 渲染 `App`。
 5. 用户上传或粘贴简历后，前端进入解析和推荐流程。
 
@@ -199,7 +200,7 @@ flowchart TD
 
 - 前端请求使用 `AbortController` 超时。
 - 服务端使用 `AbortSignal.timeout` 控制模型请求超时。
-- 未配置 `ARK_API_KEY` 时，服务端返回 503 和明确错误信息。
+- 未配置当前 Provider 对应的服务端密钥时，服务端返回 503 和明确错误信息。
 - 图片简历、PDF 视觉识别和岗位推荐失败时，页面进入 error 状态并显示可理解提示。
 - 模拟面试在模型不可用时提供 fallback 问题。
 
@@ -208,25 +209,29 @@ flowchart TD
 | 接口/模型 | 调用位置 | 配置项 | 输入 | 输出 | 是否需要密钥 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- |
 | OpenAI 兼容 chat/completions | `server/arkCore.js` | `ARK_API_KEY`、`ARK_BASE_URL`、`ARK_MODEL`、`ARK_VISION_MODEL`、`ARK_PACKAGE`、`ARK_REQUEST_TIMEOUT_MS` | messages、model、temperature、max_tokens 或 max_completion_tokens | OpenAI 风格 choices | 是 | 默认保留 Ark/Doubao；Gitee AI / 沐曦环境使用 `Qwen3-4B` 与 `Qwen3-VL-8B-Instruct` |
-| 前端模型代理 | `src/arkClient.ts` | `VITE_ARK_API_URL` | `ArkRequest` | `ArkResponse` | 否，前端不持有密钥 | 默认请求 `/api/ark` |
-| Vercel API | `api/ark.js` | 部署平台环境变量 | POST JSON body | JSON payload | 服务端读取密钥 | 仅支持 POST |
-| 本地 Vite API | `vite.config.ts` | 本地环境变量 | POST JSON body | JSON payload | 服务端读取密钥 | 开发环境代理 |
+| 讯飞星火文本接口 | `server/modelProvider.js`、`server/sparkWebSocket.js`、`server/arkCore.js` | `AI_MODEL_PROVIDER`、APIPassword 或 APPID/APIKey/APISecret、`IFLYTEK_SPARK_MODEL` | 统一 messages、model、temperature、max_tokens | 归一化文本结果 | 是，仅服务端 | 同时支持 OpenAI 兼容 HTTP 与原生 HMAC WebSocket；视觉模型必须单独配置 |
+| 客户端公共网关 | `src/gatewayClient.ts`、原生 `gateway_service_url` | Web 同源路径或 HAP 构建注入 URL | `operation` 与业务参数 | 公共 JSON 协议 | 否，客户端不持有密钥 | 唯一入口 `/api/gateway` |
+| Vercel API | `api/gateway.js` | `PUBLIC_APP_ORIGINS` 与服务端能力变量 | GET/POST/OPTIONS | 脱敏 JSON payload | 服务端读取密钥 | 精确来源、限流和方法校验 |
+| 本地 Vite API | `vite.config.ts` | 本地服务端环境变量 | GET/POST/OPTIONS | 与生产相同的公共协议 | 服务端读取密钥 | 开发环境复用同一网关核心 |
 | Bing 公开搜索 | `server/arkCore.js` | 无 | 岗位标题、方向、关键词 | 招聘入口候选链接 | 否 | 仅用于补充公开招聘入口，失败时返回空列表 |
-| 真实岗位聚合 API | `api/jobs.js`、`server/jobCollector.js` | `JOB_SOURCE_CONFIG_JSON`、`JOB_STORE_PATH` | 关键词、城市、企业、用工类型、游标 | 规范化官方岗位、来源证明、分页 | 否 | 腾讯、Moka、Greenhouse、Lever、Ashby，官网搜索只作兜底 |
-| 岗位来源健康 API | `api/job-sources.js` | 无 | GET | 来源状态、耗时、最近成功/失败、仓库统计 | 否 | 用于演示和运维检查 |
+| 真实岗位聚合 | `server/jobCollector.js` | `JOB_SOURCE_CONFIG_JSON`、`JOB_STORE_PATH` | 网关转交的关键词、城市、企业、用工类型、游标 | 规范化官方岗位、来源证明、分页 | 否 | 仅由网关 `jobs` 操作公开结果；来源运维结构不对客户端开放 |
 
-当前仓库已落地 Gitee AI / 沐曦 Token 资源包调用实现，并补充真实调用证据。`server/arkCore.js` 会根据 `ARK_BASE_URL` 自动选择 Gitee AI 兼容参数或原 Ark/Doubao 兼容参数。
+当前仓库已落地讯飞星火、Gitee AI / 沐曦 Token 资源包和原 Ark/Doubao 的 Provider 选择。`server/modelProvider.js` 根据服务端环境变量生成鉴权、模型、请求参数和健康状态；客户端继续使用同一代理协议。既有 Gitee AI 调用已有证据；讯飞星火 `4.0Ultra` 已在 API 24 模拟器完成首题、上下文追问和结构化评分的真实调用验收，凭证未进入仓库或 HAP。
 
 ## 7. 配置文件与环境变量说明
 
 | 配置项 | 来源 | 是否必填 | 用途 | 示例 |
 | --- | --- | --- | --- | --- |
 | `ARK_API_KEY` | 环境变量 | 模型调用必填 | 服务端模型接口鉴权 | `your_model_api_key` |
+| `AI_MODEL_PROVIDER` | 环境变量 | 否 | 选择 `iflytek-spark` 或 `ark` | `iflytek-spark` |
+| `IFLYTEK_SPARK_API_PASSWORD` | 环境变量 | 二选一 | 星火 OpenAI 兼容接口 Bearer 鉴权 | `your_iflytek_spark_api_password` |
+| `IFLYTEK_SPARK_APP_ID/API_KEY/API_SECRET` | 环境变量 | 二选一且须完整 | 星火原生 WebSocket HMAC 鉴权 | 控制台应用凭证 |
+| `IFLYTEK_SPARK_MODEL` | 环境变量 | 星火模式必填 | 星火文本模型 | `4.0Ultra` |
 | `ARK_BASE_URL` | 环境变量 | 否 | 覆盖默认模型接口地址 | `https://ark.cn-beijing.volces.com/api/v3` |
 | `ARK_REQUEST_TIMEOUT_MS` | 环境变量 | 否 | 服务端模型请求超时 | `65000` |
-| `VITE_ARK_API_URL` | 环境变量 | 否 | 前端模型代理 URL | `/api/ark` |
-| `VITE_JOBS_API_URL` | 环境变量 | HAP 联网岗位必填 | 前端岗位聚合 API | `https://example.com/api/jobs` |
-| `JOB_STORE_PATH` | 环境变量 | 否 | 长驻服务的岗位 JSON 快照 | `E:\KongMing-Job-Matching-Agent\.runtime\jobs.json` |
+| `PUBLIC_APP_ORIGINS` | 环境变量 | 否 | 额外允许跨域访问网关的浏览器 Origin，逗号分隔 | `https://app.example.com` |
+| `KONGMING_GATEWAY_URL` | HAP 构建环境或脚本参数 | 联网 HAP 必填 | 原生端唯一公共网关 URL | `https://example.com/api/gateway` |
+| `JOB_STORE_PATH` | 环境变量 | 否 | 长驻服务的岗位 JSON 快照 | `D:\KongMing-Job-Matching-Agent\.runtime\jobs.json` |
 | `JOB_SOURCE_CONFIG_JSON` | 环境变量 | 否 | 追加 ATS 来源配置 | `[]` |
 | `VITE_AVATAR_MODE` | 环境变量 | 否 | 数字人模式标记 | `static` |
 | `MAX_DEV_BODY_BYTES` | `vite.config.ts` 常量 | 是 | 本地 API 请求体上限 | `8000000` |

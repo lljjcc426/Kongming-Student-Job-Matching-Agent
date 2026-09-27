@@ -19,20 +19,33 @@ const required = [
   "entry/src/main/ets/common/NativeCalendarService.ets",
   "entry/src/main/ets/common/NativeEvidenceService.ets",
   "entry/src/main/ets/common/NativeInterviewSpeechProvider.ets",
+  "entry/src/main/ets/common/NativeJobRecommendationService.ets",
   "entry/src/main/ets/common/NativeJobService.ets",
+  "entry/src/main/ets/common/NativeJobMaterialService.ets",
+  "entry/src/main/ets/common/NativeApplicationWorkspaceService.ets",
+  "entry/src/main/ets/common/NativeInterviewHistoryService.ets",
+  "entry/src/main/ets/common/NativeResumeLayoutService.ets",
+  "entry/src/main/ets/common/NativeResumePdfService.ets",
   "entry/src/main/ets/common/NativeWorkspaceModel.ets",
   "entry/src/main/ets/components/NativeApplicationTracker.ets",
+  "entry/src/main/ets/components/NativeApplicationWorkspace.ets",
+  "entry/src/main/ets/components/NativeInterviewHistoryWorkspace.ets",
+  "entry/src/main/ets/components/NativeCandidateCamera.ets",
   "entry/src/main/ets/components/NativeDigitalInterviewer.ets",
   "entry/src/main/ets/components/NativeEvidenceLedger.ets",
   "entry/src/main/ets/components/NativeResumeVersionPanel.ets",
+  "entry/src/main/ets/components/NativeJobMaterialWorkspace.ets",
+  "entry/src/main/ets/components/NativeResumePdfPreview.ets",
   "entry/src/main/ets/applicationformability/ApplicationFormAbility.ets",
   "entry/src/main/ets/applicationform/pages/ApplicationCard.ets",
   "entry/src/main/ets/common/CareerFormStore.ets",
   "entry/src/main/resources/base/profile/main_pages.json",
   "entry/src/main/resources/base/profile/form_config.json",
+  "entry/src/main/resources/base/media/interviewOfficeV3.jpg",
+  "entry/src/main/resources/base/media/interviewDeskForeground.png",
   "entry/src/main/resources/base/media/startIconNative.png",
   "entry/src/main/resources/dark/element/color.json",
-  "entry/src/main/resources/rawfile/avatar/kongming-interviewer.glb",
+  "entry/src/main/resources/rawfile/avatar/professional-interviewer-v5.glb",
 ];
 
 required.forEach((relative) => {
@@ -45,6 +58,22 @@ required.forEach((relative) => {
 
 const readRepoFile = (relative) => fs.readFileSync(path.join(repoRoot, relative), "utf8");
 const readHarmonyFile = (relative) => fs.readFileSync(path.join(harmonyRoot, relative), "utf8");
+const readGlbDocument = (filePath) => {
+  const buffer = fs.readFileSync(filePath);
+  assert.equal(buffer.toString("ascii", 0, 4), "glTF", `${filePath} should be a binary glTF file`);
+  let offset = 12;
+  while (offset + 8 <= buffer.length) {
+    const chunkLength = buffer.readUInt32LE(offset);
+    const chunkType = buffer.readUInt32LE(offset + 4);
+    if (chunkType === 0x4e4f534a) {
+      return JSON.parse(
+        buffer.subarray(offset + 8, offset + 8 + chunkLength).toString("utf8").replace(/\u0000/g, "").trim(),
+      );
+    }
+    offset += 8 + chunkLength;
+  }
+  throw new Error(`${filePath} does not contain a glTF JSON chunk`);
+};
 
 const buildProfile = readHarmonyFile("build-profile.json5");
 const hvigorConfig = readHarmonyFile("hvigor/hvigor-config.json5");
@@ -59,12 +88,16 @@ const nativeService = readHarmonyFile("entry/src/main/ets/common/NativeCapabilit
 const nativeCalendarService = readHarmonyFile("entry/src/main/ets/common/NativeCalendarService.ets");
 const nativeEvidenceService = readHarmonyFile("entry/src/main/ets/common/NativeEvidenceService.ets");
 const nativeInterviewSpeechProvider = readHarmonyFile("entry/src/main/ets/common/NativeInterviewSpeechProvider.ets");
+const nativeJobRecommendationService = readHarmonyFile("entry/src/main/ets/common/NativeJobRecommendationService.ets");
 const nativeJobService = readHarmonyFile("entry/src/main/ets/common/NativeJobService.ets");
 const workspaceModel = readHarmonyFile("entry/src/main/ets/common/NativeWorkspaceModel.ets");
 const applicationTracker = readHarmonyFile("entry/src/main/ets/components/NativeApplicationTracker.ets");
+const nativeCandidateCamera = readHarmonyFile("entry/src/main/ets/components/NativeCandidateCamera.ets");
 const nativeDigitalInterviewer = readHarmonyFile("entry/src/main/ets/components/NativeDigitalInterviewer.ets");
 const evidenceLedger = readHarmonyFile("entry/src/main/ets/components/NativeEvidenceLedger.ets");
 const resumeVersionPanel = readHarmonyFile("entry/src/main/ets/components/NativeResumeVersionPanel.ets");
+const resumePdfService = readHarmonyFile("entry/src/main/ets/common/NativeResumePdfService.ets");
+const resumePdfPreview = readHarmonyFile("entry/src/main/ets/components/NativeResumePdfPreview.ets");
 const careerFormStore = readHarmonyFile("entry/src/main/ets/common/CareerFormStore.ets");
 const applicationCard = readHarmonyFile("entry/src/main/ets/applicationform/pages/ApplicationCard.ets");
 const applicationFormAbility = readHarmonyFile("entry/src/main/ets/applicationformability/ApplicationFormAbility.ets");
@@ -76,8 +109,12 @@ const syncScript = readRepoFile("scripts/sync-harmony-web.ps1");
 const appSource = readRepoFile("src/App.tsx");
 const arkClientSource = readRepoFile("src/arkClient.ts");
 const jobApiSource = readRepoFile("src/jobApi.ts");
+const gatewayClientSource = readRepoFile("src/gatewayClient.ts");
 const harmonyBuildScript = readRepoFile("scripts/build-harmony.ps1");
 const harmonyRunScript = readRepoFile("scripts/run-harmony-emulator.ps1");
+const avatarBuildScript = readRepoFile("scripts/build-avatar-lipsync.cjs");
+const rocketboxPrepareScript = readRepoFile("scripts/prepare-rocketbox-avatar.cjs");
+const rocketboxBuildScript = readRepoFile("scripts/build-rocketbox-avatar.ps1");
 const harmonyBridgeSource = readRepoFile("src/harmonyBridge.ts");
 const pdfSource = readRepoFile("src/pdfResumeReader.ts");
 const live2dSource = readRepoFile("src/components/interview/Live2DInterviewerAvatar.tsx");
@@ -101,16 +138,65 @@ assert.match(moduleProfile, /\$string:camera_permission_reason/);
 assert.match(moduleProfile, /ApplicationFormAbility/);
 assert.match(moduleProfile, /ohos\.extension\.form/);
 assert.match(moduleProfile, /\$media:startIconNative/);
+assert.match(moduleProfile, /"deviceTypes"\s*:\s*\["default",\s*"tablet",\s*"2in1"\]/);
 
 assert.match(page, /@Entry/);
 assert.match(page, /@Component/);
+assert.match(page, /const LAYOUT_SIZE_COMPACT: string = 'compact'/);
+assert.match(page, /const LAYOUT_SIZE_MEDIUM: string = 'medium'/);
+assert.match(page, /const LAYOUT_SIZE_EXPANDED: string = 'expanded'/);
+assert.match(page, /matchMediaSync\('\(width >= 600vp\)'\)/);
+assert.match(page, /matchMediaSync\('\(width >= 960vp\)'\)/);
+assert.match(page, /private refreshLayoutSizeClass\(\): void/);
+assert.match(page, /private refreshLayoutSizeClassForWidth\(width: number\): void/);
+assert.match(page, /\.onAreaChange\(\(_oldArea: Area, newArea: Area\)/);
+assert.match(page, /private pageMaxWidth\(\): number/);
+assert.match(page, /private navigationRailWidth\(\): number/);
+assert.match(page, /private buildHomePrimaryColumn\(\): void/);
+assert.match(page, /private buildHomeSecondaryColumn\(\): void/);
+assert.match(page, /viewportWidth: this\.candidateCameraWidth\(\)/);
+assert.match(page, /viewportHeight: this\.candidateCameraHeight\(\)/);
+assert.doesNotMatch(page, /isWideLayout|wideScreenQuery/);
 assert.match(page, /private buildHome\(\)/);
 assert.match(page, /private buildResume\(\)/);
 assert.match(page, /private buildJobs\(\)/);
 assert.match(page, /private buildInterview\(\)/);
 assert.match(page, /private buildGrowth\(\)/);
 assert.match(page, /private buildTargetJobSnapshot\(\)/);
+assert.match(page, /private buildActiveJobCockpit\(\)/);
+assert.match(page, /private buildActiveJobSignal\(/);
+assert.match(page, /private latestActiveJobInterview\(\): NativeInterviewSessionRecord \| undefined/);
+assert.match(page, /private activeJobMilestoneLabel\(\): string/);
+assert.match(page, /Text\('当前岗位作战台'\)/);
+assert.match(page, /this\.buildActiveJobCockpit\(\)/);
+assert.match(page, /this\.activeJobInterviewDetail\(\)/);
+assert.match(page, /this\.applicationStageProgress\(\)/);
 assert.match(page, /private buildTrackedJobCard\(\)/);
+assert.match(page, /private buildTrackedJobSwitcher\(\)/);
+assert.match(page, /private buildJobComparisonPanel\(\)/);
+assert.match(page, /private buildJobComparisonCard\(record: NativeTrackedJobRecord\)/);
+assert.match(page, /private toggleJobCompare\(jobKey: string\)/);
+assert.match(page, /private prepareInterviewForTrackedJob\(record: NativeTrackedJobRecord\)/);
+assert.match(page, /private selectTrackedJob\(jobKey: string\)/);
+assert.match(page, /private beginNewTrackedJob\(\)/);
+assert.match(page, /private applyTrackedJobRecord\(record: NativeTrackedJobRecord\)/);
+assert.match(page, /private upsertActiveTrackedJobRecord\(\)/);
+assert.match(page, /parsed\.trackedJobRecords/);
+assert.match(page, /parsed\.jobCompareKeys/);
+assert.match(page, /this\.trackedJobRecords\.length === 0 && parsed\.trackedJobs > 0/);
+assert.match(page, /this\.trackedJobRecords = \[new NativeTrackedJobRecord\(/);
+assert.match(page, /if \(migratedLegacyTrackedJob \|\| migratedLegacyJobContext \|\| migratedJobComparison\) await this\.saveWorkspace\(\)/);
+assert.match(page, /private activeJobContextKey\(\): string/);
+assert.match(page, /private activeInterviewSessions\(\): NativeInterviewSessionRecord\[\]/);
+assert.match(page, /private activeGrowthTasks\(\): NativeGrowthTask\[\]/);
+assert.match(page, /private activeGrowthEvidenceRecords\(\): NativeGrowthEvidenceRecord\[\]/);
+assert.match(page, /private activeGrowthHistory\(\): string\[\]/);
+assert.match(page, /this\.normalizeGrowthTask\(storedTask, fallbackJobKey, fallbackJobTitle\)/);
+assert.match(page, /this\.normalizeGrowthEvidenceRecord\(storedRecord, recordJobKey, recordJobTitle\)/);
+assert.match(page, /ForEach\(this\.trackedJobRecords, \(record: NativeTrackedJobRecord\)/);
+assert.match(page, /this\.applyTrackedJobRecord\(remainingRecords\[nextIndex\]\)/);
+assert.match(page, /activeTrackedJobKey: this\.activeTrackedJobKey \|\| this\.previousTrackedJobKey/);
+assert.match(page, /jobCompareKeys: this\.jobCompareKeys/);
 assert.match(page, /private buildPublicJobSearch\(\)/);
 assert.match(page, /private buildPublicJobCard\(job: NativePublicJob\)/);
 assert.match(page, /private buildPublicJobDetail\(job: NativePublicJob\)/);
@@ -120,7 +206,15 @@ assert.match(page, /Text\('下一行动'\)/);
 assert.match(page, /private buildPageHeading\(section: string, title: string, detail: string\)/);
 assert.match(page, /this\.buildPageHeading\(\s*'今日概览'/);
 assert.match(page, /this\.buildPageHeading\('个人资料', '简历与画像'/);
-assert.match(page, /this\.buildPageHeading\('岗位情报', '岗位中心'/);
+assert.match(page, /this\.buildJobsNavigation\(\)/);
+assert.match(page, /ForEach\(\['发现岗位', '我的投递'\]/);
+assert.match(page, /NativeApplicationWorkspace\(\{/);
+assert.match(page, /search: \$trackedJobSearch/);
+assert.match(page, /stage: \$trackedJobStageFilter/);
+assert.match(page, /sort: \$trackedJobSort/);
+assert.match(page, /private requestJobsSection\(section: number\)/);
+assert.match(page, /private openTrackedJobDetail\(jobKey: string\)/);
+assert.match(page, /if \(!this\.selectTrackedJob\(jobKey\)\) return/);
 assert.match(page, /this\.buildPageHeading\(\s*'能力训练'/);
 assert.match(page, /this\.buildPageHeading\('行动计划', '成长计划'/);
 assert.match(page, /private buildFieldLabel\(label: string/);
@@ -163,7 +257,7 @@ assert.doesNotMatch(page, /this\.resumeDirty = true/);
 assert.doesNotMatch(page, /this\.jobEditorDirty = true/);
 assert.doesNotMatch(page, /this\.applicationScheduleDirty = true/);
 assert.match(page, /暂时无法恢复本机工作区/);
-assert.match(page, /暂时无法读取官方岗位/);
+assert.match(page, /暂时无法搜索官方岗位/);
 assert.match(page, /private buildNavigationItem\(icon: Resource/);
 assert.match(page, /sys\.symbol\.checkmark_circle/);
 assert.match(page, /sys\.symbol\.exclamationmark_triangle/);
@@ -205,10 +299,11 @@ assert.match(nativeService, /setTtsLifecycleListener\(/);
 assert.match(nativeService, /setRecognitionErrorListener\(/);
 assert.match(nativeService, /notifyTtsLifecycle\('speaking'/);
 assert.match(nativeService, /notifyTtsLifecycle\('idle'/);
+assert.match(nativeService, /response\.type === 1/);
 assert.match(nativeService, /notifyRecognitionError\('麦克风录音中断/);
 assert.match(nativeAvatarProfile, /export class NativeAvatarProfile/);
-assert.match(nativeAvatarProfile, /avatar\/kongming-interviewer\.glb/);
-assert.match(nativeAvatarProfile, /\['Talking1', 'Talking2', 'Talking3'\]/);
+assert.match(nativeAvatarProfile, /avatar\/professional-interviewer-v5\.glb/);
+assert.match(nativeAvatarProfile, /'professional-interviewer-v5'/);
 assert.match(nativeInterviewSpeechProvider, /export interface NativeInterviewSpeechProvider/);
 assert.match(nativeInterviewSpeechProvider, /export class CoreSpeechInterviewProvider/);
 assert.match(nativeInterviewSpeechProvider, /providerId: string = 'huawei-core-speech'/);
@@ -219,10 +314,64 @@ assert.match(nativeDigitalInterviewer, /type:\s*30000/);
 assert.match(nativeDigitalInterviewer, /modelType: ModelType\.TEXTURE/);
 assert.match(nativeDigitalInterviewer, /scene\.renderFrame\(\{ alwaysRender: true \}\)/);
 assert.match(nativeDigitalInterviewer, /Native avatar scene ready with/);
+assert.match(nativeDigitalInterviewer, /NodeType\.GEOMETRY/);
+assert.match(nativeDigitalInterviewer, /morpher\.targets\[name\] = value/);
+assert.match(nativeDigitalInterviewer, /if \(state === 'talking'\) \{/);
+assert.match(nativeDigitalInterviewer, /animation\.restart\(\)/);
+assert.doesNotMatch(nativeDigitalInterviewer, /if \(state === 'talking'\) \{\s*this\.activeAnimationName = '';/);
+assert.match(nativeDigitalInterviewer, /if \(animationName\.length === 0\)/);
+assert.match(nativeDigitalInterviewer, /professional-interviewer-v5\.glb/);
+assert.match(nativeDigitalInterviewer, /viseme_aa/);
+assert.match(nativeDigitalInterviewer, /eyeBlinkLeft/);
+assert.match(nativeDigitalInterviewer, /app\.media\.interviewOfficeV3/);
+assert.match(nativeDigitalInterviewer, /app\.media\.interviewDeskForeground/);
 assert.doesNotMatch(nativeDigitalInterviewer, /ArkWeb|WebviewController|Web\(\{/);
+assert.match(packageJson, /"build:avatar:lipsync"/);
+assert.match(packageJson, /"build:avatar:rocketbox"/);
+assert.match(avatarBuildScript, /KongMing_Talking_LipSync/);
+assert.match(avatarBuildScript, /runtimeMorphs/);
+assert.match(avatarBuildScript, /primitive\.attributes\.TANGENT/);
+assert.match(avatarBuildScript, /target\.NORMAL = zeroDeltaAccessor/);
+assert.match(avatarBuildScript, /target\.TANGENT = zeroDeltaAccessor/);
+assert.match(rocketboxPrepareScript, /Microsoft Rocketbox Avatar Library, MIT License/);
+assert.match(rocketboxPrepareScript, /AA_VI_00_Sil/);
+assert.match(rocketboxPrepareScript, /AK_10_EyeBlinkRight/);
+assert.match(rocketboxBuildScript, /--runtime-morphs/);
+assert.equal(
+  fs.existsSync(path.join(repoRoot, "scripts/assets/rocketbox-business-female-04/Business_Female_04_facial.fbx")),
+  true,
+  "the licensed Rocketbox source should remain available outside packaged HarmonyOS resources",
+);
 assert.ok(
-  fs.statSync(path.join(harmonyRoot, "entry/src/main/resources/rawfile/avatar/kongming-interviewer.glb")).size > 10_000_000,
+  fs.statSync(path.join(harmonyRoot, "entry/src/main/resources/rawfile/avatar/professional-interviewer-v5.glb")).size > 7_000_000,
   "native interviewer GLB should be packaged as a real model asset",
+);
+assert.ok(
+  fs.statSync(path.join(harmonyRoot, "entry/src/main/resources/rawfile/avatar/professional-interviewer-v5.glb")).size < 20_000_000,
+  "native interviewer GLB should stay within the mobile asset budget",
+);
+assert.equal(
+  fs.existsSync(path.join(repoRoot, "scripts/assets/rocketbox-business-female-04/LICENSE-Microsoft-Rocketbox.md")),
+  true,
+  "the packaged Rocketbox derivative should retain its MIT license",
+);
+const avatarV5Document = readGlbDocument(
+  path.join(harmonyRoot, "entry/src/main/resources/rawfile/avatar/professional-interviewer-v5.glb"),
+);
+const avatarV5Morphs = avatarV5Document.meshes.flatMap((mesh) => mesh.extras?.targetNames ?? []);
+const requiredAvatarV5Visemes = [
+  "viseme_sil", "viseme_PP", "viseme_FF", "viseme_TH", "viseme_DD", "viseme_kk", "viseme_CH",
+  "viseme_SS", "viseme_nn", "viseme_RR", "viseme_aa", "viseme_E", "viseme_I", "viseme_O", "viseme_U",
+];
+requiredAvatarV5Visemes.forEach((name) => assert.ok(avatarV5Morphs.includes(name), `missing avatar viseme: ${name}`));
+assert.equal(new Set(avatarV5Morphs).size, 28);
+assert.equal(avatarV5Document.asset.extras.sourceAvatar, "Business_Female_04_facial");
+assert.equal(avatarV5Document.asset.extras.runtimeStateDriver, "ArkTS NativeDigitalInterviewer");
+assert.deepEqual(avatarV5Document.asset.extras.runtimeStates, ["idle", "listening", "talking", "greeting", "thinking"]);
+assert.equal(avatarV5Document.materials.find((material) => material.name.includes("opacity")).alphaMode, "MASK");
+assert.ok(
+  fs.statSync(path.join(harmonyRoot, "entry/src/main/resources/base/media/interviewDeskForeground.png")).size > 50_000,
+  "native interview desk should be packaged as a transparent foreground asset",
 );
 assert.match(nativeCalendarService, /@kit\.CalendarKit/);
 assert.match(nativeCalendarService, /calendarManager\.getCalendarManager/);
@@ -233,18 +382,122 @@ assert.equal(nativeCalendarService.includes('/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2
 assert.match(nativeJobService, /export class NativeJobService/);
 assert.match(nativeJobService, /@kit\.NetworkKit/);
 assert.match(nativeJobService, /http\.createHttp\(\)/);
-assert.match(nativeJobService, /job_service_url/);
+assert.match(nativeJobService, /gateway_service_url/);
 assert.match(nativeJobService, /connectTimeout:\s*10000/);
 assert.match(nativeJobService, /failed: boolean/);
 assert.match(nativeJobService, /new NativeJobFeed\(true, true/);
-assert.match(nativeStrings, /"name"\s*:\s*"job_service_url"/);
+assert.match(nativeJobService, /employmentType: string/);
+assert.match(nativeJobService, /keywords: string\[\]/);
+assert.match(nativeJobService, /matchScore: number/);
+assert.match(nativeJobService, /matchReasons: string\[\]/);
+assert.match(nativeJobService, /salary: string/);
+assert.match(nativeJobService, /preferenceReasons: string\[\]/);
+assert.match(nativeJobService, /const seenKeys: string\[\] = \[\]/);
+assert.match(nativeJobService, /if \(seenKeys\.includes\(duplicateKey\)\) continue/);
+assert.match(nativeJobService, /let url = `\$\{endpoint\}\$\{separator\}operation=jobs&limit=20&market=cn`/);
+assert.match(nativeJobService, /&q=\$\{encodeURIComponent\(query\.trim\(\)\)\}/);
+assert.match(nativeJobService, /&city=\$\{encodeURIComponent\(city\.trim\(\)\)\}/);
+assert.match(nativeJobService, /&company=\$\{encodeURIComponent\(company\.trim\(\)\)\}/);
+assert.match(nativeJobService, /暂时没有找到可投递岗位，请稍后重试或手动添加目标岗位/);
+assert.match(nativeJobService, /请减少关键词、企业或城市限制后重试/);
+assert.doesNotMatch(nativeJobService, /resumeSummary|resumeText|简历画像/);
+assert.match(nativeJobService, /market: string/);
+assert.match(nativeJobService, /employerPriority: number/);
+assert.match(nativeJobService, /private isDomesticJob\(job: NativePublicJob\): boolean/);
+assert.match(nativeJobService, /if \(!this\.isDomesticJob\(job\)\) continue/);
+assert.match(nativeJobService, /japan\|tokyo/);
+assert.match(nativeJobService, /dubai/);
+assert.match(nativeJobRecommendationService, /export class NativeJobRecommendationService/);
+assert.match(nativeJobRecommendationService, /export class NativeJobPreferenceProfile/);
+assert.match(nativeJobRecommendationService, /rankJobs\(\s*jobs: NativePublicJob\[\]/);
+assert.match(nativeJobRecommendationService, /evaluateJob\(\s*job: NativePublicJob/);
+assert.match(nativeJobRecommendationService, /this\.roleScore\(/);
+assert.match(nativeJobRecommendationService, /const titleRoles = this\.detectRoles\(jobTitle\)/);
+assert.match(nativeJobRecommendationService, /const sharedTitleRoles = this\.intersection\(intentRoles, titleRoles\)/);
+assert.match(nativeJobRecommendationService, /岗位标题偏“\$\{titleRoles\.slice\(0, 2\)\.join\('、'\)\}”/);
+assert.match(nativeJobRecommendationService, /岗位标题未直接体现目标方向，需要结合核心职责人工核对/);
+assert.match(nativeJobRecommendationService, /this\.skillScore\(/);
+assert.match(nativeJobRecommendationService, /this\.constraintScore\(/);
+assert.match(nativeJobRecommendationService, /this\.evidenceQualityScore\(/);
+assert.match(nativeJobRecommendationService, /this\.preferenceScore\(/);
+assert.match(nativeJobRecommendationService, /this\.freshnessScore\(/);
+assert.match(nativeJobRecommendationService, /this\.feedbackScore\(/);
+assert.match(nativeJobRecommendationService, /this\.learnedFeedbackScore\(/);
+assert.match(nativeJobRecommendationService, /job\.matchScore = recommendation\.score/);
+assert.match(nativeJobRecommendationService, /job\.matchedSkills = recommendation\.matchedSkills/);
+assert.match(nativeJobRecommendationService, /job\.matchGaps = recommendation\.gaps/);
+assert.match(nativeJobRecommendationService, /private rankingValue\(job: NativePublicJob\): number/);
+assert.match(nativeJobRecommendationService, /job\.matchScore \+ Math\.round\(job\.employerPriority \* 0\.1\)/);
+assert.match(nativeJobRecommendationService, /Math\.max\(0, Math\.min\(100, Math\.round\(score\)\)\)/);
+assert.match(nativeJobRecommendationService, /hasResumeEvidence \? 'preference-evidence' : 'preference-target'/);
+assert.match(nativeJobRecommendationService, /简历画像不足 30 字，当前只按目标方向排序/);
+assert.match(page, /NativeJobPreferenceProfile/);
+assert.match(page, /private jobRecommendationService: NativeJobRecommendationService/);
+assert.match(page, /private refreshPublicJobRanking\(\): void/);
+assert.match(page, /this\.jobRecommendationService\.rankJobs\(/);
+assert.match(page, /private buildJobPreferencePanel\(\): void/);
+assert.match(page, /private updateJobFeedback\(job: NativePublicJob, feedback: string\): void/);
+assert.match(page, /private prepareInterviewForPublicJob\(job: NativePublicJob\): void/);
+assert.match(page, /Text\('保存并按此岗位模拟面试'\)/);
+assert.match(page, /class NativeJobReadinessItem/);
+assert.match(page, /private trackedJobReadinessCount\(record: NativeTrackedJobRecord\): number/);
+assert.match(page, /private jobReadinessItems\(\): NativeJobReadinessItem\[\]/);
+assert.match(page, /private performJobReadinessAction\(itemKey: string\): void/);
+assert.match(page, /private buildJobReadinessPanel\(\): void/);
+assert.match(page, /Text\('投递准备清单'\)/);
+assert.match(page, /不代表企业筛选或录用概率/);
+assert.match(page, /new NativeApplicationListItem\(record, this\.trackedJobReadinessCount\(record\), this\.trackedJobNextAction\(record\)\)/);
+assert.match(readHarmonyFile('entry/src/main/ets/components/NativeApplicationWorkspace.ets'), /Text\(`准备 \$\{item\.readiness\}\/5`\)/);
+assert.match(page, /Text\('多岗位决策台'\)/);
+assert.match(page, /不生成录用概率或隐藏排名/);
+assert.match(page, /this\.jobCompareKeys\.length >= 3/);
+assert.match(page, /this\.comparisonJobRecords\(\)\.length < 2/);
+assert.match(page, /this\.buildJobComparisonFact\('投递阶段'/);
+assert.match(page, /this\.buildJobComparisonFact\('准备清单'/);
+assert.match(page, /this\.buildJobComparisonFact\('投递简历'/);
+assert.match(page, /this\.buildJobComparisonFact\('岗位面试'/);
+assert.match(page, /this\.buildJobComparisonFact\('关键节点'/);
+assert.match(page, /this\.buildJobComparisonFact\('下一行动'/);
+assert.match(page, /Button\('按此岗位面试'\)/);
+assert.match(page, /已在本机按简历证据排序/);
+assert.match(page, /Text\(`\$\{job\.matchScore\}% · \$\{job\.matchLabel\}`\)/);
+assert.match(page, /本机简历证据、求职偏好与当前 JD 的综合相关性/);
+assert.match(page, /Text\('推荐岗位'\)/);
+assert.match(page, /private async openBossJobSearch\(\): Promise<void>/);
+assert.match(page, /getStringByNameSync\('boss_search_url'\)/);
+assert.match(page, /if \(!endpoint\.startsWith\('https:\/\/'\)\)/);
+assert.match(page, /BOSS 直聘属于第三方招聘平台，仅作为补充入口/);
+assert.match(page, /const NATIVE_PREFERRED_EMPLOYERS: string\[\]/);
+assert.match(page, /this\.jobService\.fetchJobs\(query, this\.jobCity, this\.jobEmployer\)/);
+assert.match(page, /this\.jobEmployer = this\.jobEmployer === employer \? '' : employer/);
+assert.match(page, /Text\('国内大厂'\)/);
+assert.match(nativeStrings, /"name"\s*:\s*"gateway_service_url"/);
+assert.match(nativeStrings, /"name"\s*:\s*"boss_search_url"/);
+assert.match(nativeStrings, /https:\/\/www\.zhipin\.com\/web\/geek\/job/);
 assert.match(nativeAiService, /export class NativeAiService/);
 assert.match(nativeAiService, /@kit\.NetworkKit/);
-assert.match(nativeAiService, /ark_service_url/);
+assert.match(nativeAiService, /gateway_service_url/);
+assert.match(nativeAiService, /getOperationEndpoint\('model'\)/);
 assert.match(nativeAiService, /http\.RequestMethod\.POST/);
+assert.doesNotMatch(nativeAiService, /NativeAiServiceStatus|checkAvailability|getOperationEndpoint\('status'\)|parsed\.serviceLabel/);
 assert.match(nativeAiService, /task:\s*'career-chat'/);
 assert.match(nativeAiService, /generateInterviewQuestion/);
+assert.match(nativeAiService, /这是首轮问题/);
+assert.match(nativeAiService, /当前轮次：\$\{round\}\/\$\{totalRounds\}/);
+assert.match(nativeAiService, /本轮能力重点：\$\{competencyLabel/);
+assert.match(nativeAiService, /已覆盖能力：\$\{coveredCompetencies/);
+assert.match(nativeAiService, /岗位核验重点：\$\{requirementFocuses/);
+assert.match(nativeAiService, /improvedAnswer/);
+assert.match(page, /private buildInterviewJobContext\(\): void/);
+assert.match(page, /private recommendedInterviewType\(\): string/);
+assert.match(page, /private interviewRequirementFocuses\(\): string\[\]/);
+assert.match(page, /Text\('STAR 改写示例'\)/);
 assert.match(nativeAiService, /generateInterviewFeedback/);
+assert.match(nativeAiService, /本轮能力题谱：\$\{competencyLabels/);
+assert.match(nativeAiService, /class NativeInterviewEvaluation/);
+assert.match(nativeAiService, /parseInterviewEvaluation/);
+assert.match(nativeAiService, /evidenceReferences/);
+assert.match(nativeAiService, /只输出一个合法 JSON 对象/);
 assert.match(nativeAiService, /手机号已隐藏/);
 assert.match(nativeAiService, /邮箱已隐藏/);
 assert.match(nativeAiService, /身份证号已隐藏/);
@@ -264,7 +517,7 @@ assert.match(nativeEvidenceService, /first === 192 && \(second === 0 \|\| second
 assert.match(nativeEvidenceService, /2300047/);
 assert.match(nativeEvidenceService, /sourceHost/);
 assert.doesNotMatch(nativeEvidenceService, /Authorization|ARK_API_KEY|ArkWeb|WebviewController|Web\(\{/);
-assert.match(nativeStrings, /"name"\s*:\s*"ark_service_url"/);
+assert.doesNotMatch(nativeStrings, /"name"\s*:\s*"(?:job|ark|health)_service_url"/);
 assert.match(nativeColors, /"name"\s*:\s*"km_page_background"/);
 assert.match(nativeColors, /"name"\s*:\s*"km_primary"/);
 assert.match(nativeColors, /"name"\s*:\s*"km_teal"/);
@@ -279,9 +532,13 @@ assert.match(workspaceModel, /export class NativeGrowthTask/);
 assert.match(workspaceModel, /export class NativeGrowthEvidenceRecord/);
 assert.match(workspaceModel, /export class NativeJobEvidence/);
 assert.match(workspaceModel, /export class NativeApplicationEvent/);
+assert.match(workspaceModel, /export class NativeTrackedJobRecord/);
 assert.match(workspaceModel, /export class NativeApplicationStageOption/);
 assert.match(workspaceModel, /export class NativeResumeVersion/);
 assert.match(workspaceModel, /export class NativeInterviewTurn/);
+assert.match(workspaceModel, /export class NativeInterviewCompetencyResult/);
+assert.match(workspaceModel, /competencyResults: NativeInterviewCompetencyResult\[\]/);
+assert.match(workspaceModel, /export class NativeInterviewSessionRecord/);
 assert.match(workspaceModel, /applicationDeadline: string/);
 assert.match(workspaceModel, /nextInterviewAt: string/);
 assert.match(workspaceModel, /applicationEvents: NativeApplicationEvent\[\]/);
@@ -295,14 +552,31 @@ assert.match(workspaceModel, /interviewElapsedSeconds: number/);
 assert.match(workspaceModel, /interviewSessionPhase: string/);
 assert.match(workspaceModel, /interviewSessionUpdatedAt: number/);
 assert.match(workspaceModel, /interviewTimeExpired: boolean/);
+assert.match(workspaceModel, /interviewSessions: NativeInterviewSessionRecord\[\]/);
+assert.match(workspaceModel, /currentInterviewSessionId: string/);
 assert.match(workspaceModel, /growthEvidenceRecords: NativeGrowthEvidenceRecord\[\]/);
 assert.match(workspaceModel, /growthBaselineCoverage: number/);
+assert.match(workspaceModel, /growthHistoryJobKeys: string\[\]/);
 assert.match(workspaceModel, /sourceVerification: string/);
 assert.match(workspaceModel, /sourceCheckedAt: string/);
 assert.match(workspaceModel, /sourceHttpStatus: number/);
 assert.match(workspaceModel, /sourceCheckMethod: string/);
+assert.match(workspaceModel, /export class NativeGrowthTask[\s\S]*jobKey: string;[\s\S]*jobTitle: string;/);
+assert.match(workspaceModel, /export class NativeGrowthEvidenceRecord[\s\S]*jobKey: string;[\s\S]*jobTitle: string;/);
+assert.match(workspaceModel, /focusDimension: string/);
+assert.match(workspaceModel, /baselineScore: number/);
+assert.match(workspaceModel, /targetScore: number/);
+assert.match(workspaceModel, /sourceInterviewId: string/);
+assert.match(workspaceModel, /trainingFocusDimension: string/);
+assert.match(workspaceModel, /trainingBaselineScore: number/);
+assert.match(workspaceModel, /trainingTargetScore: number/);
+assert.match(workspaceModel, /competencyLabels: string\[\]/);
+assert.match(workspaceModel, /competencyCoveredCount: number/);
 assert.match(workspaceModel, /trackedJobSource: string/);
 assert.match(workspaceModel, /trackedJobDescription: string/);
+assert.match(workspaceModel, /trackedJobRecords: NativeTrackedJobRecord\[\]/);
+assert.match(workspaceModel, /jobCompareKeys: string\[\]/);
+assert.match(workspaceModel, /activeTrackedJobKey: string/);
 assert.match(page, /buildNativeCapabilityCard/);
 assert.match(page, /loginHuawei/);
 assert.match(page, /shareProgress/);
@@ -324,13 +598,74 @@ assert.match(page, /private buildImmersiveInterviewerStage\(\): void/);
 assert.match(page, /private buildImmersiveAnswerPanel\(\): void/);
 assert.match(page, /private buildImmersivePauseOverlay\(\): void/);
 assert.match(page, /private buildImmersiveInterview\(\): void/);
-assert.match(page, /viewportHeight: 220/);
+assert.match(page, /class NativeInterviewAssessment/);
+assert.match(page, /class NativeInterviewCompetency/);
+assert.match(page, /private assessInterview\(turns: NativeInterviewTurn\[\] = this\.interviewTurns\): NativeInterviewAssessment/);
+assert.match(page, /private interviewCompetencyBlueprint\(\): NativeInterviewCompetency\[\]/);
+assert.match(page, /private plannedInterviewCompetencies\(\): NativeInterviewCompetency\[\]/);
+assert.match(page, /private interviewCompetencyForRound\(round: number\): NativeInterviewCompetency/);
+assert.match(page, /private evaluateInterviewCompetencyTurn\(/);
+assert.match(page, /private buildInterviewCompetencyResults\(/);
+assert.match(page, /private currentInterviewCompetencyResults\(\): NativeInterviewCompetencyResult\[\]/);
+assert.match(page, /private weakestInterviewCompetencyResult\(/);
+assert.match(page, /专项复测：\$\{this\.growthFocusLabel\(focusDimension\)\}/);
+assert.match(page, /private buildInterviewCompetencyPlan\(\): void/);
+assert.match(page, /private buildInterviewCompetencyCoverage\(\): void/);
+assert.match(page, /Text\('本轮能力题谱'\)/);
+assert.match(page, /逐项分数来自本轮回答中的确定性文本信号/);
+assert.match(page, /回答摘录：/);
+assert.match(page, /待补证据：/);
+assert.match(readHarmonyFile('entry/src/main/ets/components/NativeInterviewHistoryWorkspace.ets'), /待补充：/);
+assert.match(page, /不代表招聘结论或实际胜任水平/);
+assert.doesNotMatch(page, /(?:预测|预计|提升).*录用概率|录用概率[:：]\s*\d|已通过能力认证|能力认证通过/);
+assert.match(page, /private buildInterviewReportMetric\(/);
+assert.match(page, /private buildInterviewReport\(\): void/);
+assert.match(page, /评分依据本轮回答中的结构、证据和岗位关联生成，仅用于训练复盘/);
+assert.match(page, /private weakestInterviewDimension\(assessment: NativeInterviewAssessment\): string/);
+assert.match(page, /private currentRetestRecord\(\): NativeInterviewSessionRecord \| undefined/);
+assert.match(page, /private hasScoredActiveGrowthPrescription\(\): boolean/);
+assert.match(page, /Text\('专项复测结果'\)/);
+assert.match(page, /this\.currentRetestResultLabel\(\)/);
+assert.match(page, /private interviewRetestGoalLabel\(record: NativeInterviewSessionRecord\): string/);
+assert.match(page, /已达标 · 达到目标/);
+assert.match(page, /未达标 · 距目标/);
+assert.match(page, /private archiveCurrentInterviewSession\(\): void/);
+assert.match(page, /private buildInterviewHistory\(\): void/);
+assert.match(page, /NativeInterviewHistoryWorkspace\(\{/);
+assert.match(page, /private prepareHistoryTraining\(session: NativeInterviewSessionRecord\)/);
+assert.match(page, /private backFromInterviewHistory\(\)/);
+assert.match(page, /search: \$interviewHistorySearch/);
+assert.match(page, /compareIds: \$interviewHistoryCompareIds/);
+assert.match(page, /this\.interviewHistoryService\.compare/);
+assert.match(page, /已建立新的面试评分基线/);
+assert.doesNotMatch(page, /activeInterviewSessions\(\)\.slice\(0, 8\)/);
+const historyWorkspace = readHarmonyFile('entry/src/main/ets/components/NativeInterviewHistoryWorkspace.ets');
+assert.match(historyWorkspace, /ForEach\(this\.visibleSessions\(\)/);
+assert.match(historyWorkspace, /Text\(turn\.answer \|\| '回答未记录'\)/);
+assert.match(historyWorkspace, /this\.buildTextSection\('参考改写', session\.improvedAnswer\)/);
+assert.match(historyWorkspace, /训练条件不同，仅并列展示评分/);
+assert.match(historyWorkspace, /Checkbox\(/);
+assert.match(historyWorkspace, /Text\(`\$\{this\.statValue\(label\)\}`\)/);
+assert.doesNotMatch(historyWorkspace, /buildStat\(label: string, value: number\)/);
+assert.match(page, /tasks: this\.activeGrowthTasks\(\)/);
+assert.match(page, /records: this\.activeGrowthEvidenceRecords\(\)/);
+assert.match(page, /NativeCandidateCamera\(\{/);
+assert.match(page, /onRecordingSaved:/);
+assert.match(page, /private handleCandidateRecordingSaved\(/);
+assert.match(historyWorkspace, /Video\(\{ src: session\.videoUri \}\)/);
+assert.match(page, /private requestDeleteInterviewVideo\(/);
+assert.match(page, /setRecognitionResultListener/);
+assert.match(page, /查看 \$\{this\.interviewTurns\.length\} 轮问答记录/);
+assert.match(page, /accessibilityText\('结束面试并生成复盘'\)/);
+assert.match(page, /if \(this\.interviewSessionPhase === 'completed'\) \{\s*this\.buildInterviewReport\(\)/);
+assert.match(page, /fullStage: true/);
+assert.match(page, /showIdentity: false/);
 assert.match(page, /mainWindow\.on\('keyboardHeightChange'/);
 assert.match(page, /if \(height <= 0 && this\.interviewKeyboardVisible\) \{\s*this\.interviewKeyboardDismissedAt = Date\.now\(\);/);
 assert.match(page, /private dismissInterviewKeyboard\(\): void/);
 assert.match(page, /\.enableKeyboardOnFocus\(true\)/);
-assert.match(page, /if \(this\.interviewKeyboardVisible \|\| Date\.now\(\) - this\.interviewKeyboardDismissedAt < 800\) \{/);
-assert.match(page, /accessibilityText\('完成回答输入'\)/);
+assert.match(page, /if \(this\.interviewTextFallbackVisible \|\| this\.interviewKeyboardVisible \|\|/);
+assert.match(page, /accessibilityText\('关闭文字回答'\)/);
 assert.match(page, /if \(this\.isImmersiveInterviewSession\(\)\) \{\s*this\.requestEndInterview\(\)/);
 assert.match(page, /private async stopInterviewPrompt\(\)/);
 assert.match(page, /if \(this\.interviewSpeaking\) await this\.stopInterviewPrompt\(\)/);
@@ -339,6 +674,10 @@ assert.match(page, /private stopInterviewTimer\(\)/);
 assert.match(page, /private async pauseInterview\(\)/);
 assert.match(page, /private resumeInterview\(\)/);
 assert.match(page, /private requestEndInterview\(\)/);
+assert.match(page, /const hasIncompleteDraft = answer\.length > 0 && this\.validateInterviewAnswer\(answer\)\.length > 0/);
+assert.match(page, /if \(hasAnswer\) void this\.finishInterview\(true\)/);
+assert.match(page, /private async finishInterview\(discardIncompleteDraft: boolean = false\): Promise<void>/);
+assert.match(page, /if \(!discardIncompleteDraft\) \{/);
 assert.match(page, /interviewDurationMinutes \+= 5/);
 assert.match(page, /this\.interviewSessionPhase === 'paused'/);
 assert.match(page, /accessibilityText\(this\.interviewSessionPhase === 'paused' \? '恢复面试' : '暂停面试'\)/);
@@ -353,17 +692,44 @@ assert.match(page, /bindNativeResumeVersion/);
 assert.match(page, /deleteNativeResumeVersion/);
 assert.match(page, /进入“\$\{this\.applicationStageLabel\(stageId\)\}”前，请先在简历页保存并绑定实际投递版本/);
 assert.match(page, /modelConsent/);
+assert.match(page, /启用个性化追问/);
+assert.match(page, /关闭时使用标准题库，回答仅保存在本机/);
+assert.doesNotMatch(page, /refreshInterviewModelService|interviewModelServiceTitle|检测服务|重新检测/);
+assert.doesNotMatch(page, /Text\([^\n]*(?:interviewModelName|interviewModelServiceMessage|speechProvider\.providerName)/);
 assert.match(page, /submitInterviewAnswer/);
 assert.match(page, /generateInterviewQuestion/);
 assert.match(page, /generateInterviewFeedback/);
+assert.match(page, /this\.interviewCompetencyForRound\(nextRound\)\.label/);
+assert.match(page, /this\.coveredInterviewCompetencyLabels\(nextTurns\.length\)/);
+assert.match(page, /private interviewTargetRounds\(\): number/);
+assert.match(page, /if \(this\.interviewDurationMinutes <= 10\) return 3/);
+assert.match(page, /if \(this\.interviewDurationMinutes <= 15\) return 4/);
+assert.match(page, /private normalizeInterviewDurationForSetup\(\): void/);
+assert.match(page, /if \(!this\.interviewStarted\) \{[\s\S]*?this\.normalizeInterviewDurationForSetup\(\)/);
+assert.match(page, /private async startInterview\(\): Promise<void>/);
+assert.match(page, /正在准备第 1 轮岗位化问题/);
+assert.match(page, /this\.aiService\.generateInterviewQuestion\([\s\S]*?1,[\s\S]*?this\.interviewTargetRounds\(\)/);
+assert.doesNotMatch(page, /interviewModelServiceState|markInterviewModelReady|markInterviewModelUnavailable/);
+assert.doesNotMatch(page, /interviewTurns\.length < 3/);
+assert.doesNotMatch(page, /interviewTurns\.length >= 3/);
+assert.doesNotMatch(page, /轮 \/ 3/);
 assert.match(page, /growthEvidenceFingerprint/);
 assert.match(page, /evidenceService\.verifyPublicHttps/);
 assert.match(page, /evidenceChecking: this\.evidenceChecking/);
 assert.match(page, /revokeGrowthEvidence/);
-assert.match(page, /growthBaselineCoverage \+ this\.growthGainForTasks\(nextTasks\)/);
+assert.match(page, /private refreshActiveGrowthCoverage\(\): void/);
+assert.match(page, /this\.growthBaselineCoverage \+ this\.growthGainForTasks\(tasks\)/);
+assert.match(page, /private allActiveGrowthTasksVerified\(\): boolean/);
+assert.match(page, /private buildGrowthPrescription\(\): void/);
+assert.match(page, /Text\('本轮训练处方'\)/);
+assert.match(page, /Text\('进入同岗位复测'\)/);
+assert.match(page, /private startGrowthRetest\(\): void/);
+assert.match(page, /baselineScore \+ 12/);
+assert.match(page, /task\.jobKey === jobKey && task\.status !== 'verified'/);
+assert.match(page, /record\.jobKey === jobKey && record\.taskId === taskId/);
+assert.doesNotMatch(page, /正在使用 Network Kit|通过 Network Kit/);
 assert.match(page, /private growthGainForTasks\(tasks: NativeGrowthTask\[\]\): number/);
 assert.match(page, /KeyboardAvoidMode\.RESIZE/);
-assert.match(page, /matchMediaSync\('\(600vp<=width\)'\)/);
 assert.match(page, /private buildRailNavigation\(\)/);
 assert.match(page, /constraintSize\(\{ minHeight:/);
 assert.match(page, /expandSafeArea\(\[SafeAreaType\.SYSTEM\], \[SafeAreaEdge\.TOP, SafeAreaEdge\.BOTTOM\]\)/);
@@ -381,10 +747,20 @@ assert.match(page, /struct NativeMetricCard/);
 assert.match(page, /@Prop value: string/);
 assert.match(page, /请补充可核验的 HTTPS 代码仓库、报告或演示链接/);
 assert.match(page, /growthEvidenceRecords: this\.growthEvidenceRecords/);
-assert.match(page, /本次训练使用智能增强/);
-assert.match(page, /外部模型未授权，已完成本机结构化反馈/);
+assert.match(page, /个性化追问暂时不可用，已为你准备标准问题，可继续训练/);
+assert.match(page, /已根据本轮回答生成训练反馈/);
+assert.doesNotMatch(page, /模型密钥仅保存在服务端|外部模型未授权|模型实时调用失败|支持离线降级|官方 API|官方 ATS/);
 assert.match(page, /NativeApplicationTracker\(\{/);
 assert.match(page, /NativeResumeVersionPanel\(\{/);
+assert.match(page, /canExportResume\(this\.jobMaterialDraft, version, this\.jobMaterialDirty\)/);
+assert.match(resumePdfService, /@Concurrent/);
+assert.match(resumePdfService, /taskpool\.execute/);
+assert.doesNotMatch(resumePdfService, /@kit\.PDFKit|@kit\.NetworkKit|Webview/);
+assert.match(resumePdfPreview, /Canvas\(this\.drawing\)/);
+assert.match(resumePdfPreview, /vp2px\(line\.size\)/);
+assert.match(resumePdfPreview, /ScrollDirection\.Horizontal/);
+assert.match(resumePdfPreview, /ScrollDirection\.Vertical/);
+assert.doesNotMatch(resumePdfPreview, /ScrollDirection\.Free/);
 assert.match(page, /formData\.applicationStage/);
 assert.match(page, /formData\.nextAction = this\.primaryNextAction\(\)/);
 assert.match(page, /请填写可追溯的岗位来源链接/);
@@ -404,6 +780,22 @@ assert.match(applicationTracker, /添加面试提醒/);
 assert.doesNotMatch(applicationTracker, /ArkWeb|WebviewController|Web\(\{/);
 assert.match(nativeDigitalInterviewer, /@Prop viewportHeight: number = 0/);
 assert.match(nativeDigitalInterviewer, /this\.viewportHeight > 0 \? this\.viewportHeight/);
+assert.match(nativeCandidateCamera, /@kit\.CameraKit/);
+assert.match(nativeCandidateCamera, /camera\.getCameraManager/);
+assert.match(nativeCandidateCamera, /createPreviewOutput/);
+assert.match(nativeCandidateCamera, /createSession<camera\.VideoSession>\(camera\.SceneMode\.NORMAL_VIDEO\)/);
+assert.match(nativeCandidateCamera, /@kit\.MediaKit/);
+assert.match(nativeCandidateCamera, /media\.createAVRecorder/);
+assert.match(nativeCandidateCamera, /VIDEO_SOURCE_TYPE_SURFACE_YUV/);
+assert.match(nativeCandidateCamera, /createVideoOutput/);
+assert.match(nativeCandidateCamera, /await this\.prepareRecorder\(profile\)/);
+assert.match(nativeCandidateCamera, /await this\.configureCaptureSession\(true\)/);
+assert.match(nativeCandidateCamera, /await this\.restorePreviewAfterRecording\(\)/);
+assert.match(nativeCandidateCamera, /XComponentType\.SURFACE/);
+assert.match(nativeCandidateCamera, /正在录像，仅保存画面/);
+assert.match(nativeCandidateCamera, /@Prop viewportWidth: number = 148/);
+assert.match(nativeCandidateCamera, /this\.cameraReady \? '你' : '我的镜头'/);
+assert.doesNotMatch(nativeCandidateCamera, /ArkWeb|WebviewController|Web\(\{/);
 assert.match(evidenceLedger, /export struct NativeEvidenceLedger/);
 assert.match(evidenceLedger, /Text\('证据说明'\)/);
 assert.match(evidenceLedger, /Text\('来源链接'\)/);
@@ -456,26 +848,33 @@ assert.match(harmonyBuildScript, /Native ArkUI build selected/);
 assert.match(harmonyBuildScript, /DevEcoRoot = 'D:\\DevEco Studio'/);
 assert.match(harmonyBuildScript, /AsciiBuildRoot = 'D:\\KongMing-Harmony-Build'/);
 assert.match(harmonyBuildScript, /TempRoot = 'D:\\KongMing-Harmony-Temp'/);
+assert.match(harmonyBuildScript, /UserHomeRoot = 'D:\\KongMing-Harmony-User'/);
+assert.match(harmonyBuildScript, /\$env:USERPROFILE = \$resolvedUserHomeRoot/);
+assert.match(harmonyBuildScript, /\$env:HOME = \$resolvedUserHomeRoot/);
 assert.match(harmonyBuildScript, /--max-semi-space-size=128/);
 assert.match(harmonyBuildScript, /Using ASCII staging path/);
+assert.match(harmonyBuildScript, /Excluded legacy v3 and v4 avatars from the packaged HAP/);
+assert.match(harmonyBuildScript, /professional-interviewer-v3\.glb/);
+assert.match(harmonyBuildScript, /professional-interviewer-v4\.glb/);
 assert.match(harmonyBuildScript, /Set-NativeStringResource/);
-assert.match(harmonyBuildScript, /Embedding native job service URL/);
-assert.match(harmonyBuildScript, /Embedding native model service URL/);
-assert.match(harmonyBuildScript, /Set-NativeStringResource \$buildHarmonyRoot 'ark_service_url'/);
+assert.match(harmonyBuildScript, /Embedding native public gateway URL/);
+assert.match(harmonyBuildScript, /Set-NativeStringResource \$buildHarmonyRoot 'gateway_service_url'/);
 assert.match(harmonyBuildScript, /'10\.0\.2\.2'/);
 assert.match(syncScript, /harmony\\entry\\src\\main\\resources\\resfile/);
 assert.match(syncScript, /Refusing to sync outside the Harmony resources directory/);
 assert.match(syncScript, /npm run build:web:harmony/);
 
 assert.match(appSource, /import\.meta\.env\.BASE_URL\}kongming-ip\.png/);
-assert.match(arkClientSource, /import\.meta\.env\.VITE_ARK_API_URL\?\.trim\(\)/);
-assert.match(arkClientSource, /window\.location\.protocol === "file:" \? "" : "\/api\/ark"/);
+assert.match(arkClientSource, /publicGatewayUrl\("model"\)/);
+assert.doesNotMatch(arkClientSource, /VITE_(?:ARK|JOBS|HEALTH)_API_URL|\/api\/(?:ark|jobs|health)/);
 assert.doesNotMatch(arkClientSource, /vercel\.app/);
-assert.match(jobApiSource, /import\.meta\.env\.VITE_JOBS_API_URL\?\.trim\(\)/);
-assert.match(jobApiSource, /window\.location\.protocol === "file:" \? "" : "\/api\/jobs"/);
+assert.match(jobApiSource, /publicGatewayUrl\("jobs"\)/);
+assert.doesNotMatch(jobApiSource, /VITE_(?:ARK|JOBS|HEALTH)_API_URL|\/api\/(?:ark|jobs|health)/);
+assert.match(gatewayClientSource, /const PUBLIC_GATEWAY_PATH = "\/api\/gateway"/);
+assert.match(gatewayClientSource, /window\.location\.protocol !== "file:"/);
 assert.match(harmonyBuildScript, /LocalDevApiBaseUrl/);
-assert.match(harmonyBuildScript, /VITE_JOBS_API_URL/);
-assert.match(harmonyBuildScript, /VITE_HEALTH_API_URL/);
+assert.match(harmonyBuildScript, /KONGMING_GATEWAY_URL/);
+assert.doesNotMatch(harmonyBuildScript, /VITE_(?:ARK|JOBS|HEALTH)_API_URL/);
 assert.match(harmonyBuildScript, /RequireOnlineServices/);
 assert.match(harmonyRunScript, /rport "tcp:\$LocalDevPort" "tcp:\$LocalDevPort"/);
 assert.match(harmonyRunScript, /LocalDevHost = '10\.0\.2\.2'/);

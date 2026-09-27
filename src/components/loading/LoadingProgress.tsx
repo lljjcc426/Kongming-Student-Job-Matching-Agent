@@ -11,7 +11,7 @@ export default function LoadingProgress({ progress, currentStage }: LoadingProgr
       <div className="loading-status-row">
         <span>
           <i aria-hidden="true" />
-          AI 求职引擎加载中...
+          正在准备你的求职工作台...
         </span>
         <strong>{Math.round(progress)}%</strong>
       </div>

@@ -49,7 +49,7 @@ const statusLabel: Record<InterviewStatus, string> = {
   thinking: "正在思考",
   feedback: "正在反馈",
   finished: "已结束",
-  error: "已降级",
+  error: "请重试",
 };
 
 const assessmentLabel = (level: InterviewAssessmentLevel) => ({
@@ -75,12 +75,12 @@ const formatSeconds = (seconds: number) => {
 
 const firstOpeningOf = (type: InterviewType) => {
   if (type === "技术面") {
-    return "你好，我是今天的 AI 技术面试官。接下来我会围绕你的项目经历、技术基础和问题解决过程进行模拟提问，请尽量结合真实经历回答。";
+    return "你好，我是今天的技术面试官。接下来我会围绕你的项目经历、技术基础和问题解决过程进行模拟提问，请尽量结合真实经历回答。";
   }
   if (type === "HR面") {
-    return "你好，我是今天的 AI HR 面试官。接下来我会围绕岗位动机、团队协作、职业规划和稳定性进行模拟提问，请用真实、自然的方式回答。";
+    return "你好，我是今天的 HR 面试官。接下来我会围绕岗位动机、团队协作、职业规划和稳定性进行模拟提问，请用真实、自然的方式回答。";
   }
-  return "你好，我是今天的 AI 面试官。接下来我会围绕你的目标岗位进行综合模拟面试，请尽量用真实面试的方式回答。";
+  return "你好，我是今天的面试官。接下来我会围绕你的目标岗位进行综合模拟面试，请尽量用真实面试的方式回答。";
 };
 
 export default function InterviewPage({ job, profile, resumeText, hasAnalysis, onComplete, onOpenGrowthPlan }: InterviewPageProps) {
@@ -93,14 +93,12 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
   const [feedback, setFeedback] = useState<InterviewFeedbackReport | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [inputMode, setInputMode] = useState<InterviewInputMode>("text");
-  const [adapterNotice, setAdapterNotice] = useState("");
   const [interviewType, setInterviewType] = useState<InterviewType>("综合面");
   const chatRef = useRef<HTMLDivElement | null>(null);
   const sttRef = useRef<SpeechToTextAdapter | null>(null);
   const ttsRef = useRef(createTextToSpeechAdapter());
   const camera = useStudentCamera();
   const modelProvider = useMemo(() => getInterviewModelProvider(), []);
-  const avatarMode = import.meta.env.VITE_AVATAR_MODE || "static";
   const resumeSummary = profile.resumeText || resumeText || profile.experiences.map((item) => item.evidence).join("；");
 
   const currentRound = turns.length + (status === "idle" || status === "finished" ? 0 : 1);
@@ -133,14 +131,6 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
     const timer = window.setInterval(() => setElapsedSeconds((value) => value + 1), 1000);
     return () => window.clearInterval(timer);
   }, [status]);
-
-  useEffect(() => {
-    if (avatarMode === "livetalking") {
-      setAdapterNotice("LiveTalking 服务未连接，当前使用本地数字人预览。");
-    } else {
-      setAdapterNotice("");
-    }
-  }, [avatarMode]);
 
   const askQuestion = useCallback(
     async (nextMessages: InterviewMessage[], nextTurns: InterviewTurn[]) => {
@@ -254,7 +244,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
     onComplete?.({ interviewType, feedback: report, turns, completedAt: new Date().toISOString() });
     const summary = report.feedbackAvailable
       ? `本次模拟面试已结束。已生成分级复盘，重点建议是：${report.improvements[0] || "继续强化结构化表达。"}`
-      : `本次模拟面试已结束，但模型反馈未通过结构校验。建议：${report.improvements[0] || "请根据真实回答记录人工复盘。"}`;
+      : `本次模拟面试已结束，但复盘生成不完整。建议：${report.improvements[0] || "请根据真实回答记录自行复盘。"}`;
     const finalMessage = createMessage("interviewer", summary);
     setMessages((current) => [...current, finalMessage]);
     await speakAsAvatar(summary, "finished");
@@ -270,19 +260,18 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
       <div className="interview-page-grid">
         <section className={`avatar-panel ${avatarState}`} style={interviewRoomStyle}>
           <div className="avatar-panel-top">
-            <span>AI 面试官 · {interviewType}</span>
+            <span>模拟面试官 · {interviewType}</span>
             <strong>{statusLabel[status]}</strong>
           </div>
           <InterviewerAvatar state={avatarState} />
           <StudentCameraPreview status={camera.status} videoRef={camera.videoRef} onStart={() => void camera.startCamera()} onStop={camera.stopCamera} />
-          {adapterNotice ? <div className="avatar-adapter-notice">{adapterNotice}</div> : null}
         </section>
 
         <section className="interview-console">
           <div className="interview-console-head">
             <div>
-              <span>Digital Interview</span>
-              <h2>AI 数字人模拟面试</h2>
+              <span>岗位训练</span>
+              <h2>模拟面试</h2>
             </div>
             <button type="button" className="primary-action compact-action" onClick={() => void handleStart()} disabled={status === "thinking" || status === "feedback"}>
               <Video size={16} />
@@ -326,7 +315,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
           <div className="interview-dialogue" ref={chatRef} aria-live="polite">
             {messages.length ? messages.map((message) => (
               <article key={message.id} className={message.role}>
-                <span>{message.role === "student" ? "学生" : message.role === "system" ? "系统" : "AI 面试官"}</span>
+                <span>{message.role === "student" ? "学生" : message.role === "system" ? "系统" : "面试官"}</span>
                 <p>{message.content}</p>
               </article>
             )) : (
@@ -356,7 +345,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
                       </div>
                     ))}
                   </div>
-                ) : <p className="interview-hint error">模型返回未通过结构校验，系统没有填充默认结论。</p>}
+                ) : <p className="interview-hint error">本轮复盘生成不完整，请查看问答记录或稍后重试。</p>}
                 <div className="feedback-detail">
                   <strong>可改进点</strong>
                   <ul>{feedback.improvements.map((item) => <li key={item}>{item}</li>)}</ul>
@@ -406,7 +395,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
                 发送
               </button>
             </div>
-            {speechStatus === "unsupported" ? <p className="interview-hint">当前浏览器不支持 Web Speech API，请使用文字输入。</p> : null}
+            {speechStatus === "unsupported" ? <p className="interview-hint">当前浏览器无法使用语音输入，请改用文字回答。</p> : null}
             {speechStatus === "error" ? <p className="interview-hint error">语音识别失败，请重新录制或改用文字输入。</p> : null}
           </div>
         </section>

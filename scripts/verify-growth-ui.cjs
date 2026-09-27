@@ -1,6 +1,6 @@
 const { chromium } = require("playwright");
 
-const baseUrl = process.env.KONGMING_BASE_URL || "http://127.0.0.1:5173";
+const baseUrl = process.argv[2] || process.env.KONGMING_BASE_URL || "http://127.0.0.1:5173";
 
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -28,7 +28,7 @@ async function main() {
   const page = await context.newPage();
   let interviewRequests = 0;
 
-  await page.route("**/api/ark", async (route) => {
+  await page.route(/\/api\/gateway\?operation=model(?:&|$)/, async (route) => {
     const body = route.request().postDataJSON() || {};
     interviewRequests += 1;
     const isFeedback = String(body.userMessage || "").includes("模拟面试反馈智能体");
@@ -45,7 +45,7 @@ async function main() {
       : "请结合一个真实项目，说明背景、你的行动、结果和复盘。";
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify({ ok: true, model: "mock", content }),
+      body: JSON.stringify({ ok: true, content }),
     });
   });
 
