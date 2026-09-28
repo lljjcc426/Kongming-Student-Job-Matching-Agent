@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "purpose": "native-offline-preflight-functional-test",
+  "synthetic": true,
+  "containsRealPersonalData": false,
+  "representsLiveRecruitment": false,
+  "representsModelEffectiveness": false,
+  "resume": "anonymous-resume.txt",
+  "jobDescription": "synthetic-jd.txt",
+  "inputMethod": "manual paste in an isolated test workspace",
+  "warning": "Artificial fixture facts must not be reused as an actual resume, vacancy, or competition effectiveness claim."
+}

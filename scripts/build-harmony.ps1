@@ -8,11 +8,17 @@ param(
   [string]$AsciiBuildRoot = 'D:\KongMing-Harmony-Build',
   [string]$TempRoot = 'D:\KongMing-Harmony-Temp',
   [string]$UserHomeRoot = 'D:\KongMing-Harmony-User',
+  [ValidateSet('debug', 'release')]
+  [string]$BuildMode = 'debug',
   [switch]$IncludeWebCompatibility,
   [switch]$RequireOnlineServices
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ($RequireOnlineServices -and $LocalDevApiBaseUrl) {
+  throw 'Online release builds cannot use LocalDevApiBaseUrl. Configure a public HTTPS gateway instead.'
+}
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $harmonyRoot = Join-Path $repoRoot 'harmony'
@@ -149,6 +155,15 @@ if ($needsBuildStaging) {
     }
   }
   Write-Output 'Excluded legacy v3 and v4 avatars from the packaged HAP.'
+
+  $excludedOfficeNames = @('interviewOffice.jpg', 'interviewOfficeV2.jpg')
+  foreach ($officeName in $excludedOfficeNames) {
+    $legacyOffice = Join-Path $buildHarmonyRoot "entry\src\main\resources\base\media\$officeName"
+    if (Test-Path -LiteralPath $legacyOffice) {
+      Remove-Item -LiteralPath $legacyOffice -Force
+    }
+  }
+  Write-Output 'Excluded unused legacy office backgrounds from the packaged HAP.'
 }
 
 function Set-NativeStringResource([string]$ProjectRoot, [string]$ResourceName, [string]$Value) {
@@ -190,7 +205,7 @@ try {
     --mode module `
     -p product=default `
     -p module=entry@default `
-    -p buildMode=debug `
+    -p "buildMode=$BuildMode" `
     assembleHap `
     --no-daemon
   if ($LASTEXITCODE -ne 0) {
@@ -230,4 +245,6 @@ try {
   HAP = $hap.FullName
   Bytes = $hap.Length
   SHA256 = $hash
+  BuildMode = $BuildMode
+  Signed = $false
 }

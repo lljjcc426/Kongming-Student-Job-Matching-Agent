@@ -1,0 +1,10 @@
+[Unit]
+Description=Renew KongMing private HTTPS certificate
+Wants=network-online.target
+After=network-online.target nginx.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/kongming/certbot/bin/certbot renew --quiet --cert-name kongming-ip
+TimeoutStartSec=30min
+UMask=0077

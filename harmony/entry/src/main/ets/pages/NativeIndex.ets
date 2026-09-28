@@ -525,6 +525,7 @@ struct Index {
   @State interviewTimeExpired: boolean = false;
   @State interviewKeyboardVisible: boolean = false;
   @State interviewTextFallbackVisible: boolean = false;
+  @State interviewInputNotice: string = '';
   @State modelConsent: boolean = false;
   @State profileMessage: string = '数据默认保存在本机，可随时修改或清除。';
   @State authSignedIn: boolean = false;
@@ -625,12 +626,14 @@ struct Index {
     this.speechProvider.setRecognitionErrorListener((message) => {
       this.speechActive = false;
       this.interviewAvatarState = 'idle';
-      this.interviewSpeechMessage = '没有听清，可重试或使用文字回答';
+      this.interviewInputNotice = message;
+      this.interviewSpeechMessage = message;
       this.nativeMessage = message;
     });
     this.speechProvider.setRecognitionResultListener((text, isFinal) => {
       const transcript = text.trim();
       if (!transcript) return;
+      this.interviewInputNotice = '';
       this.interviewAnswer = this.speechAnswerPrefix
         ? `${this.speechAnswerPrefix}\n${transcript}`
         : transcript;
@@ -1110,7 +1113,9 @@ struct Index {
       const result = this.parseNativeResult(await this.speechProvider.startListening());
       this.speechActive = result.ok === true;
       this.interviewAvatarState = this.speechActive ? 'listening' : 'idle';
-      this.interviewSpeechMessage = this.speechActive ? '正在聆听你的回答' : '没有听清，可重试或使用文字回答';
+      this.interviewInputNotice = this.speechActive ? '' :
+        (result.message || '语音暂不可用，请重试或使用文字回答。');
+      this.interviewSpeechMessage = this.speechActive ? '正在聆听你的回答' : this.interviewInputNotice;
       this.nativeMessage = result.message;
       return;
     }
@@ -1127,8 +1132,17 @@ struct Index {
     }
     this.interviewAvatarState = 'idle';
     this.speechAnswerPrefix = '';
-    this.interviewSpeechMessage = result.ok === true ? '回答已记录，确认后提交' : '没有听清，可重试或使用文字回答';
+    this.interviewInputNotice = result.ok === true ? '' :
+      (result.message || '没有听清，请重试或使用文字回答。');
+    this.interviewSpeechMessage = result.ok === true ? '回答已记录，确认后提交' : this.interviewInputNotice;
     this.nativeMessage = result.message;
+  }
+
+  private openInterviewTextAnswer(): void {
+    if (this.interviewSpeaking) void this.stopInterviewPrompt();
+    if (this.speechActive) void this.toggleSpeechInput();
+    this.interviewInputNotice = '';
+    this.interviewTextFallbackVisible = true;
   }
 
   private async recognizeSelectedResumeUri(uri: string): Promise<void> {
@@ -3926,6 +3940,7 @@ struct Index {
     if (this.interviewAvatarState === 'thinking' || this.interviewLoading) return '正在准备追问';
     if (this.interviewAvatarState === 'greeting') return '面试即将开始';
     if (this.interviewTurns.length >= this.interviewTargetRounds()) return '本轮问答已完成';
+    if (this.interviewInputNotice) return '语音暂不可用';
     if (this.interviewAnswer.trim().length > 0) return `已记录 ${this.interviewAnswer.trim().length} 字`;
     return this.interviewStarted ? '轮到你回答' : '准备就绪';
   }
@@ -4636,6 +4651,7 @@ struct Index {
   }
 
   private async startInterview(): Promise<void> {
+    this.interviewInputNotice = '';
     if (this.interviewLoading || this.interviewStarted) return;
     this.interviewSection = 0;
     this.currentInterviewSessionId = `interview-${Date.now()}`;
@@ -5244,15 +5260,15 @@ struct Index {
   }
 
   @Builder
-  private buildFieldLabel(label: string, hint: string = ''): void {
+  private buildFieldLabel(label: string, hint: string = '', hintProvider?: () => string): void {
     Row() {
       Text(label)
         .fontSize(11)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.km_text_primary'))
       Blank()
-      if (hint) {
-        Text(hint)
+      if (hint || hintProvider) {
+        Text(hintProvider ? hintProvider() : hint)
           .fontSize(9)
           .fontColor($r('app.color.km_text_tertiary'))
       }
@@ -6441,7 +6457,7 @@ struct Index {
         Column({ space: 12 }) {
           this.buildSectionHeading('经历证据', '写清场景、个人动作与结果；导入内容也需要你最终确认。')
           Column({ space: 6 }) {
-            this.buildFieldLabel('真实经历', `${this.resumeSummary.length}/4000 · 至少 30 字`)
+            this.buildFieldLabel('真实经历', '', () => `${this.resumeSummary.length}/4000 · 至少 30 字`)
             TextArea({ placeholder: '填写项目、实习或校园经历，说明你具体做了什么。', text: this.resumeSummary })
               .constraintSize({ minHeight: 132 })
               .maxLength(4000)
@@ -6678,7 +6694,7 @@ struct Index {
             .borderRadius(8)
             .onChange((value: string) => { this.jobPreferredIndustries = value; })
 
-          this.buildFieldLabel('偏好企业', this.jobPreferredCompanies || '可多选')
+          this.buildFieldLabel('偏好企业', '', () => this.jobPreferredCompanies || '可多选')
           Grid() {
             ForEach(NATIVE_PREFERRED_EMPLOYERS, (employer: string) => {
               GridItem() {
@@ -6737,7 +6753,7 @@ struct Index {
         .fontColor($r('app.color.km_text_primary'))
         .width('100%')
       Column({ space: 6 }) {
-        this.buildFieldLabel('岗位关键词', `默认：${this.targetJob}`)
+        this.buildFieldLabel('岗位关键词', '', () => `默认：${this.targetJob}`)
         TextInput({ placeholder: '输入岗位名称或技能关键词', text: this.jobQuery })
           .constraintSize({ minHeight: 44 })
           .maxLength(80)
@@ -6749,7 +6765,7 @@ struct Index {
       }
       .width('100%')
       Column({ space: 6 }) {
-        this.buildFieldLabel('优先企业', this.jobEmployer || '全部国内来源')
+        this.buildFieldLabel('优先企业', '', () => this.jobEmployer || '全部国内来源')
         Grid() {
           ForEach(NATIVE_PREFERRED_EMPLOYERS, (employer: string) => {
             GridItem() {
@@ -8252,11 +8268,7 @@ struct Index {
         .backgroundColor('#D91A2230')
         .borderRadius(8)
         .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active')
-        .onClick(() => {
-          if (this.interviewSpeaking) void this.stopInterviewPrompt();
-          if (this.speechActive) void this.toggleSpeechInput();
-          this.interviewTextFallbackVisible = true;
-        })
+        .onClick(() => { this.openInterviewTextAnswer(); })
         Button() {
           Row({ space: 5 }) {
             if (this.interviewLoading) {
@@ -8313,7 +8325,7 @@ struct Index {
 
   @Builder
   private buildImmersiveAnswerPanel(): void {
-    Column({ space: 8 }) {
+    Column({ space: this.interviewKeyboardVisible ? 4 : 8 }) {
       Row({ space: 8 }) {
         Column({ space: 1 }) {
           Text('文字回答')
@@ -8335,21 +8347,23 @@ struct Index {
         .height(34)
         .backgroundColor($r('app.color.km_surface_subtle'))
         .borderRadius(8)
+        .id('interview-answer-close')
         .accessibilityText('关闭文字回答')
         .onClick(() => { this.dismissInterviewKeyboard(); })
       }
       .width('100%')
       Text(this.interviewQuestion || this.fallbackInterviewQuestion(1))
-        .fontSize(12)
+        .fontSize(this.interviewKeyboardVisible ? 10 : 12)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.km_text_primary'))
-        .lineHeight(18)
+        .lineHeight(this.interviewKeyboardVisible ? 14 : 18)
         .maxLines(this.interviewKeyboardVisible ? 1 : 3)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
       TextArea({ placeholder: '输入真实回答，不要填写无法核验的成果。', text: this.interviewAnswer })
+        .id('interview-answer-editor')
         .layoutWeight(1)
-        .constraintSize({ minHeight: 72 })
+        .constraintSize({ minHeight: this.interviewKeyboardVisible ? 24 : 72 })
         .maxLength(3000)
         .backgroundColor($r('app.color.km_surface_subtle'))
         .border({ width: 1, color: this.interviewAnswerError ? $r('app.color.km_danger') : $r('app.color.km_border') })
@@ -8361,18 +8375,18 @@ struct Index {
           if (this.interviewAnswerTouched) this.interviewAnswerError = this.validateInterviewAnswer(value);
         })
         .onBlur(() => {
-          this.interviewKeyboardVisible = false;
           if (this.interviewAnswer.trim()) {
             this.interviewAnswerTouched = true;
             this.interviewAnswerError = this.validateInterviewAnswer(this.interviewAnswer);
           }
         })
-      NativeFieldError({ message: this.interviewAnswerError })
       Row({ space: 8 }) {
-        Text(`${this.interviewAnswer.length}/3000`)
+        Text(this.interviewAnswerError || `${this.interviewAnswer.length}/3000`)
           .fontSize(9)
-          .fontColor($r('app.color.km_text_tertiary'))
-        Blank()
+          .fontColor(this.interviewAnswerError ? $r('app.color.km_danger') : $r('app.color.km_text_tertiary'))
+          .maxLines(this.interviewKeyboardVisible ? 1 : 2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
         Button() {
           Row({ space: 5 }) {
             SymbolGlyph($r('sys.symbol.paperplane_fill'))
@@ -8384,9 +8398,11 @@ struct Index {
               .fontColor($r('app.color.km_text_on_primary'))
           }
         }
-        .constraintSize({ minWidth: 112, minHeight: 38 })
+        .id('interview-answer-submit')
+        .constraintSize({ minWidth: 112, minHeight: this.interviewKeyboardVisible ? 32 : 38 })
         .backgroundColor($r('app.color.km_primary_action'))
         .borderRadius(8)
+        .accessibilityText('提交本轮文字回答')
         .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active' &&
           this.interviewAnswer.trim().length >= 20)
         .onClick(() => {
@@ -8399,7 +8415,7 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .width(this.interviewKeyboardVisible ? '100%' : this.immersiveSidePanelWidth())
     .height('100%')
-    .padding(this.interviewKeyboardVisible ? 8 : 12)
+    .padding(this.interviewKeyboardVisible ? 6 : 12)
     .backgroundColor('#FAFFFFFF')
     .border({ width: { left: 1 }, color: $r('app.color.km_border_strong') })
     .shadow({ radius: 22, color: '#66000000', offsetX: -6 })
@@ -8416,7 +8432,7 @@ struct Index {
       })
         .width('100%')
         .height('100%')
-      Stack({ alignContent: Alignment.TopStart }) {
+      Column({ space: 8 }) {
         Row({ space: 7 }) {
           Circle()
             .width(6)
@@ -8431,10 +8447,36 @@ struct Index {
         .backgroundColor('#C817202B')
         .border({ width: 1, color: '#2FFFFFFF' })
         .borderRadius(15)
+        if (this.interviewInputNotice && !this.interviewTextFallbackVisible) {
+          Column({ space: 6 }) {
+            Text(this.interviewInputNotice)
+              .id('interview-input-notice')
+              .fontSize(11)
+              .fontColor('#FFFFFF')
+              .lineHeight(16)
+              .maxLines(3)
+              .width('100%')
+            Button('改用文字回答')
+              .fontSize(10)
+              .height(32)
+              .backgroundColor('#FFFFFF')
+              .fontColor('#18202B')
+              .borderRadius(6)
+              .enabled(!this.interviewLoading && this.interviewSessionPhase === 'active')
+              .onClick(() => { this.openInterviewTextAnswer(); })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .width(this.isCompactLayout() ? 260 : 360)
+          .padding(10)
+          .backgroundColor('#F0753515')
+          .borderRadius(8)
+        }
       }
+      .alignItems(HorizontalAlign.Start)
       .width('100%')
       .height('100%')
       .padding({ left: 12, top: 10 })
+      .hitTestBehavior(HitTestMode.Transparent)
       if (this.interviewSessionPhase === 'active') {
         Stack({ alignContent: Alignment.TopEnd }) {
           NativeCandidateCamera({
@@ -8460,6 +8502,7 @@ struct Index {
         .width('100%')
         .height('100%')
         .padding({ right: 12, top: 10 })
+        .hitTestBehavior(HitTestMode.Transparent)
       }
       if (!this.interviewTextFallbackVisible) {
         Column({ space: 7 }) {
@@ -8470,22 +8513,19 @@ struct Index {
         .width('100%')
         .height('100%')
         .padding({ left: 14, right: 14, bottom: 10 })
+        .hitTestBehavior(HitTestMode.Transparent)
       }
       if (this.interviewTextFallbackVisible) {
         Column()
           .width('100%')
           .height('100%')
           .backgroundColor('#66050A12')
-        if (this.interviewKeyboardVisible) {
+        Row() {
+          Blank().layoutWeight(1)
           this.buildImmersiveAnswerPanel()
-        } else {
-          Row() {
-            Blank()
-            this.buildImmersiveAnswerPanel()
-          }
-          .width('100%')
-          .height('100%')
         }
+        .width('100%')
+        .height('100%')
       }
     }
     .width('100%')
@@ -8854,7 +8894,7 @@ struct Index {
   }
 
   @Builder
-  private buildInterviewReportMetric(label: string, score: number, detail: string, color: ResourceColor): void {
+  private buildInterviewReportMetric(label: string, dimension: string, detail: string, color: ResourceColor): void {
     Column({ space: 6 }) {
       Row() {
         Text(label)
@@ -8862,13 +8902,13 @@ struct Index {
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.km_text_primary'))
         Blank()
-        Text(`${score}`)
+        Text(`${this.interviewAssessmentScore(this.currentInterviewAssessment(), dimension)}`)
           .fontSize(15)
           .fontWeight(FontWeight.Bold)
           .fontColor(color)
       }
       .width('100%')
-      Progress({ value: score, total: 100, type: ProgressType.Linear })
+      Progress({ value: this.interviewAssessmentScore(this.currentInterviewAssessment(), dimension), total: 100, type: ProgressType.Linear })
         .width('100%')
         .height(5)
         .color(color)
@@ -9030,25 +9070,25 @@ struct Index {
         this.buildSectionHeading('能力维度', '依据回答文本中的结构、责任、结果和岗位线索生成。')
         this.buildInterviewReportMetric(
           '回答结构',
-          this.currentInterviewAssessment().structureScore,
+          'structure',
           '背景、行动、结果与复盘的完整程度',
           $r('app.color.km_primary_action'),
         )
         this.buildInterviewReportMetric(
           '证据可信度',
-          this.currentInterviewAssessment().evidenceScore,
+          'evidence',
           '个人责任、结果数字与可核验材料线索',
           $r('app.color.km_success'),
         )
         this.buildInterviewReportMetric(
           '岗位关联',
-          this.currentInterviewAssessment().relevanceScore,
+          'relevance',
           '经历与岗位职责、业务和用户价值的联系',
           $r('app.color.km_warning'),
         )
         this.buildInterviewReportMetric(
           '表达清晰度',
-          this.currentInterviewAssessment().clarityScore,
+          'clarity',
           '回答篇幅、顺序和结论表达的可理解性',
           $r('app.color.km_purple'),
         )
@@ -9471,7 +9511,7 @@ struct Index {
         if (!this.interviewStarted) {
           Column({ space: 14 }) {
             this.buildSectionHeading('本轮设置', '先选择训练模式，再进入横屏全屏面试。')
-            this.buildFieldLabel('面试类型', `本轮计划 ${this.interviewTargetRounds()} 轮核心问答`)
+            this.buildFieldLabel('面试类型', '', () => `本轮计划 ${this.interviewTargetRounds()} 轮核心问答`)
             Row({ space: 6 }) {
               Button('综合面')
                 .layoutWeight(1)
@@ -9535,7 +9575,7 @@ struct Index {
             this.buildInterviewCompetencyPlan()
             Divider().color($r('app.color.km_border'))
 
-            this.buildFieldLabel('追问强度', this.interviewDifficultyHint())
+            this.buildFieldLabel('追问强度', '', () => this.interviewDifficultyHint())
             Row({ space: 8 }) {
               Button('基础')
                 .layoutWeight(1)
@@ -9795,7 +9835,7 @@ struct Index {
                 .fontSize(11)
                 .fontColor($r('app.color.km_text_secondary'))
             }
-            this.buildFieldLabel('本轮回答', `${this.interviewAnswer.length}/3000 · 至少 20 字`)
+            this.buildFieldLabel('本轮回答', '', () => `${this.interviewAnswer.length}/3000 · 至少 20 字`)
             TextArea({ placeholder: '输入真实回答，不要填写无法核验的成果。', text: this.interviewAnswer })
               .constraintSize({ minHeight: 180 })
               .maxLength(3000)

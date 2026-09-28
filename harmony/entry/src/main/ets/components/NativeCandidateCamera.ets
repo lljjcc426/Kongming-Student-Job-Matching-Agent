@@ -16,6 +16,8 @@ export struct NativeCandidateCamera {
   @State cameraEnabled: boolean = false;
   @State cameraReady: boolean = false;
   @State cameraMessage: string = '镜头默认关闭';
+  @State opening: boolean = false;
+  @State releasing: boolean = false;
   @State recording: boolean = false;
   @State recordingBusy: boolean = false;
   @State recordingSeconds: number = 0;
@@ -35,22 +37,20 @@ export struct NativeCandidateCamera {
   private outputPath: string = '';
   private recordingStartedAt: number = 0;
   private recordingTimer: number = -1;
-  private opening: boolean = false;
-  private releasing: boolean = false;
 
   aboutToDisappear(): void {
     void this.stopPreview();
   }
 
   private async startPreview(): Promise<void> {
-    if (!this.active || this.opening || this.cameraReady) return;
+    if (!this.active || this.opening || this.releasing || this.cameraReady) return;
     this.opening = true;
     this.cameraMessage = '正在开启前置镜头';
     try {
       const accessManager = abilityAccessCtrl.createAtManager();
       const permissionResult = await accessManager.requestPermissionsFromUser(this.hostContext, [CAMERA_PERMISSION]);
       if (permissionResult.authResults.length !== 1 || permissionResult.authResults[0] !== 0) {
-        this.cameraMessage = '未获得相机权限';
+        this.cameraMessage = '相机未授权，可继续面试';
         return;
       }
       const surfaceId = this.controller.getXComponentSurfaceId();
@@ -363,27 +363,55 @@ export struct NativeCandidateCamera {
           .onDestroy(() => { void this.releaseCamera(); })
         if (!this.cameraReady) {
           Column({ space: 5 }) {
-            LoadingProgress()
-              .width(20)
-              .height(20)
-              .color($r('app.color.km_text_on_primary'))
+            if (this.opening) {
+              LoadingProgress()
+                .width(20)
+                .height(20)
+                .color($r('app.color.km_text_on_primary'))
+            } else {
+              SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+                .fontSize(16)
+                .fontColor([$r('app.color.km_text_on_primary')])
+            }
             Text(this.cameraMessage)
+              .id('candidate-camera-status')
               .fontSize(8)
               .fontColor($r('app.color.km_text_on_primary'))
               .textAlign(TextAlign.Center)
               .maxLines(2)
+            if (!this.opening) {
+              Button('重试镜头')
+                .id('candidate-camera-retry')
+                .height(24)
+                .fontSize(9)
+                .fontColor($r('app.color.km_text_on_primary'))
+                .backgroundColor('#CC050A12')
+                .borderRadius(6)
+                .enabled(this.active && !this.releasing)
+                .onClick(() => { void this.startPreview(); })
+            }
           }
+          .padding({ left: 10, right: 10, top: 14, bottom: 4 })
         }
       } else {
-        Column({ space: 6 }) {
-          SymbolGlyph($r('sys.symbol.video'))
-            .fontSize(22)
-            .fontColor([$r('app.color.km_text_on_primary')])
-          Text('开启我的镜头')
-            .fontSize(9)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.km_text_on_primary'))
+        Button() {
+          Column({ space: 6 }) {
+            SymbolGlyph($r('sys.symbol.video'))
+              .fontSize(22)
+              .fontColor([$r('app.color.km_text_on_primary')])
+            Text('开启我的镜头')
+              .fontSize(9)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.km_text_on_primary'))
+          }
         }
+        .id('candidate-camera-open')
+        .width('100%')
+        .height('100%')
+        .backgroundColor(Color.Transparent)
+        .borderRadius(8)
+        .accessibilityText('开启候选人镜头')
+        .enabled(this.active && !this.releasing)
         .onClick(() => {
           this.cameraEnabled = true;
           this.cameraMessage = '正在请求相机权限';
@@ -404,7 +432,7 @@ export struct NativeCandidateCamera {
       .padding({ left: 6, right: 6, top: 3, bottom: 3 })
       .backgroundColor('#99050A12')
       .borderRadius(5)
-      if (this.cameraReady) {
+      if (this.cameraEnabled) {
         Button() {
           SymbolGlyph($r('sys.symbol.dot_video_slash'))
             .fontSize(12)
@@ -415,9 +443,11 @@ export struct NativeCandidateCamera {
         .position({ x: this.viewportWidth - 36, y: 6 })
         .backgroundColor('#99050A12')
         .borderRadius(6)
+        .id('candidate-camera-close')
+        .enabled(!this.opening && !this.recordingBusy)
         .accessibilityText('关闭候选人镜头')
         .onClick(() => { void this.stopPreview(); })
-        if (!this.recordedInThisView && this.videoProfile) {
+        if (this.cameraReady && !this.recordedInThisView && this.videoProfile) {
           Button() {
             if (this.recording) {
               Rect()

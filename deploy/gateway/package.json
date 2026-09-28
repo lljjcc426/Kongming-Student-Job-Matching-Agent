@@ -1,0 +1,9 @@
+{
+  "name": "kongming-cloud-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24 <25" },
+  "scripts": { "start": "node server/httpServer.js" },
+  "dependencies": { "ws": "8.21.3" }
+}

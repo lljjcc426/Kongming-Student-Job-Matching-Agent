@@ -1,0 +1,30 @@
+[Unit]
+Description=KongMing private business gateway
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=kongming
+Group=kongming
+WorkingDirectory=/opt/kongming/current
+Environment=PATH=/opt/kongming/node/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/etc/kongming/gateway.env
+ExecStart=/usr/bin/env node server/httpServer.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/kongming /var/cache/kongming
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+MemoryMax=1G
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target

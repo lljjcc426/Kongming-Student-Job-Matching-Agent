@@ -1,12 +1,12 @@
 # 部署指南
 
-本文说明 Kongming Student Job Matching Agent 的本地运行、构建验证和公开部署方式。当前项目是 React + TypeScript + Vite 应用，并包含 Vercel API 入口。
+本文说明孔明职配的本地运行、构建验证和公开部署方式。HarmonyOS 主端采用原生 ArkTS/ArkUI；React + TypeScript + Vite 保留为 Web 产品与本地开发网关。云端可采用 Vercel API 入口，或单独的 Node.js 生产网关。
 
 ## 1. 环境要求
 
 推荐环境：
 
-- Node.js 20 或更新版本。
+- Node.js 24 LTS。不要使用 DevEco 内置的旧版 Node 运行 Web 构建。
 - npm。
 - 可访问 npm registry 的网络环境。
 - 如需真实模型能力，需要可用的模型服务 API Key。
@@ -276,6 +276,32 @@ npm run build:harmony:release -- `
 - 数据库部署配置。
 - 对象存储配置。
 - 正式 HarmonyOS 签名配置。
-- 已部署的公网生产岗位与模型 API。
+- 可供任意用户访问、具备身份认证和费用治理的公网生产岗位与模型 API；已有仅限指定出口访问的 HTTPS 内测网关。
 
 如需一键容器化部署，需要后续补充。
+
+## 13. ECS 私有生产网关
+
+`server/httpServer.js` 提供独立 HTTP 入口，默认仅监听服务器本机 `127.0.0.1:8787`，不使用 Vite，不暴露供应商配置、私有文件或额外 API 路由。
+
+本机验证和打包：
+
+```bash
+npm run verify:gateway-http
+npm run verify:gateway
+npm run package:gateway
+```
+
+轻量依赖清单位于 `deploy/gateway/package.json`，只安装 `ws`。部署包按明确文件清单生成，同时检查是否意外包含本机模型凭证；不包含 `.env.local`、私人简历、工作区、岗位缓存、前端资源或 HAP。
+
+服务器安装、非登录运行用户、systemd 开机启动和凭证目录规范见 `deploy/gateway/README.md`。
+
+私有安装阶段不会开放公网接口。2026-09-28 已单独配置可信 IP 证书、自动续期和指定出口 `/32` 的 HTTPS 内测入口，并重新构建云端原生 HAP。部署记录与明确验收范围见 `docs/CLOUD_GATEWAY_DEPLOYMENT_20260928.md`；这不等于正式签名交付、任意用户可用或网页版云发布。
+
+指定内测网络下可重新构建：
+
+```powershell
+npm run build:harmony:release -- -GatewayApiUrl https://121.41.44.243/api/gateway
+```
+
+多用户身份认证、费用告警和适用发布要求完成前，不能把这个受限入口改为公开的付费模型调用入口。换网络时，需要同时更新云安全组和 Nginx 的来源限制。原模拟器已保留数据覆盖安装云端包，未自动启动原进行中的面试。

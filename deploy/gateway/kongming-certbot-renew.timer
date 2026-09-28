@@ -1,0 +1,11 @@
+[Unit]
+Description=Check KongMing short-lived HTTPS certificate every six hours
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:00:00
+RandomizedDelaySec=30min
+Persistent=true
+Unit=kongming-certbot-renew.service
+
+[Install]
+WantedBy=timers.target

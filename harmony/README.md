@@ -106,6 +106,10 @@ harmony/entry/build/default/outputs/default/entry-default-unsigned.hap
 
 当前 `build-profile.json5` 没有签名配置，所以产物仅用于模拟器和开发验证。
 
+默认构建模式为 `debug`。离线 Release 编译可使用 `npm run build:harmony -- -BuildMode release`，但不会自动配置签名或在线服务。脚本输出的是 unsigned HAP，结果中的 `Signed = False` 不因 Release 模式而改变；最终安装方式需要按评审设备和组委会要求配置、验证。
+
+复赛离线预审包使用 `npm run package:harmony:preflight -- -TeamName '南山冯诺依曼'`，仅打包白名单 HAP、匿名样例、安装说明和许可证，生成 D 盘 ZIP、manifest 与 SHA-256。脚本检查真实 HAP 元数据及旧资源排除情况，但不会把预审包标为可正式提交。运行边界见 [预审安装说明](../docs/competition/PREFLIGHT_INSTALL.md)。
+
 ## 模拟器本地联调
 
 终端一：
@@ -162,21 +166,22 @@ npm run build:harmony:release -- `
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\build-harmony.ps1 `
+  -BuildMode release `
   -GatewayApiUrl https://your-domain.example/api/gateway `
   -RequireOnlineServices
 ```
 
-Release 模式会拒绝非 HTTPS 地址。`IFLYTEK_SPARK_API_PASSWORD`、`IFLYTEK_SPARK_APP_ID/API_KEY/API_SECRET` 或 `ARK_API_KEY` 只能配置在服务端环境变量，禁止打入 HAP。
+`build:harmony:release` 同时指定 Release 编译和在线服务检查，要求公网 HTTPS 网关，并拒绝 `LocalDevApiBaseUrl`。单独传入 `-BuildMode release` 只选择编译模式，不证明服务可用。在线构建也不代替签名、鉴权及清洁安装验收。`IFLYTEK_SPARK_API_PASSWORD`、`IFLYTEK_SPARK_APP_ID/API_KEY/API_SECRET` 或 `ARK_API_KEY` 只能配置在服务端环境变量，禁止打入 HAP。
 
 ## DevEco Studio
 
-如使用 IDE，只打开本目录 `harmony/`。修改根目录 Web 源码后，先执行：
+如使用 IDE，只打开本目录 `harmony/`。默认入口是 ArkUI/ArkTS 原生工程，不要为原生构建同步 Web 页面。仅在明确需要旧 Web 兼容包时执行：
 
 ```powershell
 npm run sync:harmony:web
 ```
 
-然后再在 DevEco Studio 构建，避免 HAP 携带旧静态资源。
+该命令会同步旧 Web 资源；普通原生构建仍使用 `npm run build:harmony`，不需要它。
 
 ## 当前验证状态
 
@@ -207,8 +212,10 @@ npm run sync:harmony:web
 | 原生投递工作区 | “发现岗位”和“我的投递”分离；本机公司/岗位/JD 搜索、六阶段筛选、进行中/Offer/已结束计数、日程/最近更新/公司排序、独立详情及对比入口已通过 API 24 模拟器验证。详情返回保留筛选，首页投递事项直达当前岗位；旧截止不作为已投递岗位的待办 |
 | 原生面试记录中心 | 面试练习与记录分离；搜索全部本机存档（最多 30 次），支持岗位与面试类型筛选、完整逐题回答、综合反馈及历史训练资料。最多选择同一岗位的两次训练，只有训练条件与评分规则一致时显示分数变化；再次练习使用当前岗位资料与简历版本，资料已移除时禁用。搜索、计数刷新、长文本末尾、返回路径和版本边界已在 API 24 模拟器验证；录像播放沿用原逻辑，本轮未重新实测 |
 | 原生版本证据 | `harmony-native-application-version-gate-20260921.jpeg`、`harmony-native-resume-version-binding-20260921.jpeg` 已归档 |
-| 正式 HTTPS 岗位/模型链路 | 待部署公网服务；当前原生 HAP 尚未取得真实模型成功调用证据 |
+| 受限 HTTPS 岗位/模型链路 | 2026-09-28 云端 HAP 已构建；隔离模拟器真实搜索与在线首题通过，服务层匿名追问/反馈通过；非公开服务，真机完整面试待验收 |
 | 发布签名 | 未配置 |
+
+本次云端包为 `output/cloud-gateway-20260928/kongming-harmony-cloud-unsigned.hap`，Release 编译但未正式签名。原模拟器已覆盖安装且持久化文件校验未变，没有自动启动原面试。详细测试证据、来源限制、自动续期和后续门禁见 `docs/CLOUD_GATEWAY_DEPLOYMENT_20260928.md`。
 
 ## 权限
 
