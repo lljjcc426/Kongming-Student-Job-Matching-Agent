@@ -22,7 +22,7 @@
 
 Kongming brings a student's resume and target job into one workflow. It structures education, skills and experience, explains how the available evidence relates to job requirements, suggests resume improvements and provides interview practice for the selected role.
 
-The application uses React and TypeScript with a same-origin backend for Volcengine Ark models. OCR and a local job knowledge base are optional integrations. The current release is a runnable application prototype; the interface and detailed documentation are primarily in Chinese.
+The application uses React and TypeScript with a same-origin backend for DeepSeek models. OCR and a local job knowledge base are optional integrations. The current release is a runnable application prototype; the interface and detailed documentation are primarily in Chinese.
 
 ## Product tour
 
@@ -68,12 +68,12 @@ cd Kongming-Student-Job-Matching-Agent
 npm ci
 ```
 
-Copy [`.env.example`](.env.example) to `.env` and enter an Ark API key and model IDs available to your account:
+Copy [`.env.example`](.env.example) to `.env` and enter your own DeepSeek API key:
 
 ```dotenv
-ARK_API_KEY=your_ark_api_key
-ARK_TEXT_MODEL=your_text_model_id
-ARK_VISION_MODEL=your_vision_model_id
+DEEPSEEK_API_KEY=your_deepseek_api_key
+DEEPSEEK_TEXT_MODEL=deepseek-flash
+DEEPSEEK_VISION_MODEL=deepseek-flash
 ```
 
 ### Run
@@ -107,7 +107,7 @@ flowchart LR
     D --> E[Evidence and improvements]
     E --> F[Resume editor and report]
     E --> G[Interview and career chat]
-    M[Same-origin Ark proxy] -.-> C
+    M[Same-origin DeepSeek proxy] -.-> C
     M -.-> D
     M -.-> G
 ```

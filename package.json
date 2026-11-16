@@ -15,6 +15,7 @@
     "setup:rag": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-rag.ps1",
     "collect:jobs": "node scripts/collect-official-jobs.cjs",
     "verify:parsers": "node scripts/verify-parsers.cjs",
+    "verify:provider": "node scripts/verify-provider-config.cjs",
     "verify:jobs": "node scripts/verify-job-dataset.cjs",
     "verify:job-db": "node scripts/verify-job-database.cjs",
     "verify:job-rag": "node scripts/verify-job-rag.cjs",

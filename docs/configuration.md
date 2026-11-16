@@ -10,13 +10,13 @@ API 凭据不使用 `VITE_` 前缀；带该前缀的变量可被 Vite 编译进�
 
 | 变量 | 用途 / 默认值 |
 | --- | --- |
-| `ARK_API_KEY` | 火山方舟 API Key，模型调用必需。 |
-| `ARK_BASE_URL` | 默认 `https://ark.cn-beijing.volces.com/api/v3`。 |
-| `ARK_TEXT_MODEL` | 文本任务使用的模型 ID；未设置时依次使用 `ARK_MODEL`、代码默认模型。 |
-| `ARK_VISION_MODEL` | 视觉任务模型；未设置时依次使用 `ARK_MODEL`、`ARK_TEXT_MODEL`、代码默认模型。 |
-| `ARK_REQUEST_TIMEOUT_MS` | 请求超时，默认 `65000` 毫秒。 |
+| `DEEPSEEK_API_KEY` | 部署者自己的 DeepSeek API Key，模型调用必需。 |
+| `DEEPSEEK_BASE_URL` | 默认 `https://api.deepseek.com`，使用兼容接口时可覆盖。 |
+| `DEEPSEEK_TEXT_MODEL` | 文本任务模型；未设置时依次使用 `DEEPSEEK_MODEL`、`deepseek-flash`。 |
+| `DEEPSEEK_VISION_MODEL` | 视觉任务模型，默认 `deepseek-flash`，独立于文本模型配置。 |
+| `DEEPSEEK_REQUEST_TIMEOUT_MS` | 请求超时，默认 `65000` 毫秒。 |
 
-模型应按账号实际权限配置；代码默认 ID 不保证对每个账号可用。模型任务包括简历结构化、视觉识别、JD 分析、岗位方向建议、匹配解释、面试反馈与求职对话。
+模型应按账号实际权限配置。`deepseek-flash` 支持文本与图片；使用其他视觉模型前需确认图片输入能力，详见 [DeepSeek 官方文档](https://api-docs.deepseek.com/guides/vision/)。模型任务包括简历结构化、视觉识别、JD 分析、岗位方向建议、匹配解释、面试反馈与求职对话。
 
 ## OCR
 
@@ -56,7 +56,7 @@ API 凭据不使用 `VITE_` 前缀；带该前缀的变量可被 Vite 编译进�
 
 1. 导入当前仓库，选择 Node.js 24.x 与 Vite。
 2. 使用 `npm ci` 安装、`npm run build` 构建，输出目录为 `dist`。
-3. 在平台环境变量中配置 `ARK_API_KEY` 与可用模型 ID。
+3. 在平台服务端环境变量中配置 `DEEPSEEK_API_KEY`，默认模型为 `deepseek-flash`。
 4. 若启用 OCR，配置 `OCR_PROVIDER=volcengine` 与对应服务端凭据。
 
 仓库中的 `vercel.json` 已定义 API 缓存、浏览器权限与响应头。当前未提供 Vercel 岗位检索函数；本地 Qdrant 和常驻 Python 工作进程不能直接部署到 Serverless。完整知识库部署需要独立的检索服务及持久化存储，并适配应用接口。

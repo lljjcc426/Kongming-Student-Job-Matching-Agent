@@ -3,7 +3,7 @@
 ## 基础环境
 
 - Node.js **24.x** 与 npm，对应 `package.json` 的引擎要求。
-- 火山方舟 API Key，以及账号可调用的文本模型 / 视觉模型 ID。
+- 自己的 DeepSeek API Key，默认文本与视觉模型均为 `deepseek-flash`。
 - OCR 与岗位知识库按需安装，无需为浏览界面提前下载全部 Python 依赖。
 
 ```bash
@@ -19,9 +19,9 @@ npm ci
 编辑 `.env`：
 
 ```dotenv
-ARK_API_KEY=your_ark_api_key
-ARK_TEXT_MODEL=your_text_model_id
-ARK_VISION_MODEL=your_vision_model_id
+DEEPSEEK_API_KEY=your_deepseek_api_key
+DEEPSEEK_TEXT_MODEL=deepseek-flash
+DEEPSEEK_VISION_MODEL=deepseek-flash
 ```
 
 启动前端与同源 API：
@@ -113,8 +113,8 @@ npm run preview
 
 | 现象 | 处理方式 |
 | --- | --- |
-| 提示未配置 `ARK_API_KEY` | 使用 `node --env-file=.env --run dev` 启动，或向进程注入变量后重启。 |
-| 模型不可用 / 无权限 | 检查账号是否具有对应模型访问权限，确认所填模型 ID 与调用区域一致。 |
+| 提示模型服务尚未配置 | 配置 `DEEPSEEK_API_KEY`，使用 `node --env-file=.env --run dev` 启动，或向进程注入变量后重启。 |
+| 模型不可用 / 无权限 | 检查 DeepSeek 账号余额、API Key 和模型 ID；图片识别使用支持视觉输入的模型。 |
 | 岗位知识库未连接 | 检查 JSONL、索引与 Python 路径；模型方向建议不等于已检索到真实岗位。 |
 | 扫描件无法识别 | 安装 OCR 依赖并配置 Python 路径，或配置火山 OCR 与视觉模型。 |
 | 语音输入不可用 | 检查浏览器支持、HTTPS / localhost 上下文及麦克风权限，可继续使用文字输入。 |

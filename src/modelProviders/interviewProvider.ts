@@ -126,7 +126,7 @@ const parseFeedback = (content: string): InterviewFeedbackReport => {
   }
 };
 
-export class DoubaoInterviewProvider implements InterviewModelProvider {
+export class RemoteInterviewProvider implements InterviewModelProvider {
   async generateInterviewReply(input: InterviewModelInput) {
     const latestStudent = [...input.messages].reverse().find((message) => message.role === "student")?.content;
     if (!latestStudent && input.currentRound <= 1) {
@@ -188,4 +188,4 @@ export class DoubaoInterviewProvider implements InterviewModelProvider {
   }
 }
 
-export const getInterviewModelProvider = (): InterviewModelProvider => new DoubaoInterviewProvider();
+export const getInterviewModelProvider = (): InterviewModelProvider => new RemoteInterviewProvider();

@@ -1,20 +1,20 @@
-const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
-const DEFAULT_MODEL = "doubao-seed-2-0-lite-260215";
+const DEFAULT_BASE_URL = "https://api.deepseek.com";
+const DEFAULT_MODEL = "deepseek-flash";
 const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "jd-analysis", "interview-feedback", "career-chat"]);
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_CHAT_CHARS = 6000;
 const MAX_IMAGE_DATA_URL_CHARS = 10_000_000;
 const MAX_IMAGE_COUNT = 4;
-const REQUEST_TIMEOUT_MS = Number(process.env.ARK_REQUEST_TIMEOUT_MS || 65000);
+const REQUEST_TIMEOUT_MS = Number(process.env.DEEPSEEK_REQUEST_TIMEOUT_MS || 65000);
 const SEARCH_TIMEOUT_MS = 5000;
 const SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; StudentJobMatcher/0.1)";
 
 const modelForTask = (task) => {
   if (task === "resume-vision") {
-    return process.env.ARK_VISION_MODEL || process.env.ARK_MODEL || process.env.ARK_TEXT_MODEL || DEFAULT_MODEL;
+    return process.env.DEEPSEEK_VISION_MODEL || DEFAULT_MODEL;
   }
-  return process.env.ARK_TEXT_MODEL || process.env.ARK_MODEL || DEFAULT_MODEL;
+  return process.env.DEEPSEEK_TEXT_MODEL || process.env.DEEPSEEK_MODEL || DEFAULT_MODEL;
 };
 
 const asText = (value, maxLength) => {
@@ -228,10 +228,6 @@ const buildMessages = (body) => {
             image_url: {
               url: imageDataUrl,
               detail: "high",
-              image_pixel_limit: {
-                max_pixels: 3014080,
-                min_pixels: 3136,
-              },
             },
           })),
         ],
@@ -444,18 +440,18 @@ export async function runArkCompletion(body) {
     };
   }
 
-  const apiKey = process.env.ARK_API_KEY;
+  const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     return {
       status: 503,
       payload: {
         ok: false,
-        error: "当前运行环境未配置 ARK_API_KEY，模型能力不可用。请配置环境变量并重启服务。",
+        error: "模型服务尚未配置，请联系部署者。",
       },
     };
   }
 
-  const baseUrl = process.env.ARK_BASE_URL || DEFAULT_BASE_URL;
+  const baseUrl = process.env.DEEPSEEK_BASE_URL || DEFAULT_BASE_URL;
   const model = modelForTask(body.task);
   let response;
   try {
@@ -473,7 +469,7 @@ export async function runArkCompletion(body) {
         thinking: {
           type: "disabled",
         },
-        max_completion_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? (imageCountOf(body) > 1 ? 2200 : 1500) : body.task === "resume-structure" ? 2400 : 1200,
+        max_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? (imageCountOf(body) > 1 ? 2200 : 1500) : body.task === "resume-structure" ? 2400 : 1200,
       }),
     });
   } catch (error) {
@@ -488,14 +484,12 @@ export async function runArkCompletion(body) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const upstreamCode = typeof data?.error?.code === "string" ? data.error.code : "";
-    const upstreamMessage = typeof data?.error?.message === "string" ? data.error.message : "";
-    const upstreamDetail = [upstreamCode, upstreamMessage].filter(Boolean).join(": ").slice(0, 240);
+    console.warn("[model-proxy] upstream HTTP status:", response.status);
     return {
       status: response.status,
       payload: {
         ok: false,
-        error: upstreamDetail ? `模型接口调用失败：${upstreamDetail}` : "模型接口调用失败，请稍后重试。",
+        error: response.status === 429 ? "模型服务繁忙，请稍后重试。" : "模型服务暂不可用，请稍后重试。",
       },
     };
   }

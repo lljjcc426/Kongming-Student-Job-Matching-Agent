@@ -23,7 +23,7 @@
 
 孔明职配将学生简历与目标岗位放在同一个工作流中：提取教育、技能和经历，分析岗位要求与简历证据的关联，生成有依据的匹配说明与修改建议，再围绕目标岗位开展面试练习。
 
-项目采用 React + TypeScript 构建交互界面，通过同源服务接入火山方舟模型；可选启用 OCR 与本地岗位知识库。当前版本为可运行的应用原型。
+项目采用 React + TypeScript 构建交互界面，通过同源服务接入 DeepSeek 模型；可选启用 OCR 与本地岗位知识库。当前版本为可运行的应用原型。
 
 ## 产品演示
 
@@ -73,12 +73,12 @@ npm ci
 
 ### 2. 配置模型
 
-将 [`.env.example`](.env.example) 复制为 `.env`，填写火山方舟 API Key 与账号可用的模型 ID：
+将 [`.env.example`](.env.example) 复制为 `.env`，填写自己的 DeepSeek API Key：
 
 ```dotenv
-ARK_API_KEY=your_ark_api_key
-ARK_TEXT_MODEL=your_text_model_id
-ARK_VISION_MODEL=your_vision_model_id
+DEEPSEEK_API_KEY=your_deepseek_api_key
+DEEPSEEK_TEXT_MODEL=deepseek-flash
+DEEPSEEK_VISION_MODEL=deepseek-flash
 ```
 
 ### 3. 启动工作台
@@ -112,7 +112,7 @@ flowchart LR
     D --> E[匹配依据与优化建议]
     E --> F[简历编辑与报告导出]
     E --> G[模拟面试与求职问答]
-    M[同源模型代理 · 火山方舟] -.-> C
+    M[同源模型代理 · DeepSeek] -.-> C
     M -.-> D
     M -.-> G
 ```
