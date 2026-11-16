@@ -34,7 +34,7 @@
 | 简历优化 | Resume Matcher、ResumeLM | 生成项目经历 STAR 改写、关键词补齐、技能表达优化 |
 | 简历编辑 | Reactive Resume、OpenResume | 首版不做完整简历编辑器，采用“优化建议 + 改写候选”工作台 |
 | 求职行动 | AIHawk 思路 | 输出投递优先级、准备清单、面试问题，不做自动投递 |
-| 部署 | Resume Matcher、OpenResume 的 Web 应用模式 | 使用 Vercel 部署静态/前端应用，保证公网访问稳定 |
+| 部署 | Resume Matcher、OpenResume 的 Web 应用模式 | 前端静态资源与服务端 API 分别部署，通过同源接口访问 |
 
 ## 初步产品融合方案
 

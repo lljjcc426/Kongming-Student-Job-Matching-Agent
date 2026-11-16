@@ -1,48 +1,69 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="440" viewBox="0 0 1280 440" role="img" aria-labelledby="title desc">
   <title id="title">孔明职配 · Kongming</title>
-  <desc id="desc">学生求职智能工作台：简历解析、岗位匹配、简历优化与模拟面试。</desc>
+  <desc id="desc">从学生简历出发，连接岗位匹配、简历优化和面试练习。右侧为功能概念示意。</desc>
   <defs>
-    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f4f8ff"/><stop offset="1" stop-color="#e8f3ff"/></linearGradient>
-    <linearGradient id="ink" x2="1" y2=".4"><stop stop-color="#14397c"/><stop offset="1" stop-color="#2e72dd"/></linearGradient>
-    <linearGradient id="line" x2="1"><stop stop-color="#62bbfb"/><stop offset="1" stop-color="#6382ee"/></linearGradient>
-    <radialGradient id="halo"><stop stop-color="#a8d9ff" stop-opacity=".7"/><stop offset="1" stop-color="#b9d9ff" stop-opacity="0"/></radialGradient>
-    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#809bc9" stroke-opacity=".1"/></pattern>
-    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dy="8" stdDeviation="12" flood-color="#517fbd" flood-opacity=".12"/></filter>
+    <linearGradient id="bg" x2="1" y2="1">
+      <stop stop-color="#f6f9ff"/>
+      <stop offset="1" stop-color="#edf5ff"/>
+    </linearGradient>
+    <linearGradient id="blue" x2="1" y2="1">
+      <stop stop-color="#2356c7"/>
+      <stop offset="1" stop-color="#4486ef"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0 0L8 4L0 8" fill="none" stroke="#7d9fc7" stroke-width="1.5"/>
+    </marker>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dy="8" stdDeviation="12" flood-color="#2d5284" flood-opacity=".1"/>
+    </filter>
   </defs>
-  <rect width="1280" height="420" rx="24" fill="url(#bg)"/>
-  <rect width="1280" height="420" rx="24" fill="url(#grid)"/>
-  <circle cx="1010" cy="210" r="330" fill="url(#halo)"/>
-  <path d="M0 419H1280" stroke="#d2e2f4"/>
   <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
-    <rect x="64" y="56" width="196" height="30" rx="15" fill="#e4edfc" stroke="#cedef4"/>
-    <circle cx="82" cy="71" r="4" fill="#4384e5"/>
-    <text x="95" y="76" font-size="12" letter-spacing="2" fill="#3c67a4">STUDENT CAREER AI</text>
-    <text x="60" y="190" font-size="78" font-weight="700" letter-spacing="6" fill="url(#ink)">孔明职配</text>
-    <text x="65" y="230" font-size="20" letter-spacing="7" fill="#4a6fa6">KONGMING</text>
-    <text x="65" y="292" font-size="26" fill="#24486f">读懂简历，理解岗位，准备下一步。</text>
-    <text x="65" y="352" font-size="15" fill="#5b789b">简历解析</text><circle cx="146" cy="347" r="2" fill="#93abc9"/>
-    <text x="166" y="352" font-size="15" fill="#5b789b">岗位匹配</text><circle cx="248" cy="347" r="2" fill="#93abc9"/>
-    <text x="268" y="352" font-size="15" fill="#5b789b">简历优化</text><circle cx="350" cy="347" r="2" fill="#93abc9"/>
-    <text x="370" y="352" font-size="15" fill="#5b789b">模拟面试</text>
-    <g fill="none" stroke="#95b8e8">
-      <circle cx="991" cy="210" r="164" stroke-opacity=".3"/>
-      <circle cx="991" cy="210" r="117" stroke-opacity=".45"/>
-      <path d="M760 259 C 848 259 846 158 923 157 S 1060 266 1169 186" stroke="url(#line)" stroke-width="3"/>
-      <path d="M991 29V47M991 373V391M810 210H828M1154 210H1172" stroke-opacity=".6"/>
-    </g>
+    <rect x="1" y="1" width="1278" height="438" rx="28" fill="url(#bg)" stroke="#dce6f2"/>
+    <path d="M700 0V440M0 380H1280" stroke="#dce6f2" stroke-opacity=".7"/>
+    <circle cx="1050" cy="195" r="190" fill="#dceaff" opacity=".55"/>
+    <circle cx="1050" cy="195" r="140" fill="none" stroke="#bfd4f4" stroke-dasharray="5 10"/>
+    <rect x="56" y="43" width="208" height="31" rx="15" fill="#e4edff" stroke="#d0ddfa"/>
+    <text x="74" y="64" font-size="13" fill="#3865b2" font-weight="600" letter-spacing="1.7">STUDENT CAREER AI</text>
+    <text x="53" y="181" font-size="78" fill="#163d7d" font-weight="700" letter-spacing="7">孔明职配</text>
+    <text x="58" y="222" font-size="22" fill="#5274a5" font-weight="500" letter-spacing="6">KONGMING</text>
+    <text x="58" y="289" font-size="26" fill="#24466b" font-weight="500">读懂简历，理解岗位，准备下一步。</text>
+    <text x="58" y="328" font-size="17" fill="#647e9e" font-weight="400">Resume · Matching · Interview</text>
+    <text x="58" y="413" font-size="13" fill="#6080aa" font-weight="600" letter-spacing="2">OPEN SOURCE</text>
+    <text x="254" y="413" font-size="16" fill="#577494" font-weight="400">从简历出发，让求职准备有据可循。</text>
     <g filter="url(#shadow)">
-      <rect x="740" y="235" width="122" height="70" rx="16" fill="#fff" stroke="#d7e6f6"/>
-      <text x="758" y="259" font-size="10" letter-spacing="2" fill="#758eb2">01 / PROFILE</text>
-      <text x="758" y="286" font-size="19" font-weight="600" fill="#315785">简历洞察</text>
-      <rect x="920" y="112" width="138" height="86" rx="18" fill="#3379d5"/>
-      <text x="940" y="141" font-size="10" letter-spacing="2" fill="#c8e5ff">02 / MATCH</text>
-      <text x="940" y="175" font-size="23" font-weight="600" fill="#fff">人岗匹配</text>
-      <rect x="1082" y="228" width="132" height="70" rx="16" fill="#fff" stroke="#d7e6f6"/>
-      <text x="1100" y="252" font-size="10" letter-spacing="2" fill="#758eb2">03 / PREPARE</text>
-      <text x="1100" y="279" font-size="19" font-weight="600" fill="#315785">求职准备</text>
+      <rect x="754" y="92" width="210" height="260" rx="18" fill="#fff" stroke="#ccdcf3"/>
     </g>
-    <circle cx="878" cy="210" r="5" fill="#54a5ec" stroke="#fff" stroke-width="3"/>
-    <circle cx="1130" cy="130" r="4" fill="#6689db"/>
-    <text x="881" y="363" font-size="10" letter-spacing="3" fill="#6c87af">CLARITY FOR YOUR NEXT STEP</text>
+    <rect x="776" y="112" width="66" height="24" rx="6" fill="#e9f1ff" stroke="none"/>
+    <text x="788" y="129" font-size="10" fill="#4b74b7" font-weight="600">RESUME</text>
+    <text x="777" y="170" font-size="26" fill="#204575" font-weight="600">学生画像</text>
+    <circle cx="792" cy="206" r="16" fill="#e9f1ff"/>
+    <circle cx="792" cy="203" r="5" fill="#7299d4"/>
+    <path d="M782 215Q792 203 802 215" fill="#7299d4"/>
+    <rect x="819" y="195" width="115" height="8" rx="4" fill="#dce7f7"/>
+    <rect x="819" y="211" width="76" height="6" rx="3" fill="#e9eff8"/>
+    <rect x="777" y="240" width="164" height="8" rx="4" fill="#8ab2ee" stroke="none"/>
+    <rect x="777" y="269" width="141" height="8" rx="4" fill="#e0eafa" stroke="none"/>
+    <rect x="777" y="298" width="118" height="8" rx="4" fill="#e0eafa" stroke="none"/>
+    <path d="M966 172H996V131H1024" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <path d="M966 242H1024" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <path d="M966 284H996V325H1024" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <g filter="url(#shadow)">
+      <rect x="1029" y="90" width="194" height="78" rx="14" fill="#fff" stroke="#d1e0f4"/>
+    </g>
+    <text x="1043" y="115" font-size="12" fill="#7695bc" font-weight="600">01</text>
+    <text x="1070" y="121" font-size="21" fill="#294d7a" font-weight="600">岗位匹配</text>
+    <text x="1070" y="146" font-size="13" fill="#6b85a6" font-weight="400">要求 × 证据</text>
+    <g filter="url(#shadow)">
+      <rect x="1029" y="201" width="194" height="78" rx="14" fill="#fff" stroke="#d1e0f4"/>
+    </g>
+    <text x="1043" y="226" font-size="12" fill="#7695bc" font-weight="600">02</text>
+    <text x="1070" y="232" font-size="21" fill="#294d7a" font-weight="600">简历优化</text>
+    <text x="1070" y="257" font-size="13" fill="#6b85a6" font-weight="400">表达 × 行动</text>
+    <g filter="url(#shadow)">
+      <rect x="1029" y="312" width="194" height="78" rx="14" fill="#fff" stroke="#d1e0f4"/>
+    </g>
+    <text x="1043" y="337" font-size="12" fill="#7695bc" font-weight="600">03</text>
+    <text x="1070" y="343" font-size="21" fill="#294d7a" font-weight="600">面试练习</text>
+    <text x="1070" y="368" font-size="13" fill="#6b85a6" font-weight="400">回答 × 反馈</text>
   </g>
 </svg>

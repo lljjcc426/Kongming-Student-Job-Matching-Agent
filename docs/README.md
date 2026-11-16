@@ -7,7 +7,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [安装与运行](getting-started.md) | Node.js、模型配置、OCR 与本地岗位知识库 |
-| [配置与部署](configuration.md) | 环境变量、Vite 代理、Vercel 与持久化服务边界 |
+| [配置与部署](configuration.md) | OpenAI / Claude / 本地模型配置、OCR 与岗位检索 |
 | [演示素材](media/README.md) | 截图、视频、示例数据与重新录制方式 |
 | [贡献指南](../CONTRIBUTING.md) | 本地开发、变更说明与提交方式 |
 

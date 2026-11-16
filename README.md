@@ -23,7 +23,9 @@
 
 孔明职配将学生简历与目标岗位放在同一个工作流中：提取教育、技能和经历，分析岗位要求与简历证据的关联，生成有依据的匹配说明与修改建议，再围绕目标岗位开展面试练习。
 
-项目采用 React + TypeScript 构建交互界面，通过同源服务接入 DeepSeek 模型；可选启用 OCR 与本地岗位知识库。当前版本为可运行的应用原型。
+项目采用 React + TypeScript 构建交互界面，通过服务端适配 OpenAI、Claude 与 OpenAI 兼容接口，也可连接 Ollama 等本地模型；OCR 与岗位知识库按需启用。当前版本为可运行的应用原型。
+
+![从简历导入到面试练习的五步工作流](docs/media/workflow.svg)
 
 ## 产品演示
 
@@ -37,12 +39,16 @@
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/media/resume.webp" alt="简历解析：学生画像、能力雷达与简历完整度分析"><br><strong>简历解析</strong><br>将教育、技能和经历组织为可检查的学生画像。</td>
-    <td width="50%"><img src="docs/media/jobs.webp" alt="岗位推荐：候选岗位、岗位要求与目标 JD 分析"><br><strong>岗位匹配</strong><br>比较岗位要求，查看匹配依据，分析自定义 JD。</td>
+    <td width="50%"><a href="docs/media/home.webp"><img src="docs/media/home.webp" alt="首页：简历导入与求职工作台入口"></a><br><strong>01 · 导入简历</strong><br>上传文档或粘贴文本，开始求职准备。</td>
+    <td width="50%"><a href="docs/media/editor.webp"><img src="docs/media/editor.webp" alt="简历编辑：原始文档与结构化字段对照"></a><br><strong>02 · 核对与编辑</strong><br>对照原文检查字段，完善简历内容。</td>
   </tr>
   <tr>
-    <td><img src="docs/media/editor.webp" alt="简历编辑：原始文档预览与结构化字段编辑"><br><strong>简历编辑</strong><br>对照原文检查字段，完善简历内容与表达。</td>
-    <td><img src="docs/media/interview.webp" alt="模拟面试：数字面试官、面试类型与回答区域"><br><strong>模拟面试</strong><br>围绕目标岗位练习综合面、技术面与 HR 面。</td>
+    <td><a href="docs/media/resume.webp"><img src="docs/media/resume.webp" alt="学生画像：经历、能力雷达与匹配解释"></a><br><strong>03 · 查看学生画像</strong><br>梳理教育、技能和经历，检查匹配依据。</td>
+    <td><a href="docs/media/jobs.webp"><img src="docs/media/jobs.webp" alt="岗位推荐：岗位要求、候选岗位和 JD 分析"></a><br><strong>04 · 分析目标岗位</strong><br>比较岗位要求，查看差距，分析自定义 JD。</td>
+  </tr>
+  <tr>
+    <td><a href="docs/media/interview.webp"><img src="docs/media/interview.webp" alt="模拟面试：面试类型、数字面试官与回答区域"></a><br><strong>05 · 练习模拟面试</strong><br>围绕目标岗位开展综合面、技术面与 HR 面练习。</td>
+    <td><a href="docs/media/assistant.webp"><img src="docs/media/assistant.webp" alt="AI 求职助手：结合简历和岗位上下文的多轮对话"></a><br><strong>06 · 讨论准备重点</strong><br>结合简历、岗位与匹配结果，继续追问求职问题。</td>
   </tr>
 </table>
 
@@ -73,13 +79,67 @@ npm ci
 
 ### 2. 配置模型
 
-将 [`.env.example`](.env.example) 复制为 `.env`，填写自己的 DeepSeek API Key：
+复制 [`.env.example`](.env.example) 为 `.env`，选择一种接入方式。自行部署需配置自己的 API Key，或连接自己运行的模型服务。
+
+| 接入方式 | `MODEL_PROVIDER` | 适用服务 |
+| --- | --- | --- |
+| OpenAI | `openai` | OpenAI Chat Completions |
+| Claude | `anthropic` | Anthropic Messages 原生接口 |
+| 自定义兼容接口 | `openai-compatible` | DeepSeek、通义千问等提供的 OpenAI 兼容接口，以及 vLLM / LM Studio |
+| Ollama | `ollama` | 本地运行的文本或视觉模型 |
+
+以 **OpenAI** 为例，在 `.env` 中填写：
 
 ```dotenv
-DEEPSEEK_API_KEY=your_deepseek_api_key
-DEEPSEEK_TEXT_MODEL=deepseek-flash
-DEEPSEEK_VISION_MODEL=deepseek-flash
+MODEL_PROVIDER=openai
+MODEL_BASE_URL=https://api.openai.com/v1
+MODEL_API_KEY=your_openai_api_key
+MODEL_TEXT_MODEL=gpt-4.1-mini
+MODEL_VISION_MODEL=gpt-4.1-mini
 ```
+
+<details>
+<summary><strong>使用 Claude</strong></summary>
+
+```dotenv
+MODEL_PROVIDER=anthropic
+MODEL_BASE_URL=https://api.anthropic.com/v1
+MODEL_API_KEY=your_claude_api_key
+MODEL_TEXT_MODEL=claude-sonnet-4-6
+MODEL_VISION_MODEL=claude-sonnet-4-6
+```
+
+使用 Anthropic 原生 Messages 接口，无需转换为 OpenAI 协议。
+
+</details>
+
+<details>
+<summary><strong>使用本地模型（Ollama）</strong></summary>
+
+安装并启动 [Ollama](https://ollama.com/)，下载支持图片的模型：
+
+```bash
+ollama pull qwen3-vl:8b
+```
+
+将 `.env` 改为：
+
+```dotenv
+MODEL_PROVIDER=ollama
+MODEL_BASE_URL=http://127.0.0.1:11434/v1
+MODEL_API_KEY=
+MODEL_TEXT_MODEL=qwen3-vl:8b
+MODEL_VISION_MODEL=qwen3-vl:8b
+MODEL_REQUEST_TIMEOUT_MS=180000
+```
+
+模型需适合本机内存与算力；也可改为已安装的其他模型 ID。
+
+</details>
+
+文本和视觉模型可分别指定。视觉模型须支持图片输入；只使用文本模型时，可留空 `MODEL_VISION_MODEL`，扫描件与图片改走 OCR。模型 ID 以服务提供方及账号可用列表为准。
+
+创建 API Key、配置自定义接口、调整超时与排查错误，见[模型配置教程](docs/configuration.md#模型接入)。
 
 ### 3. 启动工作台
 
@@ -102,30 +162,17 @@ node --env-file=.env --run dev
 
 ## 技术架构
 
-```mermaid
-flowchart LR
-    A[简历 · PDF / 图片 / 文本] --> B[PDF.js / OCR]
-    B --> C[结构化简历与学生画像]
-    C --> D[岗位检索与匹配分析]
-    J[目标岗位 JD] --> D
-    K[(本地岗位知识库)] --> D
-    D --> E[匹配依据与优化建议]
-    E --> F[简历编辑与报告导出]
-    E --> G[模拟面试与求职问答]
-    M[同源模型代理 · DeepSeek] -.-> C
-    M -.-> D
-    M -.-> G
-```
+![孔明职配技术架构：浏览器、服务端模型适配、云端与本地模型、OCR 和岗位知识库](docs/media/architecture.svg)
 
 | 层级 | 技术与职责 |
 | --- | --- |
 | 交互界面 | React 19、TypeScript、Vite；Recharts 展示匹配维度，Three.js / React Three Fiber 呈现交互视觉。 |
 | 任务编排 | 按简历处理、岗位分析、面试与对话组织任务；业务 hooks 与模型适配器管理状态和调用。 |
 | 文档处理 | PDF.js、RapidOCR / 火山 OCR，保留文字与位置之间的关联。 |
-| 模型服务 | 开发环境由 Vite 提供同源代理，Vercel 函数处理模型与云端 OCR 请求。 |
+| 模型服务 | Node.js 服务端读取凭据并适配 OpenAI / Claude 协议，按任务选择文本或视觉模型；浏览器调用同源 API。 |
 | 可选检索 | Python、LlamaIndex、BGE、Qdrant、BM25 与 RRF 融合，支持多查询召回与可选重排。 |
 
-本地 Qdrant / Python 工作进程依赖持久化磁盘，不能直接运行在 Vercel Serverless 中。`npm run preview` 仅预览静态构建产物，不提供开发环境的 API 代理。详见[配置与部署](docs/configuration.md)。
+岗位知识库需要独立的 Python 环境、岗位数据和持久化索引。`npm run preview` 仅预览静态构建产物，不提供开发环境的 API 代理。详见[配置与部署](docs/configuration.md)。
 
 ## 仓库结构
 
@@ -136,7 +183,7 @@ flowchart LR
 │   ├── features/        # 简历处理、岗位检索、匹配解释与对话
 │   └── components/      # 品牌、可视化、布局与业务组件
 ├── server/              # 模型代理、OCR 与本地岗位知识库服务
-├── api/                 # Vercel 模型与 OCR 函数入口
+├── api/                 # 模型与 OCR HTTP 入口
 ├── scripts/             # 环境准备、岗位采集与验证工具
 ├── public/              # 数字人、PDF 字体映射与静态资源
 ├── docs/                # 使用文档、设计资料与演示素材

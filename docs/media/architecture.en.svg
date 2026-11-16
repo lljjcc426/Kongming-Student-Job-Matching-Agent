@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="910" viewBox="0 0 1280 910" role="img" aria-labelledby="title desc">
+  <title id="title">Kongming architecture</title>
+  <desc id="desc">Browser workflows connect through Node.js to OpenAI-compatible and Claude APIs, cloud and local models, optional OCR and job retrieval.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1">
+      <stop stop-color="#f6f9ff"/>
+      <stop offset="1" stop-color="#edf5ff"/>
+    </linearGradient>
+    <linearGradient id="blue" x2="1" y2="1">
+      <stop stop-color="#2356c7"/>
+      <stop offset="1" stop-color="#4486ef"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0 0L8 4L0 8" fill="none" stroke="#7d9fc7" stroke-width="1.5"/>
+    </marker>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dy="8" stdDeviation="12" flood-color="#2d5284" flood-opacity=".1"/>
+    </filter>
+  </defs>
+  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+    <rect x="1" y="1" width="1278" height="908" rx="24" fill="url(#bg)" stroke="#dce6f2"/>
+    <text x="40" y="49" font-size="30" fill="#183e74" font-weight="650">System architecture</text>
+    <text x="40" y="81" font-size="19" fill="#647f9f" font-weight="400">Application workflows with configurable model APIs, optional OCR and local job retrieval.</text>
+    <rect x="40" y="113" width="1200" height="201" rx="20" fill="#fff" stroke="#d7e3f2"/>
+    <text x="64" y="150" font-size="22" fill="#244b81" font-weight="650">Browser · React / TypeScript</text>
+    <rect x="64" y="176" width="272" height="99" rx="12" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="80" y="215" font-size="19" fill="#335780" font-weight="600">Resume import / editor</text>
+    <text x="80" y="248" font-size="15" fill="#6a829f" font-weight="400">PDF.js · text / images</text>
+    <rect x="360" y="176" width="272" height="99" rx="12" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="376" y="215" font-size="19" fill="#335780" font-weight="600">Structured profile</text>
+    <text x="376" y="248" font-size="15" fill="#6a829f" font-weight="400">Education · skills · experience</text>
+    <rect x="656" y="176" width="272" height="99" rx="12" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="672" y="215" font-size="19" fill="#335780" font-weight="600">Rule-based matching</text>
+    <text x="672" y="248" font-size="15" fill="#6a829f" font-weight="400">Requirements × evidence</text>
+    <rect x="952" y="176" width="272" height="99" rx="12" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="968" y="215" font-size="19" fill="#335780" font-weight="600">Interview / career chat</text>
+    <text x="968" y="248" font-size="15" fill="#6a829f" font-weight="400">Text · speech · avatar</text>
+    <path d="M435 314V372" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <path d="M1028 314V372" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="458" y="350" font-size="17" fill="#5e7c9e" font-weight="400">Same-origin API calls</text>
+    <rect x="40" y="372" width="770" height="238" rx="20" fill="#fff" stroke="#b9cff0"/>
+    <text x="64" y="414" font-size="23" fill="#244b81" font-weight="650">Node.js · Model tasks and API adapters</text>
+    <text x="64" y="449" font-size="19" fill="#5476a1" font-weight="500">/api/ark</text>
+    <text x="216" y="449" font-size="17" fill="#647f9f" font-weight="400">Server credentials · text / vision routing</text>
+    <rect x="64" y="477" width="347" height="96" rx="12" fill="#edf4ff" stroke="#d3e2fa"/>
+    <text x="83" y="514" font-size="23" fill="#335780" font-weight="600">OpenAI / Compatible</text>
+    <text x="83" y="548" font-size="18" fill="#647f9f" font-weight="400">POST /chat/completions</text>
+    <rect x="433" y="477" width="353" height="96" rx="12" fill="#edf4ff" stroke="#d3e2fa"/>
+    <text x="452" y="514" font-size="23" fill="#335780" font-weight="600">Claude / Anthropic</text>
+    <text x="452" y="548" font-size="18" fill="#647f9f" font-weight="400">POST /messages</text>
+    <rect x="840" y="372" width="400" height="238" rx="20" fill="#fff" stroke="#d7e3f2"/>
+    <text x="864" y="414" font-size="23" fill="#244b81" font-weight="650">Optional service APIs</text>
+    <rect x="864" y="441" width="352" height="56" rx="10" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="882" y="475" font-size="19" fill="#335780" font-weight="500">/api/ocr</text>
+    <text x="1038" y="475" font-size="15" fill="#6a829f" font-weight="400">Local / cloud OCR</text>
+    <rect x="864" y="518" width="352" height="56" rx="10" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="882" y="552" font-size="19" fill="#335780" font-weight="500">/api/jobs/search</text>
+    <path d="M435 610V650H237V689" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <path d="M435 650H613V689" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <path d="M1040 610V689" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <rect x="40" y="689" width="382" height="175" rx="18" fill="#fff" stroke="#d7e3f2"/>
+    <text x="64" y="729" font-size="24" fill="#244b81" font-weight="650">Cloud model APIs</text>
+    <text x="64" y="766" font-size="21" fill="#4c6c94" font-weight="400">OpenAI · Claude · DeepSeek</text>
+    <text x="64" y="800" font-size="17" fill="#647f9f" font-weight="400">Other OpenAI-compatible services</text>
+    <text x="64" y="836" font-size="18" fill="#647f9f" font-weight="400">Use your own API key</text>
+    <rect x="446" y="689" width="364" height="175" rx="18" fill="#fff" stroke="#d7e3f2"/>
+    <text x="470" y="729" font-size="23" fill="#244b81" font-weight="650">Local / self-hosted models</text>
+    <text x="470" y="766" font-size="21" fill="#4c6c94" font-weight="400">Ollama · vLLM · LM Studio</text>
+    <text x="470" y="800" font-size="18" fill="#647f9f" font-weight="400">OpenAI-compatible endpoints</text>
+    <text x="470" y="836" font-size="17" fill="#647f9f" font-weight="400">Choose models for your hardware</text>
+    <rect x="840" y="689" width="400" height="175" rx="18" fill="#fff" stroke="#d7e3f2"/>
+    <text x="864" y="729" font-size="23" fill="#244b81" font-weight="650">Job knowledge base · Python</text>
+    <text x="864" y="766" font-size="21" fill="#4c6c94" font-weight="400">BGE · Qdrant · BM25 · RRF</text>
+    <text x="864" y="800" font-size="16" fill="#647f9f" font-weight="400">Hybrid retrieval · sources and timestamps</text>
+    <text x="864" y="836" font-size="16" fill="#647f9f" font-weight="400">Requires job data and persistent indexes</text>
+    <text x="40" y="894" font-size="18" fill="#55779f" font-weight="400">Model credentials stay on the server; the browser sends tasks through application APIs.</text>
+  </g>
+</svg>

@@ -28,21 +28,13 @@
 
 ### 部署
 
-推荐使用 Vercel 或 Netlify。
-
-- Vercel：适合 React/Vite/Next.js 项目，GitHub 集成简单。
-- Netlify：同样适合静态前端 Demo，配置轻量。
-
-本项目首选 Vercel，原因是 GitHub 连接和预览部署流程清晰，适合快速公开演示。
+前端通过 `npm run build` 生成静态资源；模型、OCR 与岗位检索由服务端处理。模型配置使用服务端环境变量，知识库使用持久化索引。运行要求见[配置与部署](configuration.md)。
 
 ## 可用 Skill
 
 | Skill | 用途 | 当前状态 |
 | --- | --- | --- |
 | GitHub | 远端仓库、提交、PR、同步流程 | 已纳入工作流 |
-| Vercel deployments-cicd | 部署到 Vercel、预览链接、生产发布 | 已纳入工作流 |
-| vercel:react-best-practices | 多个 React 组件完成后做质量检查 | 开发阶段使用 |
-| vercel:agent-browser-verify / vercel:verification | Demo 启动或部署后做页面验证 | 验证阶段使用 |
 | playwright | 本地浏览器验证、截图、交互测试 | 验证阶段使用 |
 | openai-docs | 若接入 OpenAI API，查官方最新文档 | 接入模型时使用 |
 

@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="910" viewBox="0 0 1280 910" role="img" aria-labelledby="title desc">
+  <title id="title">孔明职配技术架构</title>
+  <desc id="desc">浏览器业务流程通过 Node.js 接入 OpenAI 兼容接口与 Claude 原生接口，支持云端 API、本地模型、可选 OCR 与岗位检索。</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1">
+      <stop stop-color="#f6f9ff"/>
+      <stop offset="1" stop-color="#edf5ff"/>
+    </linearGradient>
+    <linearGradient id="blue" x2="1" y2="1">
+      <stop stop-color="#2356c7"/>
+      <stop offset="1" stop-color="#4486ef"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0 0L8 4L0 8" fill="none" stroke="#7d9fc7" stroke-width="1.5"/>
+    </marker>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dy="8" stdDeviation="12" flood-color="#2d5284" flood-opacity=".1"/>
+    </filter>
+  </defs>
+  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+    <rect x="1" y="1" width="1278" height="908" rx="24" fill="url(#bg)" stroke="#dce6f2"/>
+    <text x="40" y="49" font-size="30" fill="#183e74" font-weight="650">技术架构</text>
+    <text x="40" y="81" font-size="19" fill="#647f9f" font-weight="400">业务流程与模型接口解耦，按需接入 OCR 和岗位知识库</text>
+    <rect x="40" y="113" width="1200" height="201" rx="20" fill="#fff" stroke="#d7e3f2"/>
+    <text x="64" y="150" font-size="22" fill="#244b81" font-weight="650">浏览器 · React / TypeScript</text>
+    <rect x="64" y="176" width="272" height="99" rx="12" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="80" y="215" font-size="23" fill="#335780" font-weight="600">简历导入与编辑</text>
+    <text x="80" y="248" font-size="18" fill="#6a829f" font-weight="400">PDF.js · 文本 / 图片</text>
+    <rect x="360" y="176" width="272" height="99" rx="12" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="376" y="215" font-size="23" fill="#335780" font-weight="600">结构化画像</text>
+    <text x="376" y="248" font-size="18" fill="#6a829f" font-weight="400">教育 · 技能 · 经历</text>
+    <rect x="656" y="176" width="272" height="99" rx="12" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="672" y="215" font-size="23" fill="#335780" font-weight="600">规则匹配与解释</text>
+    <text x="672" y="248" font-size="18" fill="#6a829f" font-weight="400">岗位要求 × 简历证据</text>
+    <rect x="952" y="176" width="272" height="99" rx="12" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="968" y="215" font-size="23" fill="#335780" font-weight="600">面试与求职对话</text>
+    <text x="968" y="248" font-size="18" fill="#6a829f" font-weight="400">文字 · 语音 · 数字人</text>
+    <path d="M435 314V372" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <path d="M1028 314V372" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <text x="458" y="350" font-size="17" fill="#5e7c9e" font-weight="400">同源 API 请求</text>
+    <rect x="40" y="372" width="770" height="238" rx="20" fill="#fff" stroke="#b9cff0"/>
+    <text x="64" y="414" font-size="23" fill="#244b81" font-weight="650">Node.js · 模型任务与接口适配</text>
+    <text x="64" y="449" font-size="19" fill="#5476a1" font-weight="500">/api/ark</text>
+    <text x="216" y="449" font-size="19" fill="#647f9f" font-weight="400">服务端读取凭据 · 选择文本 / 视觉模型</text>
+    <rect x="64" y="477" width="347" height="96" rx="12" fill="#edf4ff" stroke="#d3e2fa"/>
+    <text x="83" y="514" font-size="23" fill="#335780" font-weight="600">OpenAI / Compatible</text>
+    <text x="83" y="548" font-size="18" fill="#647f9f" font-weight="400">POST /chat/completions</text>
+    <rect x="433" y="477" width="353" height="96" rx="12" fill="#edf4ff" stroke="#d3e2fa"/>
+    <text x="452" y="514" font-size="23" fill="#335780" font-weight="600">Claude / Anthropic</text>
+    <text x="452" y="548" font-size="18" fill="#647f9f" font-weight="400">POST /messages</text>
+    <rect x="840" y="372" width="400" height="238" rx="20" fill="#fff" stroke="#d7e3f2"/>
+    <text x="864" y="414" font-size="23" fill="#244b81" font-weight="650">可选扩展 API</text>
+    <rect x="864" y="441" width="352" height="56" rx="10" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="882" y="475" font-size="19" fill="#335780" font-weight="500">/api/ocr</text>
+    <text x="1038" y="475" font-size="18" fill="#6a829f" font-weight="400">本地 / 云端 OCR</text>
+    <rect x="864" y="518" width="352" height="56" rx="10" fill="#f4f8fe" stroke="#e1e9f5"/>
+    <text x="882" y="552" font-size="19" fill="#335780" font-weight="500">/api/jobs/search</text>
+    <path d="M435 610V650H237V689" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <path d="M435 650H613V689" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <path d="M1040 610V689" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <rect x="40" y="689" width="382" height="175" rx="18" fill="#fff" stroke="#d7e3f2"/>
+    <text x="64" y="729" font-size="24" fill="#244b81" font-weight="650">云端模型 API</text>
+    <text x="64" y="766" font-size="22" fill="#4c6c94" font-weight="400">OpenAI · Claude · DeepSeek</text>
+    <text x="64" y="800" font-size="20" fill="#647f9f" font-weight="400">以及其他 OpenAI 兼容服务</text>
+    <text x="64" y="836" font-size="18" fill="#647f9f" font-weight="400">使用部署者自己的 API Key</text>
+    <rect x="446" y="689" width="364" height="175" rx="18" fill="#fff" stroke="#d7e3f2"/>
+    <text x="470" y="729" font-size="24" fill="#244b81" font-weight="650">本地 / 自托管模型</text>
+    <text x="470" y="766" font-size="21" fill="#4c6c94" font-weight="400">Ollama · vLLM · LM Studio</text>
+    <text x="470" y="800" font-size="20" fill="#647f9f" font-weight="400">OpenAI 兼容接口</text>
+    <text x="470" y="836" font-size="18" fill="#647f9f" font-weight="400">模型能力与资源由部署者选择</text>
+    <rect x="840" y="689" width="400" height="175" rx="18" fill="#fff" stroke="#d7e3f2"/>
+    <text x="864" y="729" font-size="24" fill="#244b81" font-weight="650">岗位知识库 · Python</text>
+    <text x="864" y="766" font-size="21" fill="#4c6c94" font-weight="400">BGE · Qdrant · BM25 · RRF</text>
+    <text x="864" y="800" font-size="20" fill="#647f9f" font-weight="400">混合检索 · 来源与核验时间</text>
+    <text x="864" y="836" font-size="18" fill="#647f9f" font-weight="400">需要岗位数据与持久化索引</text>
+    <text x="40" y="894" font-size="18" fill="#55779f" font-weight="400">模型调用凭据保留在服务端，浏览器通过应用 API 发起任务。</text>
+  </g>
+</svg>

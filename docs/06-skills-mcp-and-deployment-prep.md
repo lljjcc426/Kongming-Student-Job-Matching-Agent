@@ -5,9 +5,6 @@
 | Skill | 使用阶段 | 用途 | 当前决策 |
 | --- | --- | --- | --- |
 | GitHub | 全程 | 远端同步、PR、Issue、仓库状态检查 | 使用；所有操作限定在 `lljjcc426/Kongming-Student-Job-Matching-Agent` |
-| Vercel deployments-cicd | 部署阶段 | 预览部署、生产部署、部署状态检查 | 使用；首选 Vercel 作为公网 Demo 托管 |
-| vercel:react-best-practices | 前端完成后 | 检查 React 组件结构、状态管理和可维护性 | 开发阶段使用 |
-| vercel:agent-browser-verify / vercel:verification | 本地或部署后 | 验证页面是否可访问、交互是否完整 | 验证阶段使用 |
 | playwright | 本地验证 | 浏览器截图、交互流检查、响应式检查 | 验证阶段使用 |
 | openai-docs | 接入模型时 | 查询 OpenAI API 官方最新用法 | 仅在接入 OpenAI API 时使用 |
 
@@ -24,19 +21,19 @@
 
 ## 部署路线
 
-首版公网 Demo 推荐走 Vercel：
+部署流程：
 
 1. GitHub 仓库作为唯一代码源。
 2. 本地完成开发和构建验证。
 3. 推送到 GitHub。
-4. Vercel 连接 GitHub 仓库并部署。
+4. 部署前端静态资源与服务端 API，配置模型服务及可选的 OCR、岗位知识库。
 5. 部署后使用浏览器验证页面加载、核心交互和响应式表现。
 
 ## 认证与安全约定
 
-- 不在聊天、代码、文档中记录 GitHub token、Vercel token、OpenAI API Key 等敏感凭据。
-- 本地 Git 提交身份固定为：`lljjcc426 <204199163+lljjcc426@users.noreply.github.com>`。
-- 如后续接入模型 API，使用 `.env.local` 保存本地密钥，并通过 `.gitignore` 排除。
+- 不在聊天、代码、文档中记录 GitHub token、部署凭据、模型 API Key 等敏感凭据。
+- 本地 Git 提交身份固定为：`lljjcc426 <3115250840@qq.com>`。
+- 模型 API 使用服务端环境变量，本地通过已被 Git 忽略的 `.env` 加载。
 - Demo 首版可以使用内置模拟 AI 输出，确保没有 API Key 时也能完整演示。
 
 ## 当前不立即部署额外 MCP 的原因

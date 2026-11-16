@@ -6,7 +6,9 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| `banner.svg` | 项目首页横幅，可直接编辑的 SVG。 |
+| `banner.svg` | 项目横幅与功能概念示意，可直接编辑的 SVG。 |
+| `workflow.svg` / `workflow.en.svg` | 中英文求职准备工作流图。 |
+| `architecture.svg` / `architecture.en.svg` | 中英文技术架构图，涵盖模型适配、云端 / 本地模型与可选服务。 |
 | `demo-preview.gif` | README 中自动播放的视频预览。 |
 | [kongming-demo.mp4](kongming-demo.mp4) | 完整界面演示，无配音；覆盖简历导入、解析、岗位分析、文字模拟面试与助手问答。 |
 | `home.webp` / `editor.webp` | 首页与简历编辑工作台。 |

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="334" viewBox="0 0 1280 334" role="img" aria-labelledby="title desc">
+  <title id="title">孔明职配工作流</title>
+  <desc id="desc">导入简历：PDF / 图片 / 文本：读取原文与页面；梳理画像：教育 · 技能 · 经历：核对字段与证据；分析岗位：岗位检索 / 自定义 JD：比较要求与能力；优化表达：关键词与经历建议：编辑简历与导出；练习面试：综合面 · 技术面 · HR：回答、反馈与追问</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1">
+      <stop stop-color="#f6f9ff"/>
+      <stop offset="1" stop-color="#edf5ff"/>
+    </linearGradient>
+    <linearGradient id="blue" x2="1" y2="1">
+      <stop stop-color="#2356c7"/>
+      <stop offset="1" stop-color="#4486ef"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0 0L8 4L0 8" fill="none" stroke="#7d9fc7" stroke-width="1.5"/>
+    </marker>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dy="8" stdDeviation="12" flood-color="#2d5284" flood-opacity=".1"/>
+    </filter>
+  </defs>
+  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+    <rect x="1" y="1" width="1278" height="332" rx="24" fill="url(#bg)" stroke="#dce6f2"/>
+    <text x="40" y="48" font-size="28" fill="#183e74" font-weight="650">求职准备工作流</text>
+    <text x="40" y="80" font-size="18" fill="#647f9f" font-weight="400">简历信息贯穿岗位分析、修改建议与面试练习</text>
+    <rect x="40" y="116" width="224" height="150" rx="16" fill="#fff" stroke="#d4e1f2"/>
+    <rect x="56" y="132" width="32" height="27" rx="7" fill="#e9f1ff" stroke="none"/>
+    <text x="63" y="152" font-size="13" fill="#446dac" font-weight="600">01</text>
+    <text x="56" y="193" font-size="25" fill="#244b81" font-weight="650">导入简历</text>
+    <text x="56" y="223" font-size="17" fill="#637c9a" font-weight="400">PDF / 图片 / 文本</text>
+    <text x="56" y="248" font-size="16" fill="#637c9a" font-weight="400">读取原文与页面</text>
+    <path d="M267 191H280" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <rect x="284" y="116" width="224" height="150" rx="16" fill="#fff" stroke="#d4e1f2"/>
+    <rect x="300" y="132" width="32" height="27" rx="7" fill="#e9f1ff" stroke="none"/>
+    <text x="307" y="152" font-size="13" fill="#446dac" font-weight="600">02</text>
+    <text x="300" y="193" font-size="25" fill="#244b81" font-weight="650">梳理画像</text>
+    <text x="300" y="223" font-size="17" fill="#637c9a" font-weight="400">教育 · 技能 · 经历</text>
+    <text x="300" y="248" font-size="16" fill="#637c9a" font-weight="400">核对字段与证据</text>
+    <path d="M511 191H524" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <rect x="528" y="116" width="224" height="150" rx="16" fill="#fff" stroke="#d4e1f2"/>
+    <rect x="544" y="132" width="32" height="27" rx="7" fill="#e9f1ff" stroke="none"/>
+    <text x="551" y="152" font-size="13" fill="#446dac" font-weight="600">03</text>
+    <text x="544" y="193" font-size="25" fill="#244b81" font-weight="650">分析岗位</text>
+    <text x="544" y="223" font-size="17" fill="#637c9a" font-weight="400">岗位检索 / 自定义 JD</text>
+    <text x="544" y="248" font-size="16" fill="#637c9a" font-weight="400">比较要求与能力</text>
+    <path d="M755 191H768" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <rect x="772" y="116" width="224" height="150" rx="16" fill="#fff" stroke="#d4e1f2"/>
+    <rect x="788" y="132" width="32" height="27" rx="7" fill="#e9f1ff" stroke="none"/>
+    <text x="795" y="152" font-size="13" fill="#446dac" font-weight="600">04</text>
+    <text x="788" y="193" font-size="25" fill="#244b81" font-weight="650">优化表达</text>
+    <text x="788" y="223" font-size="17" fill="#637c9a" font-weight="400">关键词与经历建议</text>
+    <text x="788" y="248" font-size="16" fill="#637c9a" font-weight="400">编辑简历与导出</text>
+    <path d="M999 191H1012" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <rect x="1016" y="116" width="224" height="150" rx="16" fill="#fff" stroke="#d4e1f2"/>
+    <rect x="1032" y="132" width="32" height="27" rx="7" fill="#e9f1ff" stroke="none"/>
+    <text x="1039" y="152" font-size="13" fill="#446dac" font-weight="600">05</text>
+    <text x="1032" y="193" font-size="25" fill="#244b81" font-weight="650">练习面试</text>
+    <text x="1032" y="223" font-size="17" fill="#637c9a" font-weight="400">综合面 · 技术面 · HR</text>
+    <text x="1032" y="248" font-size="16" fill="#637c9a" font-weight="400">回答、反馈与追问</text>
+    <text x="40" y="307" font-size="18" fill="#42689b" font-weight="400">AI 求职助手：结合当前简历、目标岗位与匹配结果，持续讨论准备重点。</text>
+  </g>
+</svg>

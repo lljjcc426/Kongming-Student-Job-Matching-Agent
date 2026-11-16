@@ -1,21 +1,13 @@
-const DEFAULT_BASE_URL = "https://api.deepseek.com";
-const DEFAULT_MODEL = "deepseek-flash";
+import { runModelCompletion } from "./modelProvider.js";
+
 const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "jd-analysis", "interview-feedback", "career-chat"]);
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
 const MAX_CHAT_CHARS = 6000;
 const MAX_IMAGE_DATA_URL_CHARS = 10_000_000;
 const MAX_IMAGE_COUNT = 4;
-const REQUEST_TIMEOUT_MS = Number(process.env.DEEPSEEK_REQUEST_TIMEOUT_MS || 65000);
 const SEARCH_TIMEOUT_MS = 5000;
 const SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; StudentJobMatcher/0.1)";
-
-const modelForTask = (task) => {
-  if (task === "resume-vision") {
-    return process.env.DEEPSEEK_VISION_MODEL || DEFAULT_MODEL;
-  }
-  return process.env.DEEPSEEK_TEXT_MODEL || process.env.DEEPSEEK_MODEL || DEFAULT_MODEL;
-};
 
 const asText = (value, maxLength) => {
   if (typeof value !== "string") return "";
@@ -47,7 +39,7 @@ const validateRequest = (body) => {
     if (!images.length || images.length > MAX_IMAGE_COUNT) {
       return "图片数量不符合要求。";
     }
-    if (images.some((image) => typeof image !== "string" || !image.startsWith("data:image/"))) {
+    if (images.some((image) => typeof image !== "string" || !/^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(image))) {
       return "图片简历格式不正确。";
     }
     if (images.join("").length > MAX_IMAGE_DATA_URL_CHARS) {
@@ -440,66 +432,13 @@ export async function runArkCompletion(body) {
     };
   }
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    return {
-      status: 503,
-      payload: {
-        ok: false,
-        error: "模型服务尚未配置，请联系部署者。",
-      },
-    };
+  const result = await runModelCompletion({
+    messages: buildMessages(body),
+    vision: body.task === "resume-vision",
+    maxTokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? (imageCountOf(body) > 1 ? 2200 : 1500) : body.task === "resume-structure" ? 2400 : 1200,
+  });
+  if (result.payload.ok) {
+    result.payload.content = await attachRecruitingLinks(result.payload.content, body.task);
   }
-
-  const baseUrl = process.env.DEEPSEEK_BASE_URL || DEFAULT_BASE_URL;
-  const model = modelForTask(body.task);
-  let response;
-  try {
-    response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: buildMessages(body),
-        temperature: 0.25,
-        thinking: {
-          type: "disabled",
-        },
-        max_tokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? (imageCountOf(body) > 1 ? 2200 : 1500) : body.task === "resume-structure" ? 2400 : 1200,
-      }),
-    });
-  } catch (error) {
-    return {
-      status: 504,
-      payload: {
-        ok: false,
-        error: error instanceof Error && error.name === "TimeoutError" ? "模型接口响应超时，请稍后重试或上传更清晰、更小的文件。" : "模型接口网络连接失败，请检查本机网络或服务配置。",
-      },
-    };
-  }
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    console.warn("[model-proxy] upstream HTTP status:", response.status);
-    return {
-      status: response.status,
-      payload: {
-        ok: false,
-        error: response.status === 429 ? "模型服务繁忙，请稍后重试。" : "模型服务暂不可用，请稍后重试。",
-      },
-    };
-  }
-
-  return {
-    status: 200,
-    payload: {
-      ok: true,
-      model,
-      content: await attachRecruitingLinks(data?.choices?.[0]?.message?.content || "", body.task),
-    },
-  };
+  return result;
 }
