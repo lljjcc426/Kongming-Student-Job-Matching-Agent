@@ -1,0 +1,439 @@
+{
+  "notice": "全部人物、学校、企业、岗位与响应均为演示样例，不代表真实招聘信息或线上模型结果。",
+  "resume": {
+    "name": "林晓（示例）",
+    "basicInfo": [
+      "姓名：林晓（示例）",
+      "求职意向：用户研究实习生 / 心理测评产品实习生",
+      "意向城市：上海、北京"
+    ],
+    "education": [
+      "示例大学 · 心理学本科 · 2023.09—2027.06",
+      "主修：心理统计、实验心理学、用户研究方法"
+    ],
+    "internships": [
+      "校园心理中心助理：整理来访记录，协助团体辅导与活动复盘。"
+    ],
+    "projects": [
+      "大学生压力与睡眠质量调查：设计问卷并回收 286 份有效样本，使用 SPSS 完成相关分析，输出研究报告。",
+      "校园服务体验研究：完成 12 场半结构化访谈，梳理主题并形成 3 项服务改进建议。"
+    ],
+    "campus": [
+      "心理协会活动负责人：协调 8 人团队，组织 4 场心理健康主题沙龙。"
+    ],
+    "honors": [
+      "校级优秀学生干部"
+    ],
+    "competitions": [
+      "校级社会调查项目优秀奖"
+    ],
+    "certificates": [],
+    "languages": [
+      "英语：可阅读专业文献"
+    ],
+    "socialAccounts": [],
+    "skills": [
+      "SPSS",
+      "问卷设计",
+      "访谈",
+      "数据分析",
+      "心理学"
+    ],
+    "targetRoles": [
+      "用户研究实习生",
+      "心理测评产品实习生"
+    ],
+    "summary": "心理学本科在读，具备问卷、访谈与定量分析项目经验，希望将研究能力用于产品体验改进。"
+  },
+  "jobs": [
+    {
+      "id": "demo-1",
+      "source": "demo",
+      "source_name": "演示数据",
+      "source_job_id": "demo-1",
+      "source_url": "https://example.com/demo/jobs/1",
+      "company_name": "示例企业 A",
+      "title": "用户研究实习生",
+      "recruitment_type": "实习",
+      "employment_type": "实习",
+      "city": "上海",
+      "department": "研究与体验团队",
+      "job_family": "用户研究",
+      "responsibilities": [
+        "参与用户访谈与问卷研究，梳理用户需求。",
+        "整理研究数据，输出可执行的产品改进建议。"
+      ],
+      "requirements": [
+        "心理学或相关专业本科在读",
+        "具备访谈、问卷设计与数据分析项目经验"
+      ],
+      "preferred_qualifications": [
+        "熟悉 SPSS 与基础统计方法"
+      ],
+      "skills": [
+        "SPSS",
+        "访谈",
+        "问卷设计",
+        "数据分析",
+        "心理学"
+      ],
+      "education_requirement": "本科及以上学历在读",
+      "experience_requirement": "相关研究或校园实践经历",
+      "published_at": "",
+      "refreshed_at": "",
+      "expires_at": "",
+      "last_verified_at": "2026-11-16T00:00:00.000Z",
+      "status": "active",
+      "retrieval": {
+        "score": 1.0,
+        "confidence": 0.92,
+        "denseScore": 0.82,
+        "lexicalScore": 8.0,
+        "denseRank": 1,
+        "lexicalRank": 1,
+        "rerankScore": null,
+        "rerankRank": null,
+        "matchedTerms": [
+          "心理学",
+          "访谈",
+          "数据分析"
+        ],
+        "matchedSections": [
+          "overview",
+          "requirements"
+        ]
+      }
+    },
+    {
+      "id": "demo-2",
+      "source": "demo",
+      "source_name": "演示数据",
+      "source_job_id": "demo-2",
+      "source_url": "https://example.com/demo/jobs/2",
+      "company_name": "示例企业 B",
+      "title": "心理测评产品实习生",
+      "recruitment_type": "实习",
+      "employment_type": "实习",
+      "city": "北京",
+      "department": "研究与体验团队",
+      "job_family": "产品",
+      "responsibilities": [
+        "参与用户访谈与问卷研究，梳理用户需求。",
+        "整理研究数据，输出可执行的产品改进建议。"
+      ],
+      "requirements": [
+        "心理学或相关专业本科在读",
+        "具备访谈、问卷设计与数据分析项目经验"
+      ],
+      "preferred_qualifications": [
+        "熟悉 SPSS 与基础统计方法"
+      ],
+      "skills": [
+        "SPSS",
+        "访谈",
+        "问卷设计",
+        "数据分析",
+        "心理学"
+      ],
+      "education_requirement": "本科及以上学历在读",
+      "experience_requirement": "相关研究或校园实践经历",
+      "published_at": "",
+      "refreshed_at": "",
+      "expires_at": "",
+      "last_verified_at": "2026-11-16T00:00:00.000Z",
+      "status": "active",
+      "retrieval": {
+        "score": 0.92,
+        "confidence": 0.87,
+        "denseScore": 0.78,
+        "lexicalScore": 7.5,
+        "denseRank": 2,
+        "lexicalRank": 2,
+        "rerankScore": null,
+        "rerankRank": null,
+        "matchedTerms": [
+          "心理学",
+          "访谈",
+          "数据分析"
+        ],
+        "matchedSections": [
+          "overview",
+          "requirements"
+        ]
+      }
+    },
+    {
+      "id": "demo-3",
+      "source": "demo",
+      "source_name": "演示数据",
+      "source_job_id": "demo-3",
+      "source_url": "https://example.com/demo/jobs/3",
+      "company_name": "示例企业 C",
+      "title": "校园调研助理",
+      "recruitment_type": "实习",
+      "employment_type": "实习",
+      "city": "上海",
+      "department": "研究与体验团队",
+      "job_family": "研究",
+      "responsibilities": [
+        "参与用户访谈与问卷研究，梳理用户需求。",
+        "整理研究数据，输出可执行的产品改进建议。"
+      ],
+      "requirements": [
+        "心理学或相关专业本科在读",
+        "具备访谈、问卷设计与数据分析项目经验"
+      ],
+      "preferred_qualifications": [
+        "熟悉 SPSS 与基础统计方法"
+      ],
+      "skills": [
+        "SPSS",
+        "访谈",
+        "问卷设计",
+        "数据分析",
+        "心理学"
+      ],
+      "education_requirement": "本科及以上学历在读",
+      "experience_requirement": "相关研究或校园实践经历",
+      "published_at": "",
+      "refreshed_at": "",
+      "expires_at": "",
+      "last_verified_at": "2026-11-16T00:00:00.000Z",
+      "status": "active",
+      "retrieval": {
+        "score": 0.84,
+        "confidence": 0.82,
+        "denseScore": 0.74,
+        "lexicalScore": 7.0,
+        "denseRank": 3,
+        "lexicalRank": 3,
+        "rerankScore": null,
+        "rerankRank": null,
+        "matchedTerms": [
+          "心理学",
+          "访谈",
+          "数据分析"
+        ],
+        "matchedSections": [
+          "overview",
+          "requirements"
+        ]
+      }
+    },
+    {
+      "id": "demo-4",
+      "source": "demo",
+      "source_name": "演示数据",
+      "source_job_id": "demo-4",
+      "source_url": "https://example.com/demo/jobs/4",
+      "company_name": "示例企业 D",
+      "title": "内容洞察实习生",
+      "recruitment_type": "实习",
+      "employment_type": "实习",
+      "city": "北京",
+      "department": "研究与体验团队",
+      "job_family": "内容策略",
+      "responsibilities": [
+        "参与用户访谈与问卷研究，梳理用户需求。",
+        "整理研究数据，输出可执行的产品改进建议。"
+      ],
+      "requirements": [
+        "心理学或相关专业本科在读",
+        "具备访谈、问卷设计与数据分析项目经验"
+      ],
+      "preferred_qualifications": [
+        "熟悉 SPSS 与基础统计方法"
+      ],
+      "skills": [
+        "SPSS",
+        "访谈",
+        "问卷设计",
+        "数据分析",
+        "心理学"
+      ],
+      "education_requirement": "本科及以上学历在读",
+      "experience_requirement": "相关研究或校园实践经历",
+      "published_at": "",
+      "refreshed_at": "",
+      "expires_at": "",
+      "last_verified_at": "2026-11-16T00:00:00.000Z",
+      "status": "active",
+      "retrieval": {
+        "score": 0.76,
+        "confidence": 0.77,
+        "denseScore": 0.7,
+        "lexicalScore": 6.5,
+        "denseRank": 4,
+        "lexicalRank": 4,
+        "rerankScore": null,
+        "rerankRank": null,
+        "matchedTerms": [
+          "心理学",
+          "访谈",
+          "数据分析"
+        ],
+        "matchedSections": [
+          "overview",
+          "requirements"
+        ]
+      }
+    },
+    {
+      "id": "demo-5",
+      "source": "demo",
+      "source_name": "演示数据",
+      "source_job_id": "demo-5",
+      "source_url": "https://example.com/demo/jobs/5",
+      "company_name": "示例企业 E",
+      "title": "人才数据分析实习生",
+      "recruitment_type": "实习",
+      "employment_type": "实习",
+      "city": "上海",
+      "department": "研究与体验团队",
+      "job_family": "HR 数据",
+      "responsibilities": [
+        "参与用户访谈与问卷研究，梳理用户需求。",
+        "整理研究数据，输出可执行的产品改进建议。"
+      ],
+      "requirements": [
+        "心理学或相关专业本科在读",
+        "具备访谈、问卷设计与数据分析项目经验"
+      ],
+      "preferred_qualifications": [
+        "熟悉 SPSS 与基础统计方法"
+      ],
+      "skills": [
+        "SPSS",
+        "访谈",
+        "问卷设计",
+        "数据分析",
+        "心理学"
+      ],
+      "education_requirement": "本科及以上学历在读",
+      "experience_requirement": "相关研究或校园实践经历",
+      "published_at": "",
+      "refreshed_at": "",
+      "expires_at": "",
+      "last_verified_at": "2026-11-16T00:00:00.000Z",
+      "status": "active",
+      "retrieval": {
+        "score": 0.68,
+        "confidence": 0.72,
+        "denseScore": 0.66,
+        "lexicalScore": 6.0,
+        "denseRank": 5,
+        "lexicalRank": 5,
+        "rerankScore": null,
+        "rerankRank": null,
+        "matchedTerms": [
+          "心理学",
+          "访谈",
+          "数据分析"
+        ],
+        "matchedSections": [
+          "overview",
+          "requirements"
+        ]
+      }
+    },
+    {
+      "id": "demo-6",
+      "source": "demo",
+      "source_name": "演示数据",
+      "source_job_id": "demo-6",
+      "source_url": "https://example.com/demo/jobs/6",
+      "company_name": "示例企业 F",
+      "title": "用户运营实习生",
+      "recruitment_type": "实习",
+      "employment_type": "实习",
+      "city": "北京",
+      "department": "研究与体验团队",
+      "job_family": "用户运营",
+      "responsibilities": [
+        "参与用户访谈与问卷研究，梳理用户需求。",
+        "整理研究数据，输出可执行的产品改进建议。"
+      ],
+      "requirements": [
+        "心理学或相关专业本科在读",
+        "具备访谈、问卷设计与数据分析项目经验"
+      ],
+      "preferred_qualifications": [
+        "熟悉 SPSS 与基础统计方法"
+      ],
+      "skills": [
+        "SPSS",
+        "访谈",
+        "问卷设计",
+        "数据分析",
+        "心理学"
+      ],
+      "education_requirement": "本科及以上学历在读",
+      "experience_requirement": "相关研究或校园实践经历",
+      "published_at": "",
+      "refreshed_at": "",
+      "expires_at": "",
+      "last_verified_at": "2026-11-16T00:00:00.000Z",
+      "status": "active",
+      "retrieval": {
+        "score": 0.6,
+        "confidence": 0.67,
+        "denseScore": 0.62,
+        "lexicalScore": 5.5,
+        "denseRank": 6,
+        "lexicalRank": 6,
+        "rerankScore": null,
+        "rerankRank": null,
+        "matchedTerms": [
+          "心理学",
+          "访谈",
+          "数据分析"
+        ],
+        "matchedSections": [
+          "overview",
+          "requirements"
+        ]
+      }
+    }
+  ],
+  "jd": {
+    "title": "用户研究实习生",
+    "priority": "高",
+    "track": "用户研究",
+    "city": "上海",
+    "level": "实习",
+    "summary": "参与用户访谈、问卷研究、数据分析与用户洞察报告输出。",
+    "conclusion": "心理学背景与调研项目可以支撑该方向，需补充研究结果如何转化为实际改进。",
+    "strengths": [
+      "具备心理学与统计基础",
+      "完成过问卷和半结构化访谈项目"
+    ],
+    "risks": [
+      "企业项目经验仍需积累"
+    ],
+    "actions": [
+      "说明样本选择、研究方法与建议的采纳情况"
+    ],
+    "keywords": [
+      "用户访谈",
+      "问卷设计",
+      "SPSS",
+      "数据分析"
+    ],
+    "responsibilities": [
+      "执行访谈与问卷研究",
+      "整理研究数据",
+      "撰写洞察报告"
+    ],
+    "requirements": [
+      "心理学或相关专业本科在读",
+      "掌握定性与定量研究基础"
+    ],
+    "bonus": [
+      "SPSS",
+      "研究项目经历"
+    ],
+    "applicationLinks": []
+  },
+  "chat": "### 建议优先准备的方向\n\n结合你的心理学背景与两段调研项目，可以先关注**用户研究**与**心理测评产品**相关实习。\n\n1. **补充研究过程**：说明 286 份有效样本的筛选方式、变量设计和分析方法。\n2. **突出个人贡献**：写清 12 场访谈中你负责的环节，以及主题如何归纳。\n3. **连接产品决策**：说明 3 项建议对应什么用户问题，是否获得反馈。\n\n建议先选择一个目标 JD，再调整项目排序与关键词。以上为固定演示回复。",
+  "interviewFollowup": "你提到回收了 286 份有效问卷。请具体说明，你如何判断样本质量，并选择合适的统计方法？"
+}

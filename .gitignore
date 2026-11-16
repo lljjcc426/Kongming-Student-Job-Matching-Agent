@@ -33,3 +33,7 @@ Thumbs.db
 .idea/
 
 .vercel
+
+# Local Python environments
+.venv-ocr/
+.venv-rag/
