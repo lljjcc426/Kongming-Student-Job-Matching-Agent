@@ -1,7 +1,5 @@
-import { readBoundedIntegerEnv } from "./runtimeConfig.js";
+import { runModelCompletion } from "./modelProvider.js";
 
-const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
-const DEFAULT_MODEL = "doubao-seed-2-0-lite-260215";
 const ALLOWED_TASKS = new Set(["match-analysis", "resume-vision", "resume-structure", "job-recommendations", "jd-analysis", "interview-feedback", "career-chat"]);
 const MAX_RESUME_CHARS = 12000;
 const MAX_INTERVIEW_CHARS = 4000;
@@ -11,16 +9,8 @@ const MAX_MEMORY_MESSAGE_CHARS = 700;
 const MAX_MEMORY_FEEDBACK_CHARS = 500;
 const MAX_IMAGE_DATA_URL_CHARS = 10_000_000;
 const MAX_IMAGE_COUNT = 4;
-const DEFAULT_REQUEST_TIMEOUT_MS = 65_000;
 const SEARCH_TIMEOUT_MS = 5000;
 const SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; StudentJobMatcher/0.1)";
-
-const modelForTask = (task) => {
-  if (task === "resume-vision") {
-    return process.env.ARK_VISION_MODEL || process.env.ARK_MODEL || process.env.ARK_TEXT_MODEL || DEFAULT_MODEL;
-  }
-  return process.env.ARK_MODEL || process.env.ARK_TEXT_MODEL || DEFAULT_MODEL;
-};
 
 const asText = (value, maxLength) => {
   if (typeof value !== "string") return "";
@@ -38,59 +28,6 @@ const imageCountOf = (body) => {
   return body.imageDataUrl ? 1 : 0;
 };
 
-const isGiteeAiProvider = (baseUrl) => /ai\.gitee\.com/i.test(baseUrl);
-
-const requestTimeoutMs = () => readBoundedIntegerEnv(
-  "ARK_REQUEST_TIMEOUT_MS",
-  DEFAULT_REQUEST_TIMEOUT_MS,
-);
-
-const maxTokensForTask = (body) => {
-  if (body.task === "job-recommendations") return Math.max(700, asCount(body.jobCount) * 420);
-  if (body.task === "jd-analysis") return 1400;
-  if (body.task === "career-chat") return 1600;
-  if (body.task === "resume-vision") return imageCountOf(body) > 1 ? 2200 : 1500;
-  if (body.task === "resume-structure") return 2400;
-  return 1200;
-};
-
-const buildCompletionPayload = (body, baseUrl, model) => {
-  const payload = {
-    model,
-    messages: buildMessages(body),
-    temperature: 0.25,
-  };
-
-  const maxTokens = maxTokensForTask(body);
-  if (isGiteeAiProvider(baseUrl)) {
-    payload.max_tokens = maxTokens;
-    return payload;
-  }
-
-  payload.thinking = {
-    type: "disabled",
-  };
-  payload.max_completion_tokens = maxTokens;
-  return payload;
-};
-
-const buildProviderHeaders = (apiKey, baseUrl) => {
-  const headers = {
-    "Content-Type": "application/json; charset=utf-8",
-    Authorization: `Bearer ${apiKey}`,
-  };
-
-  if (isGiteeAiProvider(baseUrl) && process.env.ARK_PACKAGE) {
-    headers["X-Package"] = process.env.ARK_PACKAGE;
-  }
-
-  if (isGiteeAiProvider(baseUrl) && process.env.ARK_FAILOVER_ENABLED) {
-    headers["X-Failover-Enabled"] = process.env.ARK_FAILOVER_ENABLED;
-  }
-
-  return headers;
-};
-
 const validateRequest = (body) => {
   if (!body || typeof body !== "object") {
     return "请求内容格式不正确。";
@@ -105,7 +42,7 @@ const validateRequest = (body) => {
     if (!images.length || images.length > MAX_IMAGE_COUNT) {
       return "图片数量不符合要求。";
     }
-    if (images.some((image) => typeof image !== "string" || !image.startsWith("data:image/"))) {
+    if (images.some((image) => typeof image !== "string" || !/^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(image))) {
       return "图片简历格式不正确。";
     }
     if (images.join("").length > MAX_IMAGE_DATA_URL_CHARS) {
@@ -349,10 +286,6 @@ const buildMessages = (body) => {
             image_url: {
               url: imageDataUrl,
               detail: "high",
-              image_pixel_limit: {
-                max_pixels: 3014080,
-                min_pixels: 3136,
-              },
             },
           })),
         ],
@@ -565,60 +498,13 @@ export async function runArkCompletion(body) {
     };
   }
 
-  const apiKey = process.env.ARK_API_KEY;
-  if (!apiKey) {
-    return {
-      status: 503,
-      payload: {
-        ok: false,
-        error: "当前运行环境未配置 ARK_API_KEY，模型能力不可用。请配置环境变量并重启服务。",
-      },
-    };
+  const result = await runModelCompletion({
+    messages: buildMessages(body),
+    vision: body.task === "resume-vision",
+    maxTokens: body.task === "job-recommendations" ? Math.max(700, asCount(body.jobCount) * 420) : body.task === "jd-analysis" ? 1400 : body.task === "career-chat" ? 1600 : body.task === "resume-vision" ? (imageCountOf(body) > 1 ? 2200 : 1500) : body.task === "resume-structure" ? 2400 : 1200,
+  });
+  if (result.payload.ok) {
+    result.payload.content = await attachRecruitingLinks(result.payload.content, body.task);
   }
-
-  const baseUrl = process.env.ARK_BASE_URL || DEFAULT_BASE_URL;
-  const model = modelForTask(body.task);
-  let response;
-  try {
-    response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      signal: AbortSignal.timeout(requestTimeoutMs()),
-      headers: buildProviderHeaders(apiKey, baseUrl),
-      body: JSON.stringify(buildCompletionPayload(body, baseUrl, model)),
-    });
-  } catch (error) {
-    return {
-      status: 504,
-      payload: {
-        ok: false,
-        error: error instanceof Error && error.name === "TimeoutError" ? "模型接口响应超时，请稍后重试或上传更清晰、更小的文件。" : "模型接口网络连接失败，请检查本机网络或服务配置。",
-      },
-    };
-  }
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const upstreamCode = typeof data?.error?.code === "string"
-      ? data.error.code.replace(/[^a-zA-Z0-9_.-]/g, "").slice(0, 64)
-      : "";
-    console.warn(`[ark-proxy] upstream request failed: HTTP ${response.status}${upstreamCode ? ` ${upstreamCode}` : ""}`);
-    return {
-      status: response.status,
-      payload: {
-        ok: false,
-        error: upstreamCode
-          ? `模型接口调用失败（${upstreamCode}），请稍后重试。`
-          : "模型接口调用失败，请稍后重试。",
-      },
-    };
-  }
-
-  return {
-    status: 200,
-    payload: {
-      ok: true,
-      model,
-      content: await attachRecruitingLinks(data?.choices?.[0]?.message?.content || "", body.task),
-    },
-  };
+  return result;
 }

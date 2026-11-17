@@ -34,6 +34,7 @@ export function useIdentity() {
 
   const register = async (nickname: string, password: string) => {
     const result = await registerAccount(nickname, password);
+    setDialogOpen(true);
     setIdentity(result.identity);
     return result;
   };

@@ -1,0 +1,12 @@
+[Unit]
+Description=Kongming account database backup
+After=kongming.service
+
+[Service]
+Type=oneshot
+User=kongming
+Group=kongming
+WorkingDirectory=/opt/kongming/current
+EnvironmentFile=/etc/kongming/kongming.env
+ExecStart=/usr/local/bin/node scripts/backup-memory.mjs
+UMask=0077

@@ -1,14 +1,10 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const os = require("node:os");
 const { pathToFileURL } = require("node:url");
 
-const TEMP_ROOT = "D:\\CodexTemp";
-if (!fs.existsSync("D:\\")) {
-  throw new Error("D 盘不可用，无法按项目约定验证智能体记忆。");
-}
-fs.mkdirSync(TEMP_ROOT, { recursive: true });
-const testDirectory = fs.mkdtempSync(path.join(TEMP_ROOT, "kongming-agent-memory-"));
+const testDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "kongming-agent-memory-"));
 process.env.AGENT_MEMORY_DB_PATH = path.join(testDirectory, "agent-memory.sqlite3");
 process.env.AGENT_MEMORY_MAX_MESSAGES = "20";
 process.env.AGENT_MEMORY_RETENTION_DAYS = "180";
@@ -17,8 +13,16 @@ const coreUrl = pathToFileURL(path.resolve("server/agentMemoryCore.js")).href;
 
 async function main() {
   const { closeAgentMemoryStore, resolveAgentMemoryPath, runAgentMemoryRequest: requestMemory } = await import(coreUrl);
-  const runAgentMemoryRequest = (body) => requestMemory(body, { trustedUserId: true });
-  const userId = "km_verify_agent_memory_001";
+  const registered = await requestMemory({
+    action: "register", userId: "km_untrusted_client_id",
+    nickname: "孔明验证用户", password: "safe-pass-2026",
+  });
+  assert.equal(registered.status, 200);
+  const userId = registered.payload.identity.userId;
+  assert.notEqual(userId, "km_untrusted_client_id");
+  assert.match(registered.payload.recoveryCode, /^\d{6}$/);
+  const sessionContext = { sessionToken: registered.sessionToken };
+  const runAgentMemoryRequest = (body) => requestMemory(body, sessionContext);
 
   try {
     assert.equal(resolveAgentMemoryPath(), process.env.AGENT_MEMORY_DB_PATH);
@@ -159,20 +163,9 @@ async function main() {
     });
     assert.equal(weakPassword.status, 400);
 
-    const registered = await requestMemory({
-      action: "register",
-      userId,
-      nickname: "孔明验证用户",
-      password: "safe-pass-2026",
-    });
-    assert.equal(registered.status, 200);
-    assert.equal(registered.payload.identity.userId, userId);
-    assert.equal(registered.payload.identity.authenticated, true);
-    assert.match(registered.payload.recoveryCode, /^\d{6}$/);
-    assert.ok(registered.sessionToken);
-    const sessionContext = { sessionToken: registered.sessionToken };
-
-    const memoryAfterBinding = await requestMemory({ action: "load", userId: "km_spoofed_other_user" }, sessionContext);
+    const spoofed = await requestMemory({ action: "load", userId: "km_spoofed_other_user" }, sessionContext);
+    assert.equal(spoofed.status, 403);
+    const memoryAfterBinding = await requestMemory({ action: "load", userId }, sessionContext);
     assert.equal(memoryAfterBinding.payload.memory.messages.length, 2);
     const growthAfterBinding = await requestMemory({ action: "load-growth" }, sessionContext);
     assert.equal(growthAfterBinding.payload.plan.id, growthPlan.id);
@@ -257,14 +250,10 @@ async function main() {
     const afterLogout = await requestMemory({ action: "load" }, recoveredSession);
     assert.equal(afterLogout.status, 401);
     console.log("[智能体记忆] 写入、密码认证、会话隔离、恢复、演示账号、重启恢复与清除验证通过");
-    console.log(`[智能体记忆] 测试数据库位于 D 盘临时目录：${testDirectory}`);
+
   } finally {
     closeAgentMemoryStore();
-    const resolved = path.resolve(testDirectory);
-    if (!resolved.startsWith(`${path.resolve(TEMP_ROOT)}${path.sep}`)) {
-      throw new Error(`拒绝清理非测试目录：${resolved}`);
-    }
-    fs.rmSync(resolved, { recursive: true, force: true });
+    fs.rmSync(testDirectory, { recursive: true, force: true });
   }
 }
 

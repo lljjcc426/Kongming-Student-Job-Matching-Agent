@@ -255,6 +255,16 @@ export function useResumeProcessing() {
 
   const uploadResume = async (file?: File, context: ResumeUploadContext = {}) => {
     if (!file) return;
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isText = file.type.startsWith("text/") || /\.(txt|md|text)$/i.test(file.name);
+    if (!isImage && !isPdf && !isText) {
+      setModelStatus("error");
+      setPipelineStep("error");
+      setModelMessage("暂不支持此文件格式，请将 Word 文档导出为 PDF 或 TXT 后上传。");
+      setUploadMessage("支持 PDF、图片及 TXT/Markdown 文本文件。");
+      return;
+    }
     const runId = pipelineRunRef.current + 1;
     pipelineRunRef.current = runId;
     if (file.size > MAX_RESUME_UPLOAD_BYTES) {
@@ -270,11 +280,11 @@ export function useResumeProcessing() {
     rememberOriginalResume(file);
     const recommendationJdText = context.jdText ?? "";
 
-    if (file.type.startsWith("image/")) {
+    if (isImage) {
       await handleImageUpload(file, recommendationJdText, runId);
       return;
     }
-    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    if (isPdf) {
       await handlePdfUpload(file, recommendationJdText, runId);
       return;
     }

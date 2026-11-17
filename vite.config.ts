@@ -11,11 +11,8 @@ import {
   warmLocalJobKnowledge,
 } from "./server/localJobKnowledgeWorker.js";
 import { closeLocalOcrWorker, warmLocalOcrWorker } from "./server/localOcrWorker.js";
-import {
-  AUTH_SESSION_COOKIE,
-  closeAgentMemoryStore,
-  runAgentMemoryRequest,
-} from "./server/agentMemoryCore.js";
+import { closeAgentMemoryStore } from "./server/agentMemoryCore.js";
+import handleMemoryRequest from "./server/memoryHttp.js";
 
 const MAX_DEV_BODY_BYTES = 8_000_000;
 
@@ -158,33 +155,9 @@ const agentMemoryDevProxy = (): Plugin => ({
   configureServer(server) {
     server.httpServer?.once("close", closeAgentMemoryStore);
     server.middlewares.use("/api/memory", async (request, response) => {
-      response.setHeader("Content-Type", "application/json; charset=utf-8");
-      response.setHeader("Cache-Control", "no-store, private");
-      response.setHeader("X-Content-Type-Options", "nosniff");
-      response.setHeader("Referrer-Policy", "no-referrer");
-      response.setHeader("X-Robots-Tag", "noindex, nofollow");
-
-      if (request.method !== "POST") {
-        response.statusCode = 405;
-        response.end(JSON.stringify({ ok: false, error: "只支持 POST 请求。" }));
-        return;
-      }
-
       try {
-        const cookieHeader = request.headers.cookie || "";
-        const sessionToken = cookieHeader.split(";").map((item) => item.trim()).reduce((token, item) => {
-          const [name, ...value] = item.split("=");
-          return name === AUTH_SESSION_COOKIE ? decodeURIComponent(value.join("=")) : token;
-        }, "");
-        const result = await runAgentMemoryRequest(await readJsonBody(request), { sessionToken });
-        if (result.sessionToken || result.clearSession) {
-          response.setHeader(
-            "Set-Cookie",
-            `${AUTH_SESSION_COOKIE}=${result.clearSession ? "" : encodeURIComponent(result.sessionToken)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${result.clearSession ? 0 : 2592000}`,
-          );
-        }
-        response.statusCode = result.status;
-        response.end(JSON.stringify(result.payload));
+        const body = request.method === "POST" ? await readJsonBody(request) : {};
+        await handleMemoryRequest(Object.assign(request, { body }), response);
       } catch (error) {
         response.statusCode = error instanceof Error && error.message === "REQUEST_TOO_LARGE" ? 413 : 500;
         console.error("[agent-memory-dev-proxy]", error);
@@ -197,7 +170,7 @@ const agentMemoryDevProxy = (): Plugin => ({
   },
 });
 
-const serverEnvPrefixes = ["ARK_", "JOB_RAG_", "OCR_", "VOLC_OCR_", "HF_", "MODELSCOPE_", "AGENT_MEMORY_"];
+const serverEnvPrefixes = ["MODEL_", "DEEPSEEK_", "ARK_", "JOB_RAG_", "OCR_", "VOLC_OCR_", "HF_", "MODELSCOPE_", "AGENT_MEMORY_"];
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");

@@ -68,12 +68,12 @@ const emptyMemory = (): AgentMemory => ({
   updatedAt: null,
 });
 
-const requestMemory = async (payload: Record<string, unknown>): Promise<AgentMemory> => {
+const requestMemory = async (userId: string, payload: Record<string, unknown>): Promise<AgentMemory> => {
   const response = await fetch(memoryEndpoint(), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, userId }),
   });
   const data = await response.json().catch(() => ({})) as MemoryResponse;
   if (!response.ok || !data.ok || !data.memory) {
@@ -99,33 +99,35 @@ const requestMemory = async (payload: Record<string, unknown>): Promise<AgentMem
   };
 };
 
-export const loadAgentMemory = () => requestMemory({ action: "load" });
+export const loadAgentMemory = (userId: string) => requestMemory(userId, { action: "load" });
 
 export const saveAgentMemory = (
+  userId: string,
   messages: ChatMessage[],
   context: AgentMemoryContext = {},
-) => requestMemory({ action: "save", messages, context });
+) => requestMemory(userId, { action: "save", messages, context });
 
-export const clearAgentMemory = () => requestMemory({ action: "clear" });
+export const clearAgentMemory = (userId: string) => requestMemory(userId, { action: "clear" });
 
 export const saveAgentFeedback = (
+  userId: string,
   messageId: string,
   rating: AgentFeedbackRating,
   correction = "",
-) => requestMemory({
+) => requestMemory(userId, {
   action: "save-feedback",
   messageId,
   rating,
   correction,
 });
 
-export const saveInterviewMemory = (input: {
+export const saveInterviewMemory = (userId: string, input: {
   interviewId: string;
   jobId: string;
   jobTitle: string;
   interviewType: InterviewType;
   report: InterviewFeedbackReport;
-}) => requestMemory({ action: "save-interview", interview: input });
+}) => requestMemory(userId, { action: "save-interview", interview: input });
 
 const memoryTerms = (text: string) => {
   const normalized = text.toLowerCase().replace(/\s+/g, "");

@@ -8,12 +8,12 @@ type GrowthResponse = {
   plan?: GrowthPlan | null;
 };
 
-const request = async (payload: Record<string, unknown>) => {
+const request = async (userId: string, payload: Record<string, unknown>) => {
   const response = await fetch(memoryEndpoint(), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, userId }),
   });
   const data = await response.json().catch(() => ({})) as GrowthResponse;
   if (!response.ok || !data.ok) {
@@ -22,5 +22,5 @@ const request = async (payload: Record<string, unknown>) => {
   return data.plan ?? null;
 };
 
-export const loadGrowthPlan = () => request({ action: "load-growth" });
-export const saveGrowthPlan = (plan: GrowthPlan) => request({ action: "save-growth", plan });
+export const loadGrowthPlan = (userId: string) => request(userId, { action: "load-growth" });
+export const saveGrowthPlan = (userId: string, plan: GrowthPlan) => request(userId, { action: "save-growth", plan });

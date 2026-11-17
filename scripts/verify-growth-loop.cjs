@@ -2,7 +2,7 @@ const { buildSync } = require("esbuild");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const runtimeRoot = process.env.KONGMING_TEST_RUNTIME || "D:\\Kongming-RAG\\test-runtime\\growth-loop";
+const runtimeRoot = process.env.KONGMING_TEST_RUNTIME || path.resolve("output", "verification", "growth-loop");
 fs.mkdirSync(runtimeRoot, { recursive: true });
 const bundlePath = path.join(runtimeRoot, "growth-engine.cjs");
 

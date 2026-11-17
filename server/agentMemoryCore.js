@@ -4,9 +4,7 @@ import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from 
 import { DatabaseSync } from "node:sqlite";
 import { readBoundedIntegerEnv } from "./runtimeConfig.js";
 
-const DEFAULT_WINDOWS_ROOT = "D:\\Kongming-Memory";
-const DEFAULT_OTHER_ROOT = path.resolve("data", "agent-memory");
-const USER_ID_PATTERN = /^[a-zA-Z0-9_-]{8,80}$/;
+const DEFAULT_DATA_ROOT = path.resolve("data", "agent-memory");
 const MAX_MESSAGE_CHARS = 6000;
 const MAX_FEEDBACK_CORRECTION_CHARS = 1000;
 const MAX_CONTEXT_CHARS = 120_000;
@@ -18,8 +16,6 @@ const MIN_PASSWORD_CHARS = 8;
 const MAX_PASSWORD_CHARS = 128;
 const SESSION_TTL_MS = 30 * 86_400_000;
 const DEMO_USER_ID = "km_demo_account_001";
-const DEMO_NICKNAME = "demo";
-const DEMO_PASSWORD = "123456";
 export const AUTH_SESSION_COOKIE = "km_session";
 const DEFAULT_MAX_MESSAGES = 120;
 const DEFAULT_RETENTION_DAYS = 180;
@@ -54,7 +50,7 @@ const memoryRoot = () => {
   if (process.env.AGENT_MEMORY_DATA_ROOT) {
     return path.resolve(process.env.AGENT_MEMORY_DATA_ROOT);
   }
-  return process.platform === "win32" ? DEFAULT_WINDOWS_ROOT : DEFAULT_OTHER_ROOT;
+  return DEFAULT_DATA_ROOT;
 };
 
 export const resolveAgentMemoryPath = () =>
@@ -80,7 +76,7 @@ const openDatabase = () => {
   if (database && databasePath === nextPath) return database;
   if (database) database.close();
 
-  fs.mkdirSync(path.dirname(nextPath), { recursive: true });
+  fs.mkdirSync(path.dirname(nextPath), { recursive: true, mode: 0o700 });
   database = new DatabaseSync(nextPath);
   databasePath = nextPath;
   database.exec("PRAGMA journal_mode = WAL;");
@@ -214,7 +210,8 @@ const openDatabase = () => {
   if (!interviewColumns.has("dimensions_json")) {
     database.exec("ALTER TABLE agent_interview_memories ADD COLUMN dimensions_json TEXT NOT NULL DEFAULT '[]';");
   }
-  ensureDemoAccount(database);
+  // Revoke sessions issued for the former shared demo account.
+  database.prepare("DELETE FROM agent_sessions WHERE user_id = ?").run(DEMO_USER_ID);
   return database;
 };
 
@@ -232,9 +229,6 @@ const boundedJson = (value) => {
   const serialized = JSON.stringify(value);
   return serialized.length <= MAX_CONTEXT_CHARS ? serialized : "{}";
 };
-
-const validateUserId = (value) =>
-  typeof value === "string" && USER_ID_PATTERN.test(value) ? value : "";
 
 const sanitizeNickname = (value) => {
   if (typeof value !== "string") return "";
@@ -260,10 +254,9 @@ const verifyRecoveryCode = (recoveryCode, salt, expectedHash) => {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 };
 
-const sanitizePassword = (value, { allowDemo = false } = {}) => {
+const sanitizePassword = (value) => {
   if (typeof value !== "string") return "";
   const length = Array.from(value).length;
-  if (allowDemo && value === DEMO_PASSWORD) return value;
   if (length < MIN_PASSWORD_CHARS || length > MAX_PASSWORD_CHARS) return "";
   if (["123456", "12345678", "password", "qwerty123", "11111111"].includes(value.toLowerCase())) return "";
   return value;
@@ -435,70 +428,12 @@ const ensureProfile = (db, userId) => {
   `).run(userId, timestamp, timestamp);
 };
 
-const ensureDemoAccount = (db) => {
-  const existing = db.prepare("SELECT user_id FROM agent_accounts WHERE user_id = ?").get(DEMO_USER_ID);
-  if (existing) return;
-  const nicknameOwner = db.prepare("SELECT user_id FROM agent_accounts WHERE nickname = ? COLLATE NOCASE").get(DEMO_NICKNAME);
-  if (nicknameOwner) return;
-  ensureProfile(db, DEMO_USER_ID);
-  const recovery = createRecoverySecret();
-  const password = createPasswordSecret(DEMO_PASSWORD);
-  const timestamp = nowIso();
-  db.prepare(`
-    INSERT INTO agent_accounts (
-      user_id, nickname, recovery_salt, recovery_hash,
-      password_salt, password_hash, account_kind, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, 'demo', ?, ?)
-  `).run(
-    DEMO_USER_ID,
-    DEMO_NICKNAME,
-    recovery.salt,
-    recovery.hash,
-    password.salt,
-    password.hash,
-    timestamp,
-    timestamp,
-  );
-};
-
-const identityPayload = (db, userId) => {
-  const account = db.prepare(`
-    SELECT nickname, password_hash AS passwordHash, account_kind AS accountKind,
-           created_at AS createdAt, updated_at AS updatedAt
-    FROM agent_accounts
-    WHERE user_id = ?
-  `).get(userId);
-  return {
-    ok: true,
-    authenticated: false,
-    identity: account
-      ? {
-          userId,
-          nickname: account.nickname,
-          registered: true,
-          authenticated: false,
-          hasPassword: Boolean(account.passwordHash),
-          accountKind: account.accountKind,
-          createdAt: account.createdAt,
-          updatedAt: account.updatedAt,
-        }
-      : {
-          userId,
-          nickname: "",
-          registered: false,
-          authenticated: false,
-          hasPassword: false,
-          accountKind: "user",
-        },
-  };
-};
-
 const authenticatedIdentityPayload = (account) => ({
   ok: true,
   authenticated: true,
   identity: {
     userId: account.userId,
-    nickname: account.nickname,
+    nickname: account.accountKind === "demo" ? "体验用户" : account.nickname,
     registered: true,
     authenticated: true,
     hasPassword: Boolean(account.passwordHash),
@@ -519,7 +454,7 @@ const sessionResponse = (db, userId, payload = {}) => {
   };
 };
 
-const registerAccount = (db, userId, body) => {
+const registerAccount = (db, body) => {
   const nickname = sanitizeNickname(body.nickname);
   const password = sanitizePassword(body.password);
   if (!nickname) {
@@ -530,61 +465,33 @@ const registerAccount = (db, userId, body) => {
   }
   const occupied = db.prepare(`
     SELECT user_id AS userId FROM agent_accounts
-    WHERE nickname = ? COLLATE NOCASE AND user_id <> ?
-  `).get(nickname, userId);
+    WHERE nickname = ? COLLATE NOCASE
+  `).get(nickname);
   if (occupied) {
     return { status: 409, payload: { ok: false, error: "该昵称已被使用，请直接登录或更换昵称。" } };
   }
-  const existing = db.prepare(`
-    SELECT nickname, password_hash AS passwordHash, account_kind AS accountKind
-    FROM agent_accounts WHERE user_id = ?
-  `).get(userId);
-  if (existing?.passwordHash) {
-    return { status: 409, payload: { ok: false, error: "该本地身份已经设置密码，请直接登录。" } };
-  }
-  if (existing?.accountKind === "demo") {
-    return { status: 403, payload: { ok: false, error: "演示账号不能转换为正式账号。" } };
-  }
-
+  const userId = `km_${randomBytes(16).toString("hex")}`;
   ensureProfile(db, userId);
   const recovery = createRecoverySecret();
   const passwordSecret = createPasswordSecret(password);
   const timestamp = nowIso();
-  if (existing) {
-    db.prepare(`
-      UPDATE agent_accounts
-      SET nickname = ?, recovery_salt = ?, recovery_hash = ?,
-          password_salt = ?, password_hash = ?, updated_at = ?
-      WHERE user_id = ?
-    `).run(
-      nickname,
-      recovery.salt,
-      recovery.hash,
-      passwordSecret.salt,
-      passwordSecret.hash,
-      timestamp,
-      userId,
-    );
-  } else {
-    db.prepare(`
-      INSERT INTO agent_accounts (
-        user_id, nickname, recovery_salt, recovery_hash,
-        password_salt, password_hash, account_kind, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, 'user', ?, ?)
-    `).run(
-      userId,
-      nickname,
-      recovery.salt,
-      recovery.hash,
-      passwordSecret.salt,
-      passwordSecret.hash,
-      timestamp,
-      timestamp,
-    );
-  }
+  db.prepare(`
+    INSERT INTO agent_accounts (
+      user_id, nickname, recovery_salt, recovery_hash,
+      password_salt, password_hash, account_kind, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, 'user', ?, ?)
+  `).run(
+    userId,
+    nickname,
+    recovery.salt,
+    recovery.hash,
+    passwordSecret.salt,
+    passwordSecret.hash,
+    timestamp,
+    timestamp,
+  );
   return sessionResponse(db, userId, {
     recoveryCode: recovery.recoveryCode,
-    migratedLegacyIdentity: Boolean(existing),
   });
 };
 
@@ -599,7 +506,7 @@ const loginAccount = (db, body) => {
            password_hash AS passwordHash, account_kind AS accountKind
     FROM agent_accounts WHERE nickname = ? COLLATE NOCASE
   `).get(nickname) : null;
-  if (!account?.passwordHash || !verifyPassword(password, account.passwordSalt, account.passwordHash)) {
+  if (!account?.passwordHash || account.accountKind === "demo" || !verifyPassword(password, account.passwordSalt, account.passwordHash)) {
     if (nickname) recordAuthFailure("login", nickname);
     return { status: 401, payload: { ok: false, error: "昵称或密码不正确。" } };
   }
@@ -642,18 +549,15 @@ const recoverAccount = (db, body) => {
 };
 
 const loginDemoAccount = (db) => {
-  ensureDemoAccount(db);
-  const account = db.prepare("SELECT user_id AS userId FROM agent_accounts WHERE nickname = ? COLLATE NOCASE").get(DEMO_NICKNAME);
-  if (!account) return { status: 503, payload: { ok: false, error: "演示账号初始化失败。" } };
-  db.prepare("DELETE FROM agent_sessions WHERE user_id = ?").run(account.userId);
-  db.prepare("DELETE FROM agent_memory_messages WHERE user_id = ?").run(account.userId);
-  db.prepare("DELETE FROM career_growth_plans WHERE user_id = ?").run(account.userId);
+  const userId = `km_guest_${randomBytes(16).toString("hex")}`;
+  ensureProfile(db, userId);
+  const timestamp = nowIso();
   db.prepare(`
-    UPDATE agent_memory_profiles
-    SET resume_profile_json = '{}', target_job_json = '{}', match_result_json = '{}',
-        summary = '', updated_at = ? WHERE user_id = ?
-  `).run(nowIso(), account.userId);
-  return sessionResponse(db, account.userId);
+    INSERT INTO agent_accounts (
+      user_id, nickname, recovery_salt, recovery_hash, account_kind, created_at, updated_at
+    ) VALUES (?, ?, '', '', 'demo', ?, ?)
+  `).run(userId, userId, timestamp, timestamp);
+  return sessionResponse(db, userId);
 };
 
 const pruneMessages = (db, userId) => {
@@ -1017,42 +921,36 @@ export const runAgentMemoryRequest = async (body = {}, requestContext = {}) => {
     const session = sessionAccount(db, requestContext.sessionToken);
     if (body.action === "auth-status") {
       if (session) return { status: 200, payload: authenticatedIdentityPayload(session) };
-      const localUserId = validateUserId(body.userId);
       return {
         status: 200,
-        payload: localUserId
-          ? identityPayload(db, localUserId)
-          : {
-              ok: true,
-              authenticated: false,
-              identity: {
-                userId: "",
-                nickname: "",
-                registered: false,
-                authenticated: false,
-                hasPassword: false,
-                accountKind: "user",
-              },
-            },
+        payload: {
+          ok: true,
+          authenticated: false,
+          identity: { userId: "", nickname: "", registered: false, authenticated: false, hasPassword: false, accountKind: "user" },
+        },
       };
     }
     if (body.action === "register") {
-      const localUserId = validateUserId(body.userId);
-      if (!localUserId) return { status: 400, payload: { ok: false, error: "本地用户标识不合法。" } };
-      return registerAccount(db, localUserId, body);
+      return registerAccount(db, body);
     }
     if (body.action === "login") return loginAccount(db, body);
     if (body.action === "recover-account") return recoverAccount(db, body);
-    if (body.action === "login-demo") return loginDemoAccount(db);
+    if (body.action === "login-demo") {
+      return session?.accountKind === "demo"
+        ? { status: 200, payload: authenticatedIdentityPayload(session) }
+        : loginDemoAccount(db);
+    }
     if (body.action === "logout") {
       revokeSession(db, requestContext.sessionToken);
       return { status: 200, clearSession: true, payload: { ok: true, authenticated: false } };
     }
 
-    const trustedUserId = requestContext.trustedUserId ? validateUserId(body.userId) : "";
-    const userId = session?.userId || trustedUserId;
+    const userId = session?.userId;
     if (!userId) {
       return { status: 401, payload: { ok: false, error: "登录状态已失效，请重新登录。" } };
+    }
+    if (body.userId && body.userId !== userId) {
+      return { status: 403, payload: { ok: false, error: "账号已切换，请刷新页面后重试。" } };
     }
     if (body.action === "load") {
       return { status: 200, payload: memoryPayload(db, userId) };
@@ -1075,7 +973,7 @@ export const runAgentMemoryRequest = async (body = {}, requestContext = {}) => {
     if (body.action === "identity-status") {
       return {
         status: 200,
-        payload: session ? authenticatedIdentityPayload(session) : identityPayload(db, userId),
+        payload: authenticatedIdentityPayload(session),
       };
     }
     if (body.action === "clear") {
@@ -1107,6 +1005,8 @@ export const runAgentMemoryRequest = async (body = {}, requestContext = {}) => {
     };
   }
 };
+
+export const initializeAgentMemoryStore = () => openDatabase();
 
 export const closeAgentMemoryStore = () => {
   if (!database) return;

@@ -98,6 +98,7 @@ function Workspace({ identity, onOpenIdentity }: WorkspaceProps) {
     clearMemory: handleClearChatMemory,
     submitFeedback: handleChatFeedback,
   } = useCareerChat({
+    userId: identity.userId,
     resumeText,
     resumeProfile: structuredResume,
     selectedJob,
@@ -105,6 +106,7 @@ function Workspace({ identity, onOpenIdentity }: WorkspaceProps) {
     hasAnalysis,
   });
   const growth = useGrowthPlan({
+    userId: identity.userId,
     profile: activeProfile,
     job: selectedJob,
     matchResult: result,
@@ -210,6 +212,7 @@ function Workspace({ identity, onOpenIdentity }: WorkspaceProps) {
 
         {activePage === "interview" ? (
           <InterviewPage
+            userId={identity.userId}
             job={selectedJob}
             profile={activeProfile}
             resumeText={resumeText}

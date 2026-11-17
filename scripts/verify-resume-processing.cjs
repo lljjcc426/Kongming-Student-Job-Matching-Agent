@@ -56,6 +56,21 @@ const baseDependencies = {
 };
 
 async function main() {
+  const assert = require("node:assert/strict");
+  const { pathToFileURL } = require("node:url");
+  const { resolve } = require("node:path");
+  const previousPython = process.env.OCR_PYTHON_PATH;
+  process.env.OCR_PYTHON_PATH = process.execPath;
+  const { runLocalOcr, closeLocalOcrWorker } = await import(pathToFileURL(resolve("server/localOcrWorker.js")).href);
+  try {
+    // Node rejects the Python worker arguments and exits without reading stdin.
+    // A large write reproduces the broken pipe seen when OCR dependencies fail.
+    await assert.rejects(runLocalOcr(`data:image/png;base64,${"A".repeat(1_000_000)}`, 3000), /本地 OCR/);
+  } finally {
+    closeLocalOcrWorker();
+    if (previousPython === undefined) delete process.env.OCR_PYTHON_PATH;
+    else process.env.OCR_PYTHON_PATH = previousPython;
+  }
   let imageVisionCalls = 0;
   const imageResult = await processImageResume(
     { name: "resume.png", type: "image/png" },
@@ -173,6 +188,7 @@ async function main() {
 
   console.log(JSON.stringify({
     ok: true,
+    ocrWorkerExitHandled: true,
     imageOcr: imageResult.source,
     imageCrossVision: crossVisionResult.source,
     pdfTextLayer: textLayerResult.source,

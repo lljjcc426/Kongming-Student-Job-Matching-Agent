@@ -14,3 +14,6 @@ __pycache__
 docs
 public
 src
+
+# Private runtime database
+data/agent-memory/

@@ -163,6 +163,7 @@ const emptyGrounding = (): InterviewGroundingContext => ({
 export const createEmptyInterviewGrounding = emptyGrounding;
 
 export const prepareInterviewGrounding = async (input: {
+  userId: string;
   job: Job;
   resumeSummary: string;
 }): Promise<InterviewGroundingContext> => {
@@ -184,8 +185,8 @@ export const prepareInterviewGrounding = async (input: {
       rerank: false,
       timeoutMs: 15_000,
     }),
-    loadAgentMemory(),
-    loadGrowthPlan(),
+    loadAgentMemory(input.userId),
+    loadGrowthPlan(input.userId),
   ]);
 
   const fallbackSource = jobFallbackSource(input.job);

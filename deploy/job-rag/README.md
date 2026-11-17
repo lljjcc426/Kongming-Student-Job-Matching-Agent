@@ -1,13 +1,12 @@
 # 岗位 RAG 独立服务
 
 该容器把现有 LlamaIndex、Qdrant Local、BM25 和可选 CrossEncoder 重排链路
-封装为私有 HTTP 服务。Vercel 仅作为轻量安全网关，不在函数内加载 Python、
-重排模型或 D 盘数据库。
+封装为私有 HTTP 服务。应用后端通过服务令牌调用，浏览器仅访问同源业务接口。
 
 ## 生产结构
 
 ```text
-浏览器 -> Vercel /api/jobs/search -> HTTPS + Bearer Token -> 岗位 RAG 容器
+浏览器 -> 应用后端 /api/jobs/search -> HTTPS + Bearer Token -> 岗位 RAG 容器
 ```
 
 RAG 容器只运行一个实例，使用挂载到 `/var/data` 的持久化磁盘保存岗位 JSONL、
@@ -68,12 +67,12 @@ docker run --rm -p 8080:8080 `
 功能注入，并使用 HTTPS。Qdrant Local 只运行一个服务副本；需要水平扩展时再
 迁移到 Qdrant Cloud 或独立 Qdrant 集群。
 
-## Render 与 Vercel
+## 连接应用后端
 
-1. 使用本项目 GitHub 仓库中的 `deploy/online-rag` 分支创建 Render Blueprint。
+1. 可使用仓库中的 `render.yaml` 创建容器服务，或在自己的服务器构建镜像。
 2. Render 按 `render.yaml` 自动创建单实例服务和持久化磁盘。
 3. Render 自动生成 `JOB_RAG_SERVICE_TOKEN`；在控制台安全复制该值。
-4. 在 Vercel Production Secret 中配置：
+4. 在应用后端的私有环境配置中填写：
 
 ```text
 JOB_RAG_BACKEND=remote
@@ -82,7 +81,7 @@ JOB_RAG_REMOTE_TOKEN=<与 Render 的 JOB_RAG_SERVICE_TOKEN 相同>
 JOB_RAG_REMOTE_TIMEOUT_MS=45000
 ```
 
-5. 重新部署 Vercel。浏览器只访问同源 `/api/jobs/search`，不会接触 RAG 服务令牌。
+5. 重启应用后端。浏览器只访问同源 `/api/jobs/search`，不会接触 RAG 服务令牌。
 
 ## 接口
 

@@ -21,7 +21,6 @@ type IdentityResponse = {
   error?: string;
   identity?: AppIdentity;
   recoveryCode?: string;
-  migratedLegacyIdentity?: boolean;
 };
 
 const newUserId = () => {
@@ -90,7 +89,6 @@ export const registerAccount = async (nickname: string, password: string) => {
   return {
     identity: data.identity!,
     recoveryCode: data.recoveryCode || "",
-    migratedLegacyIdentity: Boolean(data.migratedLegacyIdentity),
   };
 };
 

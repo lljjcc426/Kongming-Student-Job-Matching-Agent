@@ -14,13 +14,14 @@ import { loadGrowthPlan, saveGrowthPlan } from "./growthPlanClient";
 import type { GrowthPlan, GrowthPlanStatus, InterviewGrowthSnapshot } from "./types";
 
 type UseGrowthPlanOptions = {
+  userId: string;
   profile: StudentProfile;
   job: Job;
   matchResult: MatchResult;
   hasAnalysis: boolean;
 };
 
-export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGrowthPlanOptions) {
+export function useGrowthPlan({ userId, profile, job, matchResult, hasAnalysis }: UseGrowthPlanOptions) {
   const [plan, setPlan] = useState<GrowthPlan | null>(null);
   const [status, setStatus] = useState<GrowthPlanStatus>("loading");
   const [message, setMessage] = useState("正在读取成长计划");
@@ -32,7 +33,7 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
 
   useEffect(() => {
     let active = true;
-    void loadGrowthPlan()
+    void loadGrowthPlan(userId)
       .then((storedPlan) => {
         if (!active) return;
         const normalizedPlan = storedPlan ? normalizeGrowthPlan(storedPlan) : null;
@@ -49,7 +50,7 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
     return () => {
       active = false;
     };
-  }, []);
+  }, [userId]);
 
   const persist = async (nextPlan: GrowthPlan, successMessage: string) => {
     planRef.current = nextPlan;
@@ -57,7 +58,7 @@ export function useGrowthPlan({ profile, job, matchResult, hasAnalysis }: UseGro
     setStatus("saving");
     setMessage("正在保存成长计划");
     try {
-      const storedPlan = await saveGrowthPlan(nextPlan);
+      const storedPlan = await saveGrowthPlan(userId, nextPlan);
       if (!storedPlan) throw new Error("成长计划保存后未返回有效数据。");
       planRef.current = storedPlan;
       setPlan(storedPlan);

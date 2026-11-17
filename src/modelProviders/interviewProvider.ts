@@ -116,7 +116,7 @@ export const parseInterviewFeedback = (
   resumeSummary,
 });
 
-export class DoubaoInterviewProvider implements InterviewModelProvider {
+export class RemoteInterviewProvider implements InterviewModelProvider {
   async generateInterviewReply(input: InterviewModelInput) {
     const baseDecision = planNextInterviewQuestion({
       job: input.jobTarget,
@@ -270,4 +270,4 @@ export class DoubaoInterviewProvider implements InterviewModelProvider {
   }
 }
 
-export const getInterviewModelProvider = (): InterviewModelProvider => new DoubaoInterviewProvider();
+export const getInterviewModelProvider = (): InterviewModelProvider => new RemoteInterviewProvider();

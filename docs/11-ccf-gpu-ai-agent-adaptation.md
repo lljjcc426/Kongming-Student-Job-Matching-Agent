@@ -77,7 +77,7 @@
 
 可运行 Demo：
 
-- 当前项目已部署到 Vercel，可提供公网访问链接。
+- 当前项目可提供公网演示入口。
 - 本地可通过 Vite 启动 Web Demo。
 
 ### 3.3 阶段二完成情况与待补强项
@@ -101,7 +101,7 @@
 
 - 前端产品已经从单页原型扩展为多页面产品：加载页、首页、简历解析、岗位推荐、模拟面试、AI 助手。
 - 已完成大量交互和体验优化：响应式布局、首页动效、聊天自动滚动、Markdown 回复渲染、PDF 视觉兜底、语音输入稳定性优化、Live2D 数字人接入。
-- 已有公网部署基础：Vercel 版本可作为演示入口。
+- 已有公网部署基础，可作为演示入口。
 - 已使用 Git 管理开发过程，远端 GitHub 仓库为 `lljjcc426/Kongming-Student-Job-Matching-Agent`。
 
 仍需补齐：
@@ -109,7 +109,7 @@
 - 按赛事要求将项目开源至 GitLink 平台，并保持 GitHub 与 GitLink 仓库内容一致。
 - README 需要增加 CCF 赛题说明、Gitee.AI/沐曦部署说明、环境变量说明、运行日志示例。
 - 需要补充真实用户试用记录、反馈摘要和 API 调用统计。
-- 需要提供可复现部署步骤，说明本地运行、Vercel 部署、Gitee.AI API 配置和日志采集方式。
+- 需要提供可复现部署步骤，说明本地运行、服务端部署、Gitee.AI API 配置和日志采集方式。
 
 ## 5. Gitee.AI / 沐曦 API 与模型选择建议
 
@@ -121,26 +121,19 @@ Gitee.AI 模力方舟提供 OpenAI 风格接口，文本生成接口示例为：
 https://ai.gitee.com/v1/chat/completions
 ```
 
-这与当前项目的后端代理结构兼容。因此推荐保留现有前端调用方式，把 `server/arkCore.js` 从 Ark 专用代理改造为通用 OpenAI 兼容 Provider。
+这与当前项目的后端代理结构兼容。因此推荐保留现有前端调用方式，使用 `MODEL_PROVIDER=openai-compatible` 配置对应服务，模型接口由 `server/modelProvider.js` 适配。
 
 建议环境变量：
 
 ```text
-MODEL_PROVIDER=gitee-ai
+MODEL_PROVIDER=openai-compatible
 MODEL_BASE_URL=https://ai.gitee.com/v1
 MODEL_API_KEY=由部署平台安全注入
-MODEL_TEXT_NAME=参赛账号可用的文本模型 ID
-MODEL_VISION_NAME=参赛账号可用的视觉模型 ID
+MODEL_TEXT_MODEL=参赛账号可用的文本模型 ID
+MODEL_VISION_MODEL=参赛账号可用的视觉模型 ID
 ```
 
-保留兼容变量：
-
-```text
-ARK_API_KEY
-ARK_BASE_URL
-```
-
-这样不会破坏当前已能运行的 Demo，也可以在提交赛题版本时切换到 Gitee.AI。
+以上为该赛题的接入配置示例，实际模型 ID 与权限以参赛账号为准。通用配置见[模型接入](configuration.md#模型接入)。
 
 ### 5.2 模型选择
 
@@ -159,7 +152,7 @@ ARK_BASE_URL
 - 优点：质量和速度更容易平衡。
 - 风险：需要更多 API 配额和更完整的调用日志。
 
-现阶段不建议直接在代码中写死具体模型 ID。原因是赛题强调 Gitee.AI 平台提供的沐曦资源包 API，而具体可用模型取决于参赛账号资源包。应先在控制台确认模型列表，再写入 Vercel 环境变量。
+现阶段不建议直接在代码中写死具体模型 ID。原因是赛题强调 Gitee.AI 平台提供的沐曦资源包 API，而具体可用模型取决于参赛账号资源包。应先在控制台确认模型列表，再写入服务端环境变量。
 
 ### 5.3 对 PDF 和图片解析的建议
 
@@ -173,12 +166,11 @@ ARK_BASE_URL
 
 ## 6. 建议后续改动清单
 
-以下是需要修改但本次未直接修改的内容，建议确认后分批进行：
+以下为赛题适配清单；模型通用配置已实现，其余内容按实际参赛需求评估：
 
-1. 新增通用模型 Provider 配置。
-   - 修改 `server/arkCore.js`，把 Ark 专用常量改为 OpenAI 兼容配置。
-   - 增加 `MODEL_BASE_URL`、`MODEL_API_KEY`、`MODEL_TEXT_NAME`、`MODEL_VISION_NAME`。
-   - 保留 `ARK_*` 兼容逻辑，避免本地 Demo 失效。
+1. 配置通用模型 Provider。
+   - 使用 `MODEL_PROVIDER=openai-compatible` 与账号对应的 API 根地址。
+   - 配置 `MODEL_API_KEY`、`MODEL_TEXT_MODEL`、`MODEL_VISION_MODEL`。
 
 2. 增加调用日志。
    - 在后端代理中生成 `requestId`。
@@ -192,7 +184,7 @@ ARK_BASE_URL
 4. 更新 README 与部署文档。
    - 增加 CCF 赛题三说明。
    - 增加 Gitee.AI/沐曦 API 配置步骤。
-   - 增加 Vercel 环境变量配置。
+   - 补充服务端环境变量配置。
    - 增加 GitLink 开源地址。
 
 5. 更新 PPT。
@@ -205,13 +197,13 @@ ARK_BASE_URL
 
 - 阶段一：基础材料、技术说明和演示材料已经具备，提交前仍需按最终版本复核一致性。
 - 阶段二：Gitee AI / 沐曦资源包接入、Demo 和真实调用证据已经具备；需要用当前版本持续更新验证数据。
-- 阶段三：产品化 Demo、云端部署、GitHub 与 GitLink 开源基础已经具备；岗位 RAG 已增加 Vercel 安全网关和可容器化独立服务，仍缺实际云主机发布、持续运营数据和真实用户反馈。
+- 阶段三：产品化 Demo、云端部署、GitHub 与 GitLink 开源基础已经具备；岗位 RAG 已增加 应用后端网关和可容器化独立服务，仍缺实际云主机发布、持续运营数据和真实用户反馈。
 
 推荐目标：
 
 1. 确保阶段一材料与当前代码、截图和模型配置完全一致。
 2. 使用当前版本复跑 Gitee AI / 沐曦真实调用并更新性能证据。
-3. 发布岗位 RAG 独立服务并配置 Vercel Secret，补充用户反馈和运营统计，继续完善阶段三材料。
+3. 发布岗位 RAG 独立服务并配置 服务端环境变量，补充用户反馈和运营统计，继续完善阶段三材料。
 
 ## 8. 资料来源与核验依据
 

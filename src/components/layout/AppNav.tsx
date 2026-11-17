@@ -48,7 +48,7 @@ export default function AppNav({ activePage, identity, onChange, onOpenIdentity 
         <span className="nav-identity-avatar"><UserRound size={17} /></span>
         <span>
           <strong>{identity.registered ? identity.nickname : "访客体验"}</strong>
-          <small>{identity.registered ? "进度已保护" : "绑定后可跨浏览器找回"}</small>
+          <small>{identity.accountKind === "demo" ? "当前浏览器体验" : "账号记录已保存"}</small>
         </span>
       </button>
     </nav>

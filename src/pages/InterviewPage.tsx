@@ -19,6 +19,7 @@ import StudentCameraPreview from "../components/interview/StudentCameraPreview";
 import { useStudentCamera } from "../components/interview/useStudentCamera";
 
 type InterviewPageProps = {
+  userId: string;
   job: Job;
   profile: StudentProfile;
   resumeText: string;
@@ -91,7 +92,7 @@ const firstOpeningOf = (type: InterviewType) => {
   return "你好，我是今天的 AI 面试官。接下来我会围绕你的目标岗位进行综合模拟面试，请尽量用真实面试的方式回答。";
 };
 
-export default function InterviewPage({ job, profile, resumeText, hasAnalysis, onComplete, onOpenGrowthPlan }: InterviewPageProps) {
+export default function InterviewPage({ userId, job, profile, resumeText, hasAnalysis, onComplete, onOpenGrowthPlan }: InterviewPageProps) {
   const [status, setStatus] = useState<InterviewStatus>("idle");
   const [messages, setMessages] = useState<InterviewMessage[]>([]);
   const [turns, setTurns] = useState<InterviewTurn[]>([]);
@@ -221,7 +222,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
     const openingMessage = createMessage("interviewer", opening);
     setMessages([openingMessage]);
     setCurrentQuestion("开场介绍");
-    const groundingPromise = prepareInterviewGrounding({ job, resumeSummary });
+    const groundingPromise = prepareInterviewGrounding({ userId, job, resumeSummary });
     await speakAsAvatar(opening, "thinking", "opening");
     const nextGrounding = await groundingPromise.catch(() => ({
       ...createEmptyInterviewGrounding(),
@@ -362,7 +363,7 @@ export default function InterviewPage({ job, profile, resumeText, hasAnalysis, o
       });
       setFeedback(report);
       setInterviewMemoryStatus("saving");
-      void saveInterviewMemory({
+      void saveInterviewMemory(userId, {
         interviewId: `interview-${Date.now()}`,
         jobId: job.id,
         jobTitle: job.title,

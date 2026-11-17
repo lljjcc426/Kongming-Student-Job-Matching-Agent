@@ -3,7 +3,7 @@ services:
     name: kongming-job-rag
     runtime: docker
     repo: https://github.com/lljjcc426/Kongming-Student-Job-Matching-Agent
-    branch: deploy/online-rag
+    branch: main
     region: singapore
     plan: standard
     numInstances: 1

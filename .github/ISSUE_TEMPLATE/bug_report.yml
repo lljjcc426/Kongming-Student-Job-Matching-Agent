@@ -1,0 +1,31 @@
+name: 问题反馈
+description: 提交可复现的功能、界面或文档问题
+title: "[Bug] "
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: 问题与预期行为
+      description: 说明发生了什么，以及预期结果。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 附上最小复现步骤或经过脱敏的截图；请勿提交 API Key、真实简历或其他个人信息。
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 运行环境
+      placeholder: 操作系统、Node.js 版本、浏览器，以及本地运行或 Vercel
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志
+      description: 仅保留与问题相关且已脱敏的日志。
+      render: text

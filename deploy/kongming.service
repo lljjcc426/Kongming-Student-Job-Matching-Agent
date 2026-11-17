@@ -1,0 +1,22 @@
+[Unit]
+Description=Kongming application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kongming
+Group=kongming
+WorkingDirectory=/opt/kongming/current
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+EnvironmentFile=/etc/kongming/kongming.env
+ExecStart=/usr/local/bin/node server/index.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=100
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

@@ -6,7 +6,6 @@ type IdentityMode = "login" | "register" | "recover" | "account" | "recovery";
 
 type RegisterResult = {
   recoveryCode: string;
-  migratedLegacyIdentity: boolean;
 };
 
 type IdentityDialogProps = {
@@ -34,10 +33,9 @@ export default function IdentityDialog({
   onLoginDemo,
   onLogout,
 }: IdentityDialogProps) {
-  const legacyAccount = identity.registered && !identity.hasPassword && !identity.authenticated;
   const initialMode = (): IdentityMode => identity.authenticated
     ? "account"
-    : legacyAccount ? "register" : "login";
+    : "login";
   const [mode, setMode] = useState<IdentityMode>(initialMode);
   const [nickname, setNickname] = useState(identity.nickname);
   const [password, setPassword] = useState("");
@@ -100,7 +98,7 @@ export default function IdentityDialog({
   const loginDemo = () => run(async () => {
     await onLoginDemo();
     onClose();
-  }, "演示账号暂时不可用。");
+  }, "访客体验暂时不可用。");
 
   const logout = () => run(async () => {
     await onLogout();
@@ -158,10 +156,10 @@ export default function IdentityDialog({
               <button type="button" onClick={() => { setMode("register"); setError(""); }}>创建账号</button>
               <button type="button" onClick={() => { setMode("recover"); setError(""); }}>忘记密码</button>
             </div>
-            <div className="identity-demo-divider"><span>评委快速体验</span></div>
+            <div className="identity-demo-divider"><span>快速体验</span></div>
             <button type="button" className="identity-demo-action" onClick={() => void loginDemo()} disabled={busy}>
-              <UserRound size={18} /> 一键进入演示账号
-              <small>demo / 123456 · 每次进入自动重置</small>
+              <UserRound size={18} /> 以访客身份体验
+              <small>独立体验空间 · 无需注册</small>
             </button>
           </form>
         ) : null}
@@ -169,9 +167,9 @@ export default function IdentityDialog({
         {mode === "register" ? (
           <form onSubmit={(event) => { event.preventDefault(); void register(); }}>
             <div className="identity-dialog-icon"><UserPlus size={28} /></div>
-            <span className="identity-eyebrow">{legacyAccount ? "账户安全升级" : "创建正式账号"}</span>
-            <h2 id="identity-title">{legacyAccount ? "为原有身份设置密码" : "创建你的求职账号"}</h2>
-            <p>{legacyAccount ? "检测到当前浏览器已有进度。设置密码后，原有数据会完整保留。" : "账号会绑定当前浏览器已有进度，并生成用于找回密码的 6 位恢复码。"}</p>
+            <span className="identity-eyebrow">创建正式账号</span>
+            <h2 id="identity-title">创建你的求职账号</h2>
+            <p>账号用于跨设备保存个人记录，并生成用于找回密码的 6 位恢复码。</p>
             <label className="identity-field">
               <span>昵称</span>
               <input autoFocus autoComplete="username" value={nickname} maxLength={24} placeholder="例如：小孔明" onChange={(event) => setNickname(event.target.value)} />
@@ -188,8 +186,8 @@ export default function IdentityDialog({
             </label>
             {error ? <p className="identity-error" role="alert">{error}</p> : null}
             <div className="identity-form-actions">
-              {!legacyAccount ? <button type="button" className="secondary" onClick={() => setMode("login")}>返回登录</button> : null}
-              <button type="submit" className="primary" disabled={busy}>{busy ? "正在创建" : legacyAccount ? "设置密码并进入" : "创建账号"}</button>
+              <button type="button" className="secondary" onClick={() => setMode("login")}>返回登录</button>
+              <button type="submit" className="primary" disabled={busy}>{busy ? "正在创建" : "创建账号"}</button>
             </div>
           </form>
         ) : null}
@@ -233,8 +231,8 @@ export default function IdentityDialog({
             <div className="identity-dialog-icon"><UserRound size={28} /></div>
             <span className="identity-eyebrow">当前登录账号</span>
             <h2 id="identity-title">{identity.nickname}</h2>
-            <p>该账号的智能体记忆、面试结果与成长计划保存在 D 盘数据库中，并由登录会话隔离。</p>
-            <div className="identity-account-status"><ShieldCheck size={18} /> {identity.accountKind === "demo" ? "演示账号 · 数据仅用于体验" : "密码与恢复码保护已启用"}</div>
+            <p>对话、面试记录和成长计划随账号保存，登录后可继续使用。</p>
+            <div className="identity-account-status"><ShieldCheck size={18} /> {identity.accountKind === "demo" ? "访客身份 · 注册账号可跨设备登录" : "密码与恢复码保护已启用"}</div>
             <div className="identity-account-actions">
               <button type="button" onClick={() => { setNickname(identity.nickname); setMode("recover"); }} disabled={identity.accountKind === "demo"}><KeyRound size={18} />使用恢复码修改密码</button>
               <button type="button" onClick={() => void logout()} disabled={busy}><LogOut size={18} />{busy ? "正在退出" : "退出当前账号"}</button>

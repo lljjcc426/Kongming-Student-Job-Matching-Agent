@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import math
+import os
 import sys
 import traceback
 
@@ -18,7 +19,8 @@ def _get_engine():
     global _engine
     if _engine is None:
         with contextlib.redirect_stdout(sys.stderr):
-            _engine = RapidOCR()
+            cache = os.environ.get("OCR_MODEL_CACHE")
+            _engine = RapidOCR(params={"Global.model_root_dir": cache} if cache else None)
     return _engine
 
 

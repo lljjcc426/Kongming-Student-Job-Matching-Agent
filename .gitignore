@@ -33,3 +33,10 @@ Thumbs.db
 .idea/
 
 .vercel
+
+# Local Python environments
+.venv-ocr/
+.venv-rag/
+
+# Private runtime database
+data/agent-memory/

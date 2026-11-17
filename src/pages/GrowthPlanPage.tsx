@@ -210,7 +210,7 @@ export default function GrowthPlanPage({
         </article>
         <article className="projected">
           <TrendingUp size={19} />
-          <span>已验证证据预测</span>
+          <span>任务证据预测分</span>
           <strong>{plan.projectedMatchScore}<em>分</em></strong>
           <small>仅为成长预测，不覆盖实证分</small>
         </article>
@@ -226,7 +226,7 @@ export default function GrowthPlanPage({
         <FileCheck2 size={18} />
         <div>
           <strong>预测分与实证分已分离</strong>
-          <p>任务证据先由本地审核智能体检查相关性、完整性和可信度。审核通过只更新预测分；把成果写入简历或完成新一轮面试后，再点击“重新计算实证分”。</p>
+          <p>任务证据按项目规则检查相关性、完整性和链接线索，结果用于练习反馈。规则审核通过只更新预测分；把成果写入简历或完成新一轮面试后，再点击“重新计算实证分”。</p>
         </div>
         <span>{verifiedTaskCount} 项证据已通过</span>
       </section>

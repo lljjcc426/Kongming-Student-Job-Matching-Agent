@@ -4,8 +4,13 @@ output
 artifacts
 .git
 .vercel
+.env
+.env.*
 dev-server.log
 dev-server.err.log
 tsconfig.tsbuildinfo
-.env
-.env.*
+docs
+.github
+
+# Private runtime database
+data/agent-memory/

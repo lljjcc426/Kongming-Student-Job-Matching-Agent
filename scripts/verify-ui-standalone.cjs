@@ -1,5 +1,7 @@
 const { spawn } = require("node:child_process");
 const path = require("node:path");
+const fs = require("node:fs");
+const os = require("node:os");
 
 const ROOT = path.resolve(__dirname, "..");
 const VITE_ENTRY = path.join(ROOT, "node_modules", "vite", "bin", "vite.js");
@@ -47,6 +49,7 @@ const runUiVerification = () => new Promise((resolve, reject) => {
 });
 
 async function main() {
+  const databaseDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "kongming-ui-memory-"));
   const stdoutLines = [];
   const stderrLines = [];
   const vite = spawn(process.execPath, [VITE_ENTRY, "--host", "127.0.0.1", "--port", "5173", "--strictPort"], {
@@ -56,6 +59,8 @@ async function main() {
     env: {
       ...process.env,
       JOB_RAG_SKIP_WARMUP: "true",
+      AGENT_MEMORY_DB_PATH: path.join(databaseDirectory, "memory.sqlite3"),
+      OCR_PROVIDER: "disabled",
     },
   });
 
@@ -72,6 +77,7 @@ async function main() {
     }, null, 2));
   } finally {
     await stopProcess(vite);
+    fs.rmSync(databaseDirectory, { recursive: true, force: true });
   }
 }
 

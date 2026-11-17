@@ -70,6 +70,9 @@ const startWorker = (workerIndex) => {
     const message = String(chunk).trim();
     if (message) console.warn(`[local-ocr] ${message.slice(0, 800)}`);
   });
+  worker.stdin.on("error", (error) => {
+    rejectPending(`无法向本地 OCR 发送页面：${error.message}`, workerIndex);
+  });
   worker.on("error", (error) => {
     rejectPending(`无法启动本地 OCR：${error.message}`, workerIndex);
     if (workers[workerIndex] === worker) workers[workerIndex] = null;
