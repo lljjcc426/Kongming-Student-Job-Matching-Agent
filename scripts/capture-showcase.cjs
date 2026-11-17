@@ -74,6 +74,7 @@ async function main() {
 
   await page.goto(process.env.SHOWCASE_URL || "http://127.0.0.1:5173", { waitUntil: "networkidle" });
   await page.locator(".loading-start-button").click();
+  await page.getByRole("button", { name: /以访客身份体验/ }).click();
   await page.locator(".app-nav").waitFor();
   const trimStart = (Date.now() - recordingStart) / 1000;
   await page.evaluate(() => {

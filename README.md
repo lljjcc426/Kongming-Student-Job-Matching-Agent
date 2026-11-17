@@ -50,6 +50,10 @@
     <td><a href="docs/media/interview.webp"><img src="docs/media/interview.webp" alt="模拟面试：面试类型、数字面试官与回答区域"></a><br><strong>05 · 练习模拟面试</strong><br>围绕目标岗位开展综合面、技术面与 HR 面练习。</td>
     <td><a href="docs/media/assistant.webp"><img src="docs/media/assistant.webp" alt="AI 求职助手：结合简历和岗位上下文的多轮对话"></a><br><strong>06 · 讨论准备重点</strong><br>结合简历、岗位与匹配结果，继续追问求职问题。</td>
   </tr>
+  <tr>
+    <td><a href="docs/media/account.webp"><img src="docs/media/account.webp" alt="账号登录与独立访客入口"></a><br><strong>07 · 保存个人进度</strong><br>使用账号跨设备登录，或直接进入独立访客空间。</td>
+    <td><a href="docs/media/growth.webp"><img src="docs/media/growth.webp" alt="成长计划：任务、证据与后续复测"></a><br><strong>08 · 持续练习与复盘</strong><br>将面试薄弱项转为任务，记录成果并比较后续评估。</td>
+  </tr>
 </table>
 
 ## 核心能力

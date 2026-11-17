@@ -47,6 +47,10 @@ The recording shows the running frontend with a fictional resume and fixed API r
     <td width="50%"><a href="docs/media/interview.webp"><img src="docs/media/interview.webp" alt="05 · Practice interviews"></a><br><strong>05 · Practice interviews</strong><br>Prepare for general, technical and HR interviews.</td>
     <td width="50%"><a href="docs/media/assistant.webp"><img src="docs/media/assistant.webp" alt="06 · Discuss next steps"></a><br><strong>06 · Discuss next steps</strong><br>Ask questions with resume and role context.</td>
   </tr>
+  <tr>
+    <td width="50%"><a href="docs/media/account.webp"><img src="docs/media/account.webp" alt="Account sign-in and independent guest access"></a><br><strong>07 · Save your progress</strong><br>Sign in across devices or start an independent guest session.</td>
+    <td width="50%"><a href="docs/media/growth.webp"><img src="docs/media/growth.webp" alt="Growth plan with tasks and evidence"></a><br><strong>08 · Practice and review</strong><br>Turn interview gaps into tasks and compare later assessments.</td>
+  </tr>
 </table>
 
 ## Capabilities

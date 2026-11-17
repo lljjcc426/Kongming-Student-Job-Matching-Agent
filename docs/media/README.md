@@ -14,6 +14,7 @@
 | `home.webp` / `editor.webp` | 首页与简历编辑工作台。 |
 | `resume.webp` / `jobs.webp` | 学生画像、匹配分析与岗位推荐。 |
 | `interview.webp` / `assistant.webp` | 模拟面试与 AI 求职助手。 |
+| `account.webp` / `growth.webp` | 独立访客入口与成长计划；使用虚构数据和固定模型响应。 |
 | [sample-resume.md](sample-resume.md) | 可用于试用和录制的虚构简历。 |
 | [demo-data.json](demo-data.json) | 录制专用的固定接口数据，不参与应用运行。 |
 
@@ -39,7 +40,7 @@ PowerShell 中先执行 `$env:JOB_RAG_SKIP_WARMUP="true"`，再执行 `npm run d
 node scripts/capture-showcase.cjs
 ```
 
-脚本从 `http://127.0.0.1:5173` 录制实际交互，并覆盖本目录中生成的 WebP、GIF 与 MP4。原始截图和 WebM 保存到已被 Git 忽略的 `artifacts/showcase/`。录制使用文字面试，关闭浏览器语音合成，不启用摄像头；不调用外部模型、OCR 或招聘服务，也不修改应用代码。
+脚本从 `http://127.0.0.1:5173` 以独立访客身份录制实际交互，并覆盖本目录中生成的 WebP、GIF 与 MP4。原始截图和 WebM 保存到已被 Git 忽略的 `artifacts/showcase/`。录制使用文字面试，关闭浏览器语音合成，不启用摄像头；不调用外部模型、OCR 或招聘服务，也不修改应用代码。
 
 可选环境变量：
 
@@ -50,3 +51,5 @@ node scripts/capture-showcase.cjs
 | `FFMPEG_PATH` | FFmpeg 可执行文件路径；默认从 PATH 查找 `ffmpeg`。 |
 
 维护 README 时，在同一提交中更新演示素材与说明，保持页面功能和展示内容一致。
+
+账号与成长计划截图可通过 `npm run verify:ui:standalone` 生成，原图位于 `output/verification/ui/`。该验证使用临时数据库，结束后清理测试账号与记录。
