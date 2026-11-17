@@ -593,6 +593,8 @@ async function main() {
     { timeout: 8000 },
   );
   const restoredQuestionCountAfterClear = await page.getByText(persistentQuestion, { exact: true }).count();
+  await page.locator(".app-nav > div button").nth(5).click();
+  await page.locator(".growth-empty-page").waitFor({ state: "visible", timeout: 8000 });
   await browser.close();
 
   if (introStage !== 1 || introProgress !== 1 || introProgressCard !== 1 || introVideoBackdrop !== 1) {

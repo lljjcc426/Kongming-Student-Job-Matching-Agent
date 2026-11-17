@@ -239,7 +239,7 @@ export function useCareerChat({
   };
 
   const clearMemory = async () => {
-    if (!window.confirm("确定清除当前账号的对话、简历画像、目标岗位、面试记录和成长计划吗？此操作不可撤销。")) return;
+    if (!window.confirm("确定清除当前账号的对话、简历画像、目标岗位、面试记录和成长计划吗？此操作不可撤销。")) return false;
     try {
       const clearedMemory = await clearAgentMemory(userId);
       memoryRef.current = clearedMemory;
@@ -247,8 +247,10 @@ export function useCareerChat({
       setMessages([]);
       setMemoryStatus("ready");
       setStatusMessage("长期记忆已清除");
+      return true;
     } catch {
       setMemoryStatus("error");
+      return false;
     }
   };
 

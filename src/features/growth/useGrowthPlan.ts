@@ -170,5 +170,11 @@ export function useGrowthPlan({ userId, profile, job, matchResult, hasAnalysis }
     updateTargetDate,
     regenerate,
     reassess,
+    reset: () => {
+      planRef.current = null;
+      setPlan(null);
+      setStatus("empty");
+      setMessage("完成一次模拟面试后生成成长计划");
+    },
   };
 }

@@ -204,7 +204,9 @@ function Workspace({ identity, onOpenIdentity }: WorkspaceProps) {
               onInputChange={setChatInput}
               onSend={() => void handleSendChat()}
               onVoiceInput={handleChatSpeechInput}
-              onClearMemory={() => void handleClearChatMemory()}
+              onClearMemory={() => {
+                void handleClearChatMemory().then((cleared) => { if (cleared) growth.reset(); });
+              }}
               onFeedback={handleChatFeedback}
             />
           </section>
