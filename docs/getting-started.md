@@ -111,6 +111,15 @@ npm run preview
 
 `build` 执行 TypeScript 检查和 Vite 打包；`preview` 仅提供静态文件，不能替代包含 API 的开发或部署服务。
 
+运行包含同源 API 的生产服务：
+
+```bash
+npm run build
+node --env-file=.env --run start
+```
+
+默认访问 `http://127.0.0.1:3000`。公网部署使用反向代理与进程管理，详见[服务器部署](deployment.md)。
+
 ## 常见问题
 
 | 现象 | 处理方式 |

@@ -172,7 +172,7 @@ node --env-file=.env --run dev
 | 模型服务 | Node.js 服务端读取凭据并适配 OpenAI / Claude 协议，按任务选择文本或视觉模型；浏览器调用同源 API。 |
 | 可选检索 | Python、LlamaIndex、BGE、Qdrant、BM25 与 RRF 融合，支持多查询召回与可选重排。 |
 
-岗位知识库需要独立的 Python 环境、岗位数据和持久化索引。`npm run preview` 仅预览静态构建产物，不提供开发环境的 API 代理。详见[配置与部署](docs/configuration.md)。
+岗位知识库需要独立的 Python 环境、岗位数据和持久化索引。构建后可使用 `node --env-file=.env --run start` 同时提供页面与 API；`npm run preview` 仅预览静态产物。详见[模型配置](docs/configuration.md)与[服务器部署](docs/deployment.md)。
 
 ## 仓库结构
 

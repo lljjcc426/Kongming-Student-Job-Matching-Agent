@@ -139,9 +139,12 @@ MODEL_VISION_MODEL=your_vision_model_id
 | --- | --- |
 | `node --env-file=.env --run dev` | Vite 界面与同源模型、OCR、岗位检索 API，可启动本地 Python 工作进程。 |
 | `npm run build` | TypeScript 检查并生成 `dist` 静态产物。 |
+| `node --env-file=.env --run start` | 生产 Node.js 服务，同时提供 `dist` 与同源 API，默认监听 `127.0.0.1:3000`。 |
 | `npm run preview` | 预览静态产物，不包含开发 API。 |
 
-对外提供完整应用时，需要同时运行前端静态服务与服务端 API，并将 `/api/*` 请求转发到后端。模型逻辑位于 `server/arkCore.js` 和 `server/modelProvider.js`，HTTP 入口位于 `api/`；岗位检索还需要 Python 环境与持久化存储。仓库当前未提供独立的生产 Node.js 启动脚本，不能仅用 `npm run preview` 运行全部功能。
+生产入口为 `server/index.js`，复用 `server/arkCore.js`、`server/modelProvider.js` 等业务逻辑。通过 `HOST` 和 `PORT` 修改监听地址；使用进程管理器注入环境变量时可直接执行 `npm start`。服务器部署、HTTPS、更新与回滚见[服务器部署](deployment.md)。
+
+生产服务仅在配置 `JOB_RAG_DATA_PATH` 后启用本地岗位知识库；还需准备 Python 环境、数据和持久化索引。未配置时，检索接口返回未就绪状态，界面保留模型方向建议。
 
 ## 常见问题
 

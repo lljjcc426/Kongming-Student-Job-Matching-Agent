@@ -169,7 +169,7 @@ Existing `setup:ocr`, `setup:rag` and `build:job-index` scripts target Windows /
 | Model services | Node.js reads server credentials, adapts OpenAI / Claude protocols and routes text or vision tasks through same-origin APIs. |
 | Optional retrieval | Python, LlamaIndex, BGE, Qdrant, BM25, RRF fusion and optional reranking. |
 
-The job knowledge base requires Python, job data and persistent indexes. `npm run preview` serves static output without the development API middleware. See [configuration and deployment](docs/configuration.md).
+The job knowledge base requires Python, job data and persistent indexes. After building, run `node --env-file=.env --run start` to serve both the UI and API; `npm run preview` only serves static output. See [model configuration](docs/configuration.md) and [server deployment](docs/deployment.md).
 
 ## Repository layout
 
