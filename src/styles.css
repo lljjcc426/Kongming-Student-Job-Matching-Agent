@@ -251,14 +251,14 @@ input {
 
 .app-nav > div button:hover,
 .app-nav > div button.active {
-  border-color: #2563eb;
+  border-color: #a6c9ed;
   background:
-    radial-gradient(circle at 16% 50%, rgba(56, 189, 248, 0.46), transparent 28%),
-    linear-gradient(135deg, #2563eb, #0ea5e9);
-  color: #fff;
+    radial-gradient(circle at 16% 50%, rgba(255, 255, 255, 0.55), transparent 28%),
+    linear-gradient(135deg, #b8d9fb, #dceeff);
+  color: #234a73;
   box-shadow:
-    0 18px 42px rgba(37, 99, 235, 0.22),
-    0 0 24px rgba(56, 189, 248, 0.22);
+    0 18px 42px rgba(96, 165, 250, 0.16),
+    0 0 24px rgba(184, 217, 251, 0.22);
   transform: translateX(3px);
 }
 
@@ -270,7 +270,7 @@ input {
 
 .app-nav > div button:hover::after,
 .app-nav > div button.active::after {
-  color: #fff;
+  color: #98753c;
   transform: translateX(4px);
 }
 
@@ -3204,11 +3204,11 @@ input {
   gap: 8px;
   min-height: 42px;
   margin-top: 22px;
-  border: 1px solid #2563eb;
+  border: 1px solid #a6c9ed;
   border-radius: 8px;
   padding: 0 16px;
-  background: #2563eb;
-  color: #fff;
+  background: #b8d9fb;
+  color: #234a73;
   font-weight: 900;
   cursor: pointer;
 }
@@ -8214,10 +8214,10 @@ input {
 }
 
 .primary-action {
-  border: 1px solid #2563eb;
+  border: 1px solid #a6c9ed;
   padding: 0 14px;
-  background: #2563eb;
-  color: #fff;
+  background: #b8d9fb;
+  color: #234a73;
 }
 
 .primary-action:disabled {
@@ -12686,10 +12686,10 @@ body:has(.resume-editor-page) {
 
 .identity-form-actions button.primary,
 .identity-wide-action {
-  color: #fff;
-  border-color: transparent;
-  background: linear-gradient(135deg, #2563eb, #0ea5e9);
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+  color: #234a73;
+  border-color: #a6c9ed;
+  background: linear-gradient(135deg, #b8d9fb, #dceeff);
+  box-shadow: 0 12px 24px rgba(96, 165, 250, 0.14);
 }
 
 .identity-form-actions button:disabled {

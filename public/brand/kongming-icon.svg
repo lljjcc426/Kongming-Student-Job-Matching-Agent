@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="孔明职配">
+  <rect width="128" height="128" rx="29" fill="#263e66"/>
+  <g transform="translate(8 8) scale(.875)">
+    <path fill="#f7f5ec" d="M18 26h30c10 0 17 5 22 13v66c-7-8-15-12-26-12H18z"/>
+    <path fill="#f7f5ec" d="M76 47c7-7 17-11 34-11v57c-15 0-25 3-34 12z"/>
+    <path fill="#d6ae63" d="M76 21h34v9c-15 0-25 4-34 11z"/>
+    <path fill="#263e66" d="M30 42h12c7 0 12 2 17 6v10c-5-4-10-6-17-6H30zm0 22h12c7 0 12 2 17 6v10c-5-4-10-6-17-6H30z"/>
+  </g>
+</svg>

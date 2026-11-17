@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="孔明职配"><defs><linearGradient id="m" x2="1" y2="1"><stop stop-color="#173e49"/><stop offset="1" stop-color="#092b35"/></linearGradient><linearGradient id="a" x2="1" y2="0"><stop stop-color="#65d9ba"/><stop offset="1" stop-color="#b7f5db"/></linearGradient></defs><rect width="64" height="64" rx="17" fill="url(#m)"/><path d="M17 16h8v32h-8z" fill="#f5faf8"/><path d="m28 28 15-12h12L32 35l-7-5z" fill="url(#a)"/><path d="m28 35 23 13H36L25 41v-8z" fill="#f5faf8"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="孔明职配">
+  <path fill="#263e66" d="M18 26h30c10 0 17 5 22 13v66c-7-8-15-12-26-12H18z"/>
+  <path fill="#263e66" d="M76 47c7-7 17-11 34-11v57c-15 0-25 3-34 12z"/>
+  <path fill="#d6ae63" d="M76 21h34v9c-15 0-25 4-34 11z"/>
+  <path fill="#f7f5ec" d="M30 42h12c7 0 12 2 17 6v10c-5-4-10-6-17-6H30zm0 22h12c7 0 12 2 17 6v10c-5-4-10-6-17-6H30z"/>
+</svg>
