@@ -22,7 +22,7 @@
 
 Kongming brings a student's resume and target job into one workflow. It structures education, skills and experience, explains how the available evidence relates to job requirements, suggests resume improvements and provides interview practice for the selected role.
 
-The application uses React and TypeScript with server-side adapters for OpenAI, Claude and OpenAI-compatible services, including local models through Ollama. OCR and a local job knowledge base are optional. The current release is a runnable application prototype; the interface and detailed documentation are primarily in Chinese.
+The application uses React and TypeScript with server-side adapters for OpenAI, Claude and OpenAI-compatible services, including local models through Ollama. OCR and a local job knowledge base are optional. User and administrator workspaces share a server with SQLite persistence for accounts, personal records and operational metrics. The interface and detailed documentation are primarily in Chinese.
 
 ![From resume import to interview practice](docs/media/workflow.en.svg)
 
@@ -51,6 +51,10 @@ The recording shows the running frontend with a fictional resume and fixed API r
     <td width="50%"><a href="docs/media/account.webp"><img src="docs/media/account.webp" alt="Account sign-in and independent guest access"></a><br><strong>07 · Save your progress</strong><br>Sign in across devices or start an independent guest session.</td>
     <td width="50%"><a href="docs/media/growth.webp"><img src="docs/media/growth.webp" alt="Growth plan with tasks and evidence"></a><br><strong>08 · Practice and review</strong><br>Turn interview gaps into tasks and compare later assessments.</td>
   </tr>
+  <tr>
+    <td width="50%"><a href="docs/media/console.webp"><img src="docs/media/console.webp" alt="Service console with request trends and model usage"></a><br><strong>09 · Monitor the service</strong><br>Review requests, model usage, resources and backups.</td>
+    <td width="50%"><a href="docs/media/users.webp"><img src="docs/media/users.webp" alt="Account status and session management"></a><br><strong>10 · Manage accounts</strong><br>Disable or restore ordinary accounts, revoke sessions and review audit events.</td>
+  </tr>
 </table>
 
 ## Capabilities
@@ -63,6 +67,7 @@ The recording shows the running frontend with a fictional resume and fixed API r
 | Resume improvement | Keyword gaps, evidence and action suggestions; copy an improvement draft or download a Markdown analysis report. |
 | Interview practice | General, technical and HR modes with text answers. Speech and camera features depend on browser support and permissions. |
 | Career assistant and account memory | Conversations grounded in resume, role and feedback, with account sign-in, independent guest sessions and private SQLite storage. |
+| Service console | Request trends, success rate, average / P95 latency, reported model tokens, service configuration, resources, backups, account status and audit events. |
 | Interview review and growth plans | Evidence by competency, stage or formal reports, practice tasks and comparisons with later assessments. |
 
 Match scores use the project's heuristic rules. They have not been calibrated against hiring outcomes and do not represent acceptance probabilities. If the local knowledge base is unavailable, the interface reports this and attempts model-generated role suggestions.
@@ -153,6 +158,8 @@ Open the local address printed in the terminal, usually **http://localhost:5173*
 
 For a UI-only visit, `npm run dev` works without model credentials. Resume structuring, JD analysis and model conversations require a valid connection. The Node.js `--env-file` option loads server variables into the process.
 
+New accounts have the user role. Administrators are granted through a server command and enter `/console` after sign-in. See [administrator setup and metric definitions](docs/deployment.md#管理员与服务控制台).
+
 ### Optional services
 
 | Integration | Requirements | Guide |
@@ -172,6 +179,7 @@ Existing `setup:ocr`, `setup:rag` and `build:job-index` scripts target Windows /
 | Workflow | Business hooks and model adapters for resume processing, job analysis, interviews and chat. |
 | Documents | PDF.js, RapidOCR / Volcengine OCR and coordinate-based source highlighting. |
 | Model services | Node.js reads server credentials, adapts OpenAI / Claude protocols and routes text or vision tasks through same-origin APIs. |
+| Accounts and operations | SQLite WAL, versioned migrations, server-side role checks, isolated personal records, request metadata, audit events and online backups. |
 | Optional retrieval | Python, LlamaIndex, BGE, Qdrant, BM25, RRF fusion and optional reranking. |
 
 The job knowledge base requires Python, job data and persistent indexes. After building, run `node --env-file=.env --run start` to serve both the UI and API; `npm run preview` only serves static output. See [model configuration](docs/configuration.md) and [server deployment](docs/deployment.md).

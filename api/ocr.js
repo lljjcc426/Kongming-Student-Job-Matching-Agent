@@ -1,3 +1,4 @@
+import { authorizeRequest } from "../server/requestAuth.js";
 import { runOcrRequest } from "../server/ocrCore.js";
 
 export const config = {
@@ -15,6 +16,7 @@ const setSecurityHeaders = (response) => {
 
 export default async function handler(request, response) {
   setSecurityHeaders(response);
+  if (!authorizeRequest(request, response)) return;
   if (request.method !== "POST") {
     response.status(405).json({ ok: false, error: "只支持 POST 请求。" });
     return;

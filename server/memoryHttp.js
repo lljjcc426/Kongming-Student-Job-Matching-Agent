@@ -7,7 +7,7 @@ const setSecurityHeaders = (response) => {
   response.setHeader("X-Robots-Tag", "noindex, nofollow");
 };
 
-const sessionTokenFrom = (request) => {
+export const sessionTokenFrom = (request) => {
   const cookieHeader = request.headers?.cookie || "";
   for (const segment of cookieHeader.split(";")) {
     const [name, ...value] = segment.trim().split("=");
@@ -41,6 +41,7 @@ export default async function handler(request, response) {
   const result = await runAgentMemoryRequest(request.body || {}, {
     sessionToken: sessionTokenFrom(request),
   });
+  if (response.locals && result.payload.identity?.authenticated) response.locals.account = result.payload.identity;
   setSessionCookie(request, response, result);
   response.statusCode = result.status;
   response.end(JSON.stringify(result.payload));

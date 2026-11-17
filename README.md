@@ -23,7 +23,7 @@
 
 孔明职配将学生简历与目标岗位放在同一个工作流中：提取教育、技能和经历，分析岗位要求与简历证据的关联，生成有依据的匹配说明与修改建议，再围绕目标岗位开展面试练习。
 
-项目采用 React + TypeScript 构建交互界面，通过服务端适配 OpenAI、Claude 与 OpenAI 兼容接口，也可连接 Ollama 等本地模型；OCR 与岗位知识库按需启用。当前版本为可运行的应用原型。
+项目采用 React + TypeScript 构建交互界面，通过服务端适配 OpenAI、Claude 与 OpenAI 兼容接口，也可连接 Ollama 等本地模型；OCR 与岗位知识库按需启用。提供用户求职工作区与管理员服务控制台，使用 SQLite 持久化账号、个人记录及运维指标。
 
 ![从简历导入到面试练习的五步工作流](docs/media/workflow.svg)
 
@@ -54,6 +54,10 @@
     <td><a href="docs/media/account.webp"><img src="docs/media/account.webp" alt="账号登录与独立访客入口"></a><br><strong>07 · 保存个人进度</strong><br>使用账号跨设备登录，或直接进入独立访客空间。</td>
     <td><a href="docs/media/growth.webp"><img src="docs/media/growth.webp" alt="成长计划：任务、证据与后续复测"></a><br><strong>08 · 持续练习与复盘</strong><br>将面试薄弱项转为任务，记录成果并比较后续评估。</td>
   </tr>
+  <tr>
+    <td><a href="docs/media/console.webp"><img src="docs/media/console.webp" alt="服务控制台：请求趋势、模型用量、服务配置与资源状态"></a><br><strong>09 · 查看服务运行</strong><br>管理员查看调用、用量、数据库与备份状态。</td>
+    <td><a href="docs/media/users.webp"><img src="docs/media/users.webp" alt="用户管理：账号角色、状态与会话管理"></a><br><strong>10 · 管理账号与会话</strong><br>停用或恢复普通账号，撤销登录会话，查看操作审计。</td>
+  </tr>
 </table>
 
 ## 核心能力
@@ -66,6 +70,7 @@
 | 简历优化与导出 | 提供关键词差距、经历表达与行动建议，支持复制优化稿、下载 Markdown 分析报告。 |
 | 模拟面试 | 提供综合面、技术面和 HR 面练习，支持文字回答；语音与摄像头能力取决于浏览器和设备权限。 |
 | AI 求职助手与账号记忆 | 结合简历、岗位、历史对话和反馈开展问答；支持账号登录与独立访客体验，使用 SQLite 保存个人记录。 |
+| 管理员服务控制台 | 请求趋势、成功率、平均 / P95 耗时、模型 Token 用量、服务配置、主机资源与数据库备份；支持账号状态管理、会话撤销与操作审计。 |
 | 面试复盘与成长计划 | 按岗位能力维度整理回答证据，生成阶段报告或正式报告，保存薄弱项与练习任务，支持后续复测比较。 |
 
 匹配分数来自项目内的规则计算，用于比较和解释当前简历与岗位的关系；尚未经真实录用结果校准，不代表录用概率。知识库不可用时，界面会提示并尝试提供模型生成的岗位方向建议。
@@ -152,9 +157,11 @@ MODEL_REQUEST_TIMEOUT_MS=180000
 node --env-file=.env --run dev
 ```
 
-打开终端输出的本地地址，默认是 **http://localhost:5173**。上传简历后，可依次进入简历解析、岗位推荐、模拟面试与 AI 助手。
+打开终端输出的本地地址，默认是 **http://localhost:5173**。注册并登录，或以独立访客身份体验。上传简历后，可依次进入简历解析、岗位推荐、模拟面试与 AI 助手。
 
 仅浏览界面可直接运行 `npm run dev`；简历结构化、JD 分析与模型问答需要有效的模型配置。`node --env-file=.env` 用于将服务端变量加载到进程中。
+
+管理员只能由部署者通过服务器命令授权；普通账号无法访问控制台。授权步骤与监控指标口径见[服务器部署](docs/deployment.md#管理员与服务控制台)。
 
 ### 可选：OCR 与岗位知识库
 
@@ -175,6 +182,7 @@ node --env-file=.env --run dev
 | 任务编排 | 按简历处理、岗位分析、面试与对话组织任务；业务 hooks 与模型适配器管理状态和调用。 |
 | 文档处理 | PDF.js、RapidOCR / 火山 OCR，保留文字与位置之间的关联。 |
 | 模型服务 | Node.js 服务端读取凭据并适配 OpenAI / Claude 协议，按任务选择文本或视觉模型；浏览器调用同源 API。 |
+| 账号与运维 | SQLite WAL、版本迁移、服务端角色鉴权；保存独立账号记录、请求指标与管理审计，支持在线备份。 |
 | 可选检索 | Python、LlamaIndex、BGE、Qdrant、BM25 与 RRF 融合，支持多查询召回与可选重排。 |
 
 岗位知识库需要独立的 Python 环境、岗位数据和持久化索引。构建后可使用 `node --env-file=.env --run start` 同时提供页面与 API；`npm run preview` 仅预览静态产物。详见[模型配置](docs/configuration.md)与[服务器部署](docs/deployment.md)。
@@ -184,10 +192,10 @@ node --env-file=.env --run dev
 ```text
 .
 ├── src/                 # 前端页面、组件、业务流程与模型适配器
-│   ├── pages/           # 首页、简历、岗位、面试与助手页面
+│   ├── pages/           # 用户工作区与管理员控制台
 │   ├── features/        # 简历处理、岗位检索、匹配解释与对话
 │   └── components/      # 品牌、可视化、布局与业务组件
-├── server/              # 模型代理、OCR 与本地岗位知识库服务
+├── server/              # 账号鉴权、运维指标、模型代理、OCR 与岗位检索
 ├── api/                 # 模型与 OCR HTTP 入口
 ├── scripts/             # 环境准备、岗位采集与验证工具
 ├── public/              # 数字人、PDF 字体映射与静态资源

@@ -1,7 +1,11 @@
 import express from "express";
+import { authorizeRequest } from "./requestAuth.js";
+import { createAdminRouter } from "./adminHttp.js";
+import { monitorApiRequest } from "./operationsCore.js";
 import handleMemoryRequest from "./memoryHttp.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveModelConnection } from "./modelProvider.js";
 import { runArkCompletion } from "./arkCore.js";
 import { runOcrRequest } from "./ocrCore.js";
 import { runJobKnowledgeSearch, runJobKnowledgeStatus } from "./jobKnowledgeCore.js";
@@ -24,11 +28,24 @@ export function createApp({ distPath = DIST_PATH } = {}) {
     response.set("X-Robots-Tag", "noindex, nofollow");
     next();
   });
+  api.use(monitorApiRequest);
   api.all("/memory", express.json({ limit: "2mb" }), handleMemoryRequest);
   api.use(express.json({ limit: "8mb" }));
   api.get("/health", (_request, response) => response.json({ ok: true }));
+  api.use((request, response, next) => {
+    const account = authorizeRequest(request, response);
+    if (!account) return;
+    request.account = account;
+    response.locals.account = account;
+    next();
+  });
+  api.use("/admin", createAdminRouter());
   api.post("/ark", async (request, response) => {
+    const connection = resolveModelConnection(request.body?.task === "resume-vision");
+    response.locals.modelName = connection.model;
+    response.locals.modelProvider = connection.provider;
     const result = await runArkCompletion(request.body || {});
+    response.locals.modelUsage = result.payload.usage;
     response.status(result.status).json(result.payload);
   });
   api.post("/ocr", async (request, response) => {

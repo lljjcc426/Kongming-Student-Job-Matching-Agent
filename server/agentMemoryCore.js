@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { migrateAdminConsole } from "./migrations/001-admin-console.js";
 import path from "node:path";
 import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
@@ -210,6 +211,7 @@ const openDatabase = () => {
   if (!interviewColumns.has("dimensions_json")) {
     database.exec("ALTER TABLE agent_interview_memories ADD COLUMN dimensions_json TEXT NOT NULL DEFAULT '[]';");
   }
+  migrateAdminConsole(database);
   // Revoke sessions issued for the former shared demo account.
   database.prepare("DELETE FROM agent_sessions WHERE user_id = ?").run(DEMO_USER_ID);
   return database;
@@ -297,12 +299,12 @@ const sessionAccount = (db, token) => {
   const account = db.prepare(`
     SELECT accounts.user_id AS userId, accounts.nickname,
            accounts.password_hash AS passwordHash,
-           accounts.account_kind AS accountKind,
+           accounts.account_kind AS accountKind, accounts.role, accounts.status,
            accounts.created_at AS createdAt, accounts.updated_at AS updatedAt,
            sessions.expires_at AS sessionExpiresAt
     FROM agent_sessions AS sessions
     JOIN agent_accounts AS accounts ON accounts.user_id = sessions.user_id
-    WHERE sessions.token_hash = ? AND sessions.expires_at > ?
+    WHERE sessions.token_hash = ? AND sessions.expires_at > ? AND accounts.status = 'active'
   `).get(sessionTokenHash(token), nowIso());
   return account ?? null;
 };
@@ -438,6 +440,7 @@ const authenticatedIdentityPayload = (account) => ({
     authenticated: true,
     hasPassword: Boolean(account.passwordHash),
     accountKind: account.accountKind,
+    role: account.role,
     createdAt: account.createdAt,
     updatedAt: account.updatedAt,
     sessionExpiresAt: account.sessionExpiresAt,
@@ -445,6 +448,7 @@ const authenticatedIdentityPayload = (account) => ({
 });
 
 const sessionResponse = (db, userId, payload = {}) => {
+  db.prepare("UPDATE agent_accounts SET last_login_at = ? WHERE user_id = ?").run(nowIso(), userId);
   const session = createSession(db, userId);
   const account = sessionAccount(db, session.token);
   return {
@@ -503,13 +507,14 @@ const loginAccount = (db, body) => {
   }
   const account = nickname ? db.prepare(`
     SELECT user_id AS userId, password_salt AS passwordSalt,
-           password_hash AS passwordHash, account_kind AS accountKind
+           password_hash AS passwordHash, account_kind AS accountKind, status
     FROM agent_accounts WHERE nickname = ? COLLATE NOCASE
   `).get(nickname) : null;
   if (!account?.passwordHash || account.accountKind === "demo" || !verifyPassword(password, account.passwordSalt, account.passwordHash)) {
     if (nickname) recordAuthFailure("login", nickname);
     return { status: 401, payload: { ok: false, error: "昵称或密码不正确。" } };
   }
+  if (account.status === "disabled") return { status: 403, payload: { ok: false, error: "账号已停用，请联系服务管理员。" } };
   clearAuthFailures("login", nickname);
   return sessionResponse(db, account.userId);
 };
@@ -526,7 +531,7 @@ const recoverAccount = (db, body) => {
   }
   const account = db.prepare(`
     SELECT user_id AS userId, recovery_salt AS recoverySalt,
-           recovery_hash AS recoveryHash, account_kind AS accountKind
+           recovery_hash AS recoveryHash, account_kind AS accountKind, status
     FROM agent_accounts WHERE nickname = ? COLLATE NOCASE
   `).get(nickname);
   if (
@@ -537,6 +542,7 @@ const recoverAccount = (db, body) => {
     recordAuthFailure("recovery", nickname);
     return { status: 401, payload: { ok: false, error: "昵称或恢复码不正确。" } };
   }
+  if (account.status === "disabled") return { status: 403, payload: { ok: false, error: "账号已停用，请联系服务管理员。" } };
   clearAuthFailures("recovery", nickname);
   const secret = createPasswordSecret(password);
   db.prepare(`
@@ -1004,6 +1010,11 @@ export const runAgentMemoryRequest = async (body = {}, requestContext = {}) => {
       payload: { ok: false, error: "智能体记忆服务暂不可用。" },
     };
   }
+};
+
+export const getAuthenticatedAccount = (token) => {
+  const account = sessionAccount(openDatabase(), token);
+  return account ? authenticatedIdentityPayload(account).identity : null;
 };
 
 export const initializeAgentMemoryStore = () => openDatabase();

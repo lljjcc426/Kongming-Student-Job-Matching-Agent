@@ -1,3 +1,4 @@
+import { authorizeRequest } from "../../server/requestAuth.js";
 import { runJobKnowledgeStatus } from "../../server/jobKnowledgeCore.js";
 
 const setSecurityHeaders = (response) => {
@@ -9,6 +10,7 @@ const setSecurityHeaders = (response) => {
 
 export default async function handler(request, response) {
   setSecurityHeaders(response);
+  if (!authorizeRequest(request, response)) return;
   if (request.method !== "GET") {
     response.status(405).json({ ok: false, ready: false, error: "只支持 GET 请求。" });
     return;

@@ -1,5 +1,6 @@
 import { Check, Copy, KeyRound, LogIn, LogOut, ShieldCheck, UserPlus, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import AuthLayout from "./AuthLayout";
 import type { AppIdentity } from "../../features/identity/identityClient";
 
 type IdentityMode = "login" | "register" | "recover" | "account" | "recovery";
@@ -112,36 +113,23 @@ export default function IdentityDialog({
     setCopied(true);
   };
 
-  if (loading) {
-    return (
-      <div className="identity-dialog-backdrop identity-login-backdrop">
-        <section className="identity-dialog identity-login-dialog" aria-live="polite">
-          <div className="identity-dialog-icon"><ShieldCheck size={28} /></div>
-          <span className="identity-eyebrow">KONGMING ACCOUNT</span>
-          <h2>正在恢复登录状态</h2>
-          <p>正在安全读取你的求职工作区。</p>
-        </section>
-      </div>
-    );
-  }
-
   const closeButton = !required && identity.authenticated ? (
     <button type="button" className="identity-dialog-close" onClick={onClose} aria-label="关闭账户中心">
       <X size={18} />
     </button>
   ) : null;
 
-  return (
-    <div className={`identity-dialog-backdrop ${required ? "identity-login-backdrop" : ""}`} role="presentation">
-      <section className={`identity-dialog ${required ? "identity-login-dialog" : ""}`} role="dialog" aria-modal="true" aria-labelledby="identity-title">
+  const content = (
+      <section className={`identity-dialog ${required ? "identity-login-dialog" : ""}`} role={required ? undefined : "dialog"} aria-modal={required ? undefined : true} aria-labelledby="identity-title">
         {closeButton}
+        {required && (mode === "login" || mode === "register") ? <div className="auth-tabs" role="tablist" aria-label="账号操作"><button type="button" role="tab" aria-selected={mode === "login"} className={mode === "login" ? "active" : ""} onClick={() => { setMode("login"); setError(""); }}>登录</button><button type="button" role="tab" aria-selected={mode === "register"} className={mode === "register" ? "active" : ""} onClick={() => { setMode("register"); setError(""); }}>注册</button></div> : null}
 
         {mode === "login" ? (
           <form onSubmit={(event) => { event.preventDefault(); void login(); }}>
             <div className="identity-dialog-icon"><LogIn size={28} /></div>
             <span className="identity-eyebrow">KONGMING ACCOUNT</span>
             <h2 id="identity-title">登录孔明职配</h2>
-            <p>登录后继续查看你的简历画像、面试记录和动态成长计划。</p>
+            <p>欢迎回来，继续你的求职准备。</p>
             <label className="identity-field">
               <span>昵称</span>
               <input autoFocus autoComplete="username" value={nickname} maxLength={24} placeholder="请输入昵称" onChange={(event) => setNickname(event.target.value)} />
@@ -151,13 +139,13 @@ export default function IdentityDialog({
               <input type="password" autoComplete="current-password" value={password} maxLength={128} placeholder="请输入密码" onChange={(event) => setPassword(event.target.value)} />
             </label>
             {error ? <p className="identity-error" role="alert">{error}</p> : null}
-            <button type="submit" className="identity-wide-action" disabled={busy}>{busy ? "正在登录" : "登录"}</button>
+            <button type="submit" className="identity-wide-action" disabled={busy || loading}>{busy ? "正在登录" : "登录"}</button>
             <div className="identity-login-links">
-              <button type="button" onClick={() => { setMode("register"); setError(""); }}>创建账号</button>
+              {!required ? <button type="button" onClick={() => { setMode("register"); setError(""); }}>创建账号</button> : null}
               <button type="button" onClick={() => { setMode("recover"); setError(""); }}>忘记密码</button>
             </div>
             <div className="identity-demo-divider"><span>快速体验</span></div>
-            <button type="button" className="identity-demo-action" onClick={() => void loginDemo()} disabled={busy}>
+            <button type="button" className="identity-demo-action" onClick={() => void loginDemo()} disabled={busy || loading}>
               <UserRound size={18} /> 以访客身份体验
               <small>独立体验空间 · 无需注册</small>
             </button>
@@ -187,7 +175,7 @@ export default function IdentityDialog({
             {error ? <p className="identity-error" role="alert">{error}</p> : null}
             <div className="identity-form-actions">
               <button type="button" className="secondary" onClick={() => setMode("login")}>返回登录</button>
-              <button type="submit" className="primary" disabled={busy}>{busy ? "正在创建" : "创建账号"}</button>
+              <button type="submit" className="primary" disabled={busy || loading}>{busy ? "正在创建" : "创建账号"}</button>
             </div>
           </form>
         ) : null}
@@ -205,7 +193,7 @@ export default function IdentityDialog({
             {error ? <p className="identity-error" role="alert">{error}</p> : null}
             <div className="identity-form-actions">
               <button type="button" className="secondary" onClick={() => setMode("login")}>返回登录</button>
-              <button type="submit" className="primary" disabled={busy}>{busy ? "正在重置" : "重置并登录"}</button>
+              <button type="submit" className="primary" disabled={busy || loading}>{busy ? "正在重置" : "重置并登录"}</button>
             </div>
           </form>
         ) : null}
@@ -232,14 +220,14 @@ export default function IdentityDialog({
             <span className="identity-eyebrow">当前登录账号</span>
             <h2 id="identity-title">{identity.nickname}</h2>
             <p>对话、面试记录和成长计划随账号保存，登录后可继续使用。</p>
-            <div className="identity-account-status"><ShieldCheck size={18} /> {identity.accountKind === "demo" ? "访客身份 · 注册账号可跨设备登录" : "密码与恢复码保护已启用"}</div>
+            <div className="identity-account-status"><ShieldCheck size={18} />{identity.role === "admin" ? "管理员 · " : identity.accountKind === "user" ? "普通用户 · " : ""} {identity.accountKind === "demo" ? "访客身份 · 注册账号可跨设备登录" : "密码与恢复码保护已启用"}</div>
             <div className="identity-account-actions">
               <button type="button" onClick={() => { setNickname(identity.nickname); setMode("recover"); }} disabled={identity.accountKind === "demo"}><KeyRound size={18} />使用恢复码修改密码</button>
-              <button type="button" onClick={() => void logout()} disabled={busy}><LogOut size={18} />{busy ? "正在退出" : "退出当前账号"}</button>
+              <button type="button" onClick={() => void logout()} disabled={busy || loading}><LogOut size={18} />{busy ? "正在退出" : "退出当前账号"}</button>
             </div>
           </>
         ) : null}
       </section>
-    </div>
   );
+  return required ? <AuthLayout>{content}</AuthLayout> : <div className="identity-dialog-backdrop" role="presentation">{content}</div>;
 }

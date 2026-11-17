@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
+const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { pathToFileURL } = require("node:url");
@@ -17,6 +18,7 @@ const STATUS_API_URL = pathToFileURL(path.resolve("api/jobs/status.js")).href;
 const TEST_TOKEN = "remote-rag-test-token";
 
 const ENV_NAMES = [
+  "AGENT_MEMORY_DB_PATH",
   "JOB_RAG_BACKEND",
   "JOB_RAG_REMOTE_BASE_URL",
   "JOB_RAG_REMOTE_SEARCH_URL",
@@ -76,6 +78,8 @@ const mockResponse = () => {
   const state = { headers: {}, status: 0, payload: null };
   return {
     state,
+    set statusCode(code) { state.status = code; },
+    end(value) { state.payload = JSON.parse(value); },
     setHeader(name, value) {
       state.headers[name.toLowerCase()] = value;
     },
@@ -97,6 +101,11 @@ async function main() {
     throw new Error(`RAG Python 环境不存在：${PYTHON_PATH}`);
   }
 
+  const accountDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "kongming-rag-account-"));
+  process.env.AGENT_MEMORY_DB_PATH = path.join(accountDirectory, "memory.sqlite3");
+  const { runAgentMemoryRequest, closeAgentMemoryStore } = await import("../server/agentMemoryCore.js");
+  const guest = await runAgentMemoryRequest({ action: "login-demo" });
+  const sessionHeaders = { cookie: `km_session=${guest.sessionToken}` };
   const startedAt = Date.now();
   const servicePort = await availablePort();
   const baseUrl = `http://127.0.0.1:${servicePort}`;
@@ -205,6 +214,7 @@ async function main() {
     await searchHandler(
       {
         method: "POST",
+        headers: sessionHeaders,
         body: { query: "上海前端实习", topK: 3, rerank: false },
       },
       searchResponse,
@@ -217,7 +227,7 @@ async function main() {
       `${STATUS_API_URL}?verify=${Date.now()}`
     );
     const statusResponse = mockResponse();
-    await statusHandler({ method: "GET" }, statusResponse);
+    await statusHandler({ method: "GET", headers: sessionHeaders }, statusResponse);
     assert.equal(statusResponse.state.status, 200);
     assert.equal(statusResponse.state.payload.ready, true);
 
@@ -276,7 +286,7 @@ async function main() {
         remoteStatusGateway: true,
         remoteSearchGateway: true,
         requestNormalization: true,
-        vercelHandlers: true,
+        httpHandlers: true,
         upstreamErrorSanitization: true,
         httpsEnforcement: true,
       },
@@ -287,6 +297,8 @@ async function main() {
     console.log(JSON.stringify(report, null, 2));
     console.log(`[远程 RAG] 报告 ${REPORT_PATH}`);
   } finally {
+    closeAgentMemoryStore();
+    fs.rmSync(accountDirectory, { recursive: true, force: true });
     restoreEnvironment();
     if (failureServer?.listening) await closeServer(failureServer);
     if (serviceProcess.exitCode === null) serviceProcess.kill();

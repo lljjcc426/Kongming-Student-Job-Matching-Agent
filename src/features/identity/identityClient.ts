@@ -10,6 +10,7 @@ export type AppIdentity = {
   authenticated: boolean;
   hasPassword: boolean;
   accountKind: "user" | "demo";
+  role: "user" | "admin";
   createdAt?: string;
   updatedAt?: string;
   sessionExpiresAt?: string;
@@ -45,6 +46,7 @@ const emptyIdentity = (userId = getMemoryUserId()): AppIdentity => ({
   authenticated: false,
   hasPassword: false,
   accountKind: "user",
+  role: "user",
 });
 
 const persistIdentity = (identity: AppIdentity) => {

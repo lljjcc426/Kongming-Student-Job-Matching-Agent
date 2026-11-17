@@ -8,11 +8,11 @@ import { useJobWorkspace } from "./features/jobs/useJobWorkspace";
 import { useMatchInsights } from "./features/matching/useMatchInsights";
 import { useResumeProcessing } from "./features/resume/useResumeProcessing";
 import { useGrowthPlan } from "./features/growth/useGrowthPlan";
-import LoadingScreen from "./LoadingScreen";
 import IdentityDialog from "./components/identity/IdentityDialog";
 import { useIdentity } from "./features/identity/useIdentity";
 import type { AppIdentity } from "./features/identity/identityClient";
 
+const AdminConsolePage = lazy(() => import("./pages/AdminConsolePage"));
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const HomePage = lazy(() => import("./pages/HomePage"));
 const InterviewPage = lazy(() => import("./pages/InterviewPage"));
@@ -22,9 +22,10 @@ const GrowthPlanPage = lazy(() => import("./pages/GrowthPlanPage"));
 type WorkspaceProps = {
   identity: AppIdentity;
   onOpenIdentity: () => void;
+  onOpenConsole: () => void;
 };
 
-function Workspace({ identity, onOpenIdentity }: WorkspaceProps) {
+function Workspace({ identity, onOpenIdentity, onOpenConsole }: WorkspaceProps) {
   const [activePage, setActivePage] = useState<ActivePage>("home");
   const profileColumnRef = useRef<HTMLElement | null>(null);
   const {
@@ -127,6 +128,7 @@ function Workspace({ identity, onOpenIdentity }: WorkspaceProps) {
         identity={identity}
         onChange={setActivePage}
         onOpenIdentity={onOpenIdentity}
+        onOpenConsole={onOpenConsole}
       />
 
       <Suspense fallback={<PageLoadingFallback />}>
@@ -244,21 +246,34 @@ function Workspace({ identity, onOpenIdentity }: WorkspaceProps) {
 }
 
 function App() {
-  const [introVisible, setIntroVisible] = useState(true);
   const identity = useIdentity();
-
-  if (introVisible) {
-    return <LoadingScreen onFinish={() => setIntroVisible(false)} />;
-  }
+  const [pathname, setPathname] = useState(window.location.pathname);
+  const navigate = (path: string) => {
+    window.history.pushState({}, "", path);
+    setPathname(path);
+  };
+  useEffect(() => {
+    const update = () => setPathname(window.location.pathname);
+    window.addEventListener("popstate", update);
+    return () => window.removeEventListener("popstate", update);
+  }, []);
+  useEffect(() => {
+    if (identity.loading) return;
+    const target = !identity.identity.authenticated ? "/" : pathname === "/" ? identity.identity.role === "admin" ? "/console" : "/app" : pathname;
+    if (target !== pathname) {
+      window.history.replaceState({}, "", target);
+      setPathname(target);
+    }
+  }, [identity.loading, identity.identity.authenticated, identity.identity.role, pathname]);
 
   return (
     <>
       {identity.identity.authenticated ? (
-        <Workspace
-          key={identity.identity.userId}
-          identity={identity.identity}
-          onOpenIdentity={identity.openDialog}
-        />
+        pathname.startsWith("/console") ? identity.identity.role === "admin" ? (
+          <Suspense fallback={<PageLoadingFallback />}><AdminConsolePage identity={identity.identity} onOpenProduct={() => navigate("/app")} onLogout={identity.logout} /></Suspense>
+        ) : <main className="console-denied"><h1>当前账号没有控制台权限</h1><button onClick={() => navigate("/app")}>进入产品工作区</button></main> : (
+          <Workspace key={identity.identity.userId} identity={identity.identity} onOpenIdentity={identity.openDialog} onOpenConsole={() => navigate("/console")} />
+        )
       ) : null}
       <IdentityDialog
         open={identity.dialogOpen || !identity.identity.authenticated}

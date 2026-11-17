@@ -6,7 +6,6 @@ const UI_ARTIFACT_DIR =
   process.env.JOB_RAG_UI_ARTIFACT_DIR
   || path.resolve("output", "verification", "ui");
 const screenshotPaths = {
-  intro: path.join(UI_ARTIFACT_DIR, "check-intro.png"),
   identity: path.join(UI_ARTIFACT_DIR, "check-identity.png"),
   resume: path.join(UI_ARTIFACT_DIR, "check-resume-after-upload.png"),
   matchingEvidence: path.join(UI_ARTIFACT_DIR, "check-matching-evidence.png"),
@@ -270,22 +269,11 @@ async function main() {
 
   await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
   const introStage = await page.locator(".loading-screen").count();
-  const introProgress = await page.locator(".loading-brand-progress-track").count();
-  const introProgressCard = await page.locator(".loading-brand-progress").count();
-  const introDecorations = await page.locator(".loading-voltage-button .dot").count();
-  const introVideoBackdrop = await page.locator(".loading-video-stage video").count();
-  await page.screenshot({ path: screenshotPaths.intro, fullPage: false });
-  await page.waitForTimeout(1400);
-  const introProgressAfterWheel = Number(await page.locator(".loading-brand-progress-track").getAttribute("aria-valuenow"));
-  await page.locator(".loading-start-button").click();
-  await page.locator(".loading-screen").waitFor({ state: "detached", timeout: 5000 }).catch(async () => {
-    await page.waitForFunction(() => !document.querySelector(".loading-screen"), null, { timeout: 5000 });
-  });
-
+  await page.locator(".auth-page").waitFor({ state: "visible" });
   const identityDialog = await page.locator(".identity-dialog").count();
   const identityLoginTitle = await page.getByRole("heading", { name: "登录孔明职配" }).count();
   const identityDemoAction = await page.getByRole("button", { name: /以访客身份体验/ }).count();
-  await page.getByRole("button", { name: "创建账号" }).click();
+  await page.getByRole("tab", { name: "注册", exact: true }).click();
   const registrationTitle = await page.getByRole("heading", { name: "创建你的求职账号" }).count();
   const registrationPasswordFields = await page.locator('.identity-dialog input[type="password"]').count();
   await page.locator('.identity-dialog input[autocomplete="username"]').fill(`界面验证${Date.now()}`);
@@ -560,11 +548,6 @@ async function main() {
   const negativeFeedbackActiveAfterSave = await page.locator(".assistant-feedback-row button.negative.active").count();
 
   await page.reload({ waitUntil: "networkidle" });
-  await page.waitForTimeout(1400);
-  await page.locator(".loading-start-button").click();
-  await page.locator(".loading-screen").waitFor({ state: "detached", timeout: 5000 }).catch(async () => {
-    await page.waitForFunction(() => !document.querySelector(".loading-screen"), null, { timeout: 5000 });
-  });
   await page.locator(".app-nav > div button").nth(5).click();
   await page.locator(".growth-plan-page").waitFor({ state: "visible", timeout: 8000 });
   const restoredGrowthProgress = await page.locator(".growth-summary-grid article").nth(3).locator("strong").innerText();
@@ -597,15 +580,7 @@ async function main() {
   await page.locator(".growth-empty-page").waitFor({ state: "visible", timeout: 8000 });
   await browser.close();
 
-  if (introStage !== 1 || introProgress !== 1 || introProgressCard !== 1 || introVideoBackdrop !== 1) {
-    throw new Error(`Expected intro video loading screen, found stage=${introStage}, progress=${introProgress}, card=${introProgressCard}, video=${introVideoBackdrop}`);
-  }
-  if (introDecorations !== 5) {
-    throw new Error(`Expected five loading button decorations, found ${introDecorations}`);
-  }
-  if (introProgressAfterWheel <= 0) {
-    throw new Error(`Expected loading progress to advance, found ${introProgressAfterWheel}`);
-  }
+  if (introStage !== 0) throw new Error("开场动画应已移除。");
   if (!title.includes("孔明职配")) {
     throw new Error(`Unexpected home title: ${title}`);
   }
@@ -803,11 +778,6 @@ async function main() {
   console.log(JSON.stringify({
     title,
     introStage,
-    introProgress,
-    introProgressCard,
-    introDecorations,
-    introVideoBackdrop,
-    introProgressAfterWheel,
     initialJobCards,
     uploadControl,
     uploadMessage,

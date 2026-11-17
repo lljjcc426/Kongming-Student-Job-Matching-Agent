@@ -5,8 +5,10 @@ const os = require("node:os");
 const path = require("node:path");
 
 async function main() {
-  const { createApp } = await import("../server/app.js");
   const root = await mkdtemp(path.join(os.tmpdir(), "kongming-http-"));
+  process.env.AGENT_MEMORY_DB_PATH = path.join(root, "memory.sqlite3");
+  const { createApp } = await import("../server/app.js");
+  const { closeAgentMemoryStore } = await import("../server/agentMemoryCore.js");
   const dist = path.join(root, "dist");
   await mkdir(path.join(dist, "assets"), { recursive: true });
   await writeFile(path.join(dist, "index.html"), "<!doctype html><title>Kongming</title>");
@@ -24,10 +26,15 @@ async function main() {
     const range = await fetch(`${base}/assets/demo.mp4`, { headers: { Range: "bytes=2-5" } });
     assert.equal(range.status, 206);
     assert.equal(await range.text(), "2345");
-    for (const routePath of ["/.env", "/server/modelProvider.js", "/assets/missing.js", "/api/missing"]) {
+    for (const routePath of ["/.env", "/server/modelProvider.js", "/assets/missing.js"]) {
       assert.equal((await fetch(`${base}${routePath}`)).status, 404, routePath);
     }
-    assert.equal((await fetch(`${base}/api/ark`)).status, 405);
+    assert.equal((await fetch(`${base}/api/ark`)).status, 401);
+    const guest = await fetch(`${base}/api/memory`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "login-demo" }) });
+    await guest.json();
+    const cookie = guest.headers.get("set-cookie").split(";")[0];
+    assert.equal((await fetch(`${base}/api/ark`, { headers: { Cookie: cookie } })).status, 405);
+    assert.equal((await fetch(`${base}/api/missing`, { headers: { Cookie: cookie } })).status, 404);
     const invalid = await fetch(`${base}/api/ark`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: "{invalid",
     });
@@ -39,12 +46,13 @@ async function main() {
     });
     assert.equal(oversized.status, 413);
     const validation = await fetch(`${base}/api/ark`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ task: "invalid-task" }),
+      method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ task: "invalid-task" }),
     });
     assert.equal(validation.status, 400);
     console.log("生产 HTTP 服务验证通过：API 路由、SPA 刷新、媒体分段、私有文件隔离、请求错误处理。");
   } finally {
     await new Promise((resolve) => server.close(resolve));
+    closeAgentMemoryStore();
     await rm(root, { recursive: true, force: true });
   }
 }

@@ -1,3 +1,4 @@
+import { authorizeRequest } from "../../server/requestAuth.js";
 import {
   runJobKnowledgeSearch,
   runJobKnowledgeStatus,
@@ -18,6 +19,7 @@ const setSecurityHeaders = (response) => {
 
 export default async function handler(request, response) {
   setSecurityHeaders(response);
+  if (!authorizeRequest(request, response)) return;
   try {
     const result = request.method === "GET"
       ? await runJobKnowledgeStatus({ allowLocal: false, allowRemote: true })

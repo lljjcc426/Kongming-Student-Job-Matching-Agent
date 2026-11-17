@@ -37,7 +37,10 @@
     "verify:agent-memory": "node scripts/verify-agent-memory.cjs",
     "verify:ui:standalone": "node scripts/verify-ui-standalone.cjs",
     "verify:accounts": "node scripts/verify-account-isolation.cjs",
-    "backup:memory": "node scripts/backup-memory.mjs"
+    "backup:memory": "node scripts/backup-memory.mjs",
+    "manage:account": "node scripts/manage-account.mjs",
+    "verify:admin": "node scripts/verify-admin.cjs",
+    "verify:console": "node scripts/verify-console-ui.cjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",

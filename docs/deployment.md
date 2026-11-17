@@ -12,7 +12,7 @@ npm run build
 npm run verify:server
 ```
 
-将 `dist/`、`server/`、`package.json`、`package-lock.json`、`scripts/ocr-requirements.txt`、`scripts/backup-memory.mjs` 与 `deploy/` 上传至服务器的 `/opt/kongming/releases/<版本号>/`，在该目录执行 `npm ci --omit=dev`。前端产物可在开发机生成，无需在服务器上重复构建。
+将 `dist/`、`server/`、`package.json`、`package-lock.json`、`scripts/ocr-requirements.txt`、`scripts/backup-memory.mjs`、`scripts/manage-account.mjs` 与 `deploy/` 上传至服务器的 `/opt/kongming/releases/<版本号>/`，在该目录执行 `npm ci --omit=dev`。前端产物可在开发机生成，无需在服务器上重复构建。
 
 推荐布局：
 
@@ -61,7 +61,7 @@ sudo journalctl -u kongming -n 50 --no-pager
 
 ## 数据库与备份
 
-SQLite 适用于当前单实例部署。数据库采用 WAL 模式，账号、会话、对话、反馈、面试记录和成长计划均按账号存储。首次启动前创建私有目录：
+SQLite 适用于当前单实例部署。数据库采用 WAL 模式，账号、会话、对话、反馈、面试记录和成长计划均按账号存储。应用启动时通过版本迁移增加角色、账号状态、请求指标和审计表，保留现有账号与记录。更新前先生成一次备份。首次启动前创建私有目录：
 
 ```bash
 sudo install -d -o kongming -g kongming -m 700 /var/lib/kongming/memory /var/lib/kongming/backups
@@ -88,6 +88,26 @@ sudo systemctl list-timers kongming-backup.timer
 备份使用 SQLite 在线备份接口，可在应用运行时执行；文件仅由运行账号读取，自动清理超过 14 天的本工具备份。备份包含用户数据和会话信息，应按数据库同等标准保护。当前备份保存在同一服务器，仍需按实际运维要求安排异机副本。
 
 恢复时先停止 `kongming`，将现有数据库及其 `-wal`、`-shm` 文件移到另一个私有目录保留，再将选定备份复制到 `AGENT_MEMORY_DB_PATH`，恢复 `kongming` 所有权及 `600` 权限后启动服务。不要在进程运行时直接覆盖数据库文件。
+
+## 管理员与服务控制台
+
+新注册的账号均为普通用户。先在登录页注册自己的账号，再在服务器执行以下命令授权；将 `<账号昵称>` 替换为实际昵称：
+
+```bash
+sudo systemd-run --quiet --collect --wait --pipe \
+  --property=User=kongming --property=Group=kongming \
+  --property=WorkingDirectory=/opt/kongming/current \
+  --property=EnvironmentFile=/etc/kongming/kongming.env \
+  /usr/local/bin/node scripts/manage-account.mjs --nickname '<账号昵称>' --role admin
+```
+
+撤销管理员权限时，将 `--role admin` 改为 `--role user`。本地开发可执行 `node --env-file=.env --run manage:account -- --nickname '<账号昵称>' --role admin`。命令与应用必须使用同一个 `AGENT_MEMORY_DB_PATH`。命令只维护已有正式账号的角色，不创建账号或修改密码。
+
+管理员登录后默认进入 `/console`，也可打开产品工作区。普通用户与访客默认进入 `/app`。服务器每次处理管理员接口时都会读取数据库中的角色；网页不提供授予管理员角色的接口。控制台支持普通账号停用、恢复及撤销全部登录会话，管理员账号通过服务器命令维护。
+
+控制台包括运行概览、调用记录、用户管理和操作审计。指标从此版本启动后开始采集，覆盖接口请求数、成功率、耗时、模型调用及上游返回的 Token 用量；未返回用量的调用显示为空，不推算费用。健康检查和控制台自身的查询不计入业务请求。进程内存与运行时间属于当前 Node.js 进程，系统负载和磁盘指标属于主机。模型、OCR 和知识库的“已配置”表示存在相应配置；实际调用结果见调用记录。
+
+运行指标不保存请求正文、响应正文、密码、恢复码、IP 地址或 API Key。每日备份任务会清理超过 30 天的请求指标、超过 180 天的管理审计；该清理不涉及账号与产品记录。停用账号会同步撤销其登录会话。
 
 ## OCR 与岗位知识库
 

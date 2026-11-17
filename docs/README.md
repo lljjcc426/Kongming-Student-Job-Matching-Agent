@@ -8,7 +8,7 @@
 | --- | --- |
 | [安装与运行](getting-started.md) | Node.js、模型配置、OCR 与本地岗位知识库 |
 | [配置与部署](configuration.md) | OpenAI / Claude / 本地模型配置、OCR 与岗位检索 |
-| [服务器部署](deployment.md) | Node.js、Nginx、systemd、HTTPS、更新与回滚 |
+| [服务器部署](deployment.md) | Node.js、Nginx、systemd、HTTPS、管理员授权与控制台 |
 | [演示素材](media/README.md) | 截图、视频、示例数据与重新录制方式 |
 | [贡献指南](../CONTRIBUTING.md) | 本地开发、变更说明与提交方式 |
 

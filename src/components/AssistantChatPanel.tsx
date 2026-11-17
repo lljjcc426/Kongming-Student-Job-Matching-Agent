@@ -3,12 +3,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { RefObject } from "react";
-import logoUrl from "../assets/kongming-logo.png";
 import type {
   AgentFeedback,
   AgentFeedbackRating,
   AgentMemoryStatus,
 } from "../features/assistant/agentMemoryClient";
+
+const logoUrl = "/brand/kongming-mark.svg";
 
 export type AssistantChatMessage = {
   id: string;

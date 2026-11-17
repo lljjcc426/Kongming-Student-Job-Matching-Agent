@@ -12,7 +12,6 @@ async function main() {
   const testKey = "test-only-server-key";
   const image = "data:image/png;base64,dGVzdA==";
   const { runArkCompletion } = await import(pathToFileURL(path.resolve("server/arkCore.js")).href);
-  const { default: handler } = await import(pathToFileURL(path.resolve("api/ark.js")).href);
   const configure = (values) => {
     envNames.forEach((name) => delete process.env[name]);
     Object.assign(process.env, values);
@@ -98,18 +97,10 @@ async function main() {
     console.warn = (...args) => warnings.push(args);
     global.fetch = async () => ({ ok: false, status: 401, json: async () => ({ error: { message: `Invalid key: ${testKey}` } }) });
     configure({ MODEL_PROVIDER: "openai", MODEL_API_KEY: testKey, MODEL_TEXT_MODEL: "gpt-4.1-mini" });
-    const headers = {};
-    let payload;
-    const response = {
-      setHeader: (name, value) => { headers[name] = value; },
-      status(code) { this.statusCode = code; return this; },
-      json(value) { payload = value; },
-    };
-    await handler({ method: "POST", body: { task: "career-chat", userMessage: "测试" } }, response);
-    assert.equal(response.statusCode, 401);
-    assert.equal(headers["Cache-Control"], "no-store, private");
-    assert.equal(JSON.stringify({ payload, headers, warnings }).includes(testKey), false);
-    assert.equal(payload.ok, false);
+    const result = await complete({ task: "career-chat", userMessage: "测试" });
+    assert.equal(result.status, 401);
+    assert.equal(JSON.stringify({ payload: result.payload, warnings }).includes(testKey), false);
+    assert.equal(result.payload.ok, false);
 
     console.log("Provider verification passed: OpenAI, Claude text/images, Ollama, custom endpoints, legacy configuration and credential isolation.");
   } finally {

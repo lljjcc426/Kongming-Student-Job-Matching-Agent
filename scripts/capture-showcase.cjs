@@ -19,9 +19,9 @@ async function main() {
     channel: process.env.SHOWCASE_BROWSER_CHANNEL || undefined,
   });
   const context = await browser.newContext({
-    viewport: { width: 1440, height: 1000 },
+    viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
-    recordVideo: { dir: rawDir, size: { width: 1440, height: 1000 } },
+    recordVideo: { dir: rawDir, size: { width: 1440, height: 900 } },
   });
   await context.addInitScript(() => {
     // Keep the recording silent while preserving the interview UI lifecycle.
@@ -50,6 +50,7 @@ async function main() {
       },
     });
   });
+  let interviewTurns = 0;
   await page.route("**/api/ark", async (route) => {
     const body = route.request().postDataJSON();
     let content;
@@ -61,7 +62,9 @@ async function main() {
         content = JSON.stringify(demo.jd);
         break;
       case "career-chat":
-        content = body.userMessage?.includes("面试官") ? demo.interviewFollowup : demo.chat;
+        content = body.userMessage?.includes("面试官")
+          ? ++interviewTurns === 1 ? "请介绍一次你参与用户调研的经历，说明你的职责、研究方法与最终产出。" : demo.interviewFollowup
+          : demo.chat;
         break;
       case "match-analysis":
         content = "### 匹配说明\n\n心理学、访谈与数据分析经历可支撑用户研究方向。建议补充样本筛选过程、个人贡献，以及研究建议获得的实际反馈。此内容为固定演示回复。";
@@ -73,7 +76,8 @@ async function main() {
   });
 
   await page.goto(process.env.SHOWCASE_URL || "http://127.0.0.1:5173", { waitUntil: "networkidle" });
-  await page.locator(".loading-start-button").click();
+  await page.locator(".auth-page").waitFor({ state: "visible" });
+  await page.screenshot({ path: path.join(rawDir, "login.png") });
   await page.getByRole("button", { name: /以访客身份体验/ }).click();
   await page.locator(".app-nav").waitFor();
   const trimStart = (Date.now() - recordingStart) / 1000;
@@ -90,7 +94,6 @@ async function main() {
   await page.locator(".app-nav > div button").filter({ hasText: "简历编辑" }).click();
   await page.waitForTimeout(1800);
   await page.getByLabel("上传原简历", { exact: true }).setInputFiles(path.join(mediaDir, "sample-resume.md"));
-  await page.locator(".resume-original-upload-bar small").filter({ hasText: "sample-resume.md" }).waitFor();
   await page.waitForFunction(() => document.querySelectorAll(".job-card").length >= 6);
   await page.waitForTimeout(2500);
   await page.screenshot({ path: path.join(rawDir, "editor.png") });
@@ -118,7 +121,7 @@ async function main() {
   await page.waitForTimeout(2500);
   await page.getByLabel("模拟面试回答").pressSequentially("我在校园调研项目中负责问卷设计与数据分析，回收了 286 份有效样本，并结合访谈整理出 3 项服务改进建议。", { delay: 35 });
   await page.getByLabel("模拟面试回答").press("Enter");
-  await page.locator(".interview-dialogue").getByText(demo.interviewFollowup).waitFor();
+  await page.locator(".interview-dialogue").getByText(demo.interviewFollowup).last().waitFor();
   await page.waitForTimeout(2500);
   await page.screenshot({ path: path.join(rawDir, "interview.png") });
 
@@ -131,6 +134,8 @@ async function main() {
   await page.screenshot({ path: path.join(rawDir, "assistant.png") });
   await page.waitForTimeout(5000);
 
+  console.log("页面录制完成，正在保存视频。");
+  await page.close();
   await context.close();
   const rawVideo = await video.path();
   await browser.close();
@@ -150,6 +155,10 @@ async function main() {
 
 main().catch(async (error) => {
   console.error(error);
+  for (const context of browser?.contexts() || []) {
+    for (const page of context.pages()) await page.close();
+    await context.close();
+  }
   await browser?.close();
   process.exitCode = 1;
 });

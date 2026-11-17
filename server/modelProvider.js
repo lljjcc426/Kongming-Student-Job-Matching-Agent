@@ -5,7 +5,7 @@ const DEFAULT_BASE_URLS = {
 };
 const PROVIDERS = new Set(["openai", "anthropic", "openai-compatible", "ollama"]);
 
-export async function runModelCompletion({ messages, vision, maxTokens }) {
+export function resolveModelConnection(vision = false) {
   const env = process.env;
   // Existing installations keep their server-side settings until explicitly migrated.
   const legacy = !Object.keys(env).some((name) => name.startsWith("MODEL_"));
@@ -15,6 +15,12 @@ export async function runModelCompletion({ messages, vision, maxTokens }) {
   const model = legacy
     ? vision ? env.DEEPSEEK_VISION_MODEL || "deepseek-flash" : env.DEEPSEEK_TEXT_MODEL || env.DEEPSEEK_MODEL || "deepseek-flash"
     : vision ? env.MODEL_VISION_MODEL : env.MODEL_TEXT_MODEL;
+  return { legacy, provider, apiKey, baseUrl, model };
+}
+
+export async function runModelCompletion({ messages, vision, maxTokens }) {
+  const env = process.env;
+  const { legacy, provider, apiKey, baseUrl, model } = resolveModelConnection(vision);
   const timeout = Number((legacy ? env.DEEPSEEK_REQUEST_TIMEOUT_MS : env.MODEL_REQUEST_TIMEOUT_MS) || 65000);
   const outputTokens = Number(env.MODEL_MAX_OUTPUT_TOKENS || maxTokens);
 
@@ -76,5 +82,10 @@ export async function runModelCompletion({ messages, vision, maxTokens }) {
     ? (data.content || []).filter((part) => part.type === "text").map((part) => part.text).join("\n")
     : data.choices?.[0]?.message?.content;
   if (!content) return { status: 502, payload: { ok: false, error: "模型未返回文本，请检查模型能力与输出 token 上限。" } };
-  return { status: 200, payload: { ok: true, model, content } };
+  const reported = data.usage;
+  const inputTokens = reported?.input_tokens ?? reported?.prompt_tokens;
+  const completionTokens = reported?.output_tokens ?? reported?.completion_tokens;
+  const usage = Number.isSafeInteger(inputTokens) && Number.isSafeInteger(completionTokens)
+    ? { inputTokens, outputTokens: completionTokens, totalTokens: inputTokens + completionTokens } : null;
+  return { status: 200, payload: { ok: true, model, content, usage } };
 }

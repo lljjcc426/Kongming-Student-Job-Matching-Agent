@@ -23,6 +23,7 @@ async function main() {
     });
   };
   const stop = async () => {
+    if (child.exitCode !== null) { child = undefined; return; }
     const exited = once(child, "exit");
     child.kill("SIGTERM");
     await exited;

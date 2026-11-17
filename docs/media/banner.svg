@@ -3,12 +3,12 @@
   <desc id="desc">从学生简历出发，连接岗位匹配、简历优化和面试练习。右侧为功能概念示意。</desc>
   <defs>
     <linearGradient id="bg" x2="1" y2="1">
-      <stop stop-color="#f6f9ff"/>
-      <stop offset="1" stop-color="#edf5ff"/>
+      <stop stop-color="#f5f9f6"/>
+      <stop offset="1" stop-color="#e9f4ee"/>
     </linearGradient>
     <linearGradient id="blue" x2="1" y2="1">
-      <stop stop-color="#2356c7"/>
-      <stop offset="1" stop-color="#4486ef"/>
+      <stop stop-color="#246e5e"/>
+      <stop offset="1" stop-color="#51a18c"/>
     </linearGradient>
     <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
       <path d="M0 0L8 4L0 8" fill="none" stroke="#7d9fc7" stroke-width="1.5"/>
@@ -22,10 +22,11 @@
     <path d="M700 0V440M0 380H1280" stroke="#dce6f2" stroke-opacity=".7"/>
     <circle cx="1050" cy="195" r="190" fill="#dceaff" opacity=".55"/>
     <circle cx="1050" cy="195" r="140" fill="none" stroke="#bfd4f4" stroke-dasharray="5 10"/>
-    <rect x="56" y="43" width="208" height="31" rx="15" fill="#e4edff" stroke="#d0ddfa"/>
-    <text x="74" y="64" font-size="13" fill="#3865b2" font-weight="600" letter-spacing="1.7">STUDENT CAREER AI</text>
-    <text x="53" y="181" font-size="78" fill="#163d7d" font-weight="700" letter-spacing="7">孔明职配</text>
-    <text x="58" y="222" font-size="22" fill="#5274a5" font-weight="500" letter-spacing="6">KONGMING</text>
+    <g transform="translate(56 37) scale(.64)"><defs><linearGradient id="m" x2="1" y2="1"><stop stop-color="#173e49"/><stop offset="1" stop-color="#092b35"/></linearGradient><linearGradient id="a" x2="1" y2="0"><stop stop-color="#65d9ba"/><stop offset="1" stop-color="#b7f5db"/></linearGradient></defs><rect width="64" height="64" rx="17" fill="url(#m)"/><path d="M17 16h8v32h-8z" fill="#f5faf8"/><path d="m28 28 15-12h12L32 35l-7-5z" fill="url(#a)"/><path d="m28 35 23 13H36L25 41v-8z" fill="#f5faf8"/></g>
+    <rect x="110" y="43" width="208" height="31" rx="15" fill="#e2f0e7" stroke="#d0ddfa"/>
+    <text x="128" y="64" font-size="13" fill="#397464" font-weight="600" letter-spacing="1.7">STUDENT CAREER AI</text>
+    <text x="53" y="181" font-size="78" fill="#173e49" font-weight="700" letter-spacing="7">孔明职配</text>
+    <text x="58" y="222" font-size="22" fill="#598579" font-weight="500" letter-spacing="6">KONGMING</text>
     <text x="58" y="289" font-size="26" fill="#24466b" font-weight="500">读懂简历，理解岗位，准备下一步。</text>
     <text x="58" y="328" font-size="17" fill="#647e9e" font-weight="400">Resume · Matching · Interview</text>
     <text x="58" y="413" font-size="13" fill="#6080aa" font-weight="600" letter-spacing="2">OPEN SOURCE</text>

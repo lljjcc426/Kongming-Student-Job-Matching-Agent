@@ -14,7 +14,8 @@
 | `home.webp` / `editor.webp` | 首页与简历编辑工作台。 |
 | `resume.webp` / `jobs.webp` | 学生画像、匹配分析与岗位推荐。 |
 | `interview.webp` / `assistant.webp` | 模拟面试与 AI 求职助手。 |
-| `account.webp` / `growth.webp` | 独立访客入口与成长计划；使用虚构数据和固定模型响应。 |
+| `account.webp` / `growth.webp` | 登录注册入口与成长计划；使用临时账号及虚构业务数据。 |
+| `console.webp` / `users.webp` | 运行概览与用户管理；来自临时数据库的实际统计，页面标明演示环境。 |
 | [sample-resume.md](sample-resume.md) | 可用于试用和录制的虚构简历。 |
 | [demo-data.json](demo-data.json) | 录制专用的固定接口数据，不参与应用运行。 |
 
@@ -51,5 +52,7 @@ node scripts/capture-showcase.cjs
 | `FFMPEG_PATH` | FFmpeg 可执行文件路径；默认从 PATH 查找 `ffmpeg`。 |
 
 维护 README 时，在同一提交中更新演示素材与说明，保持页面功能和展示内容一致。
+
+控制台与移动布局可通过 `npm run build && npm run verify:console` 验证，截图保存在 `output/verification/console/`。登录页与控制台使用原生 SVG 品牌标识，源文件位于 `public/brand/kongming-mark.svg`。
 
 账号与成长计划截图可通过 `npm run verify:ui:standalone` 生成，原图位于 `output/verification/ui/`。该验证使用临时数据库，结束后清理测试账号与记录。

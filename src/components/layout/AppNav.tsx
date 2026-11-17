@@ -1,5 +1,5 @@
 import { faUserAstronaut } from "@fortawesome/free-solid-svg-icons";
-import { Bot, BriefcaseBusiness, FilePenLine, FileText, Sprout, UserRound, Video } from "lucide-react";
+import { Bot, BriefcaseBusiness, FilePenLine, FileText, Sprout, LayoutDashboard, UserRound, Video } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ActivePage } from "../../app/types";
 import type { AppIdentity } from "../../features/identity/identityClient";
@@ -21,9 +21,10 @@ type AppNavProps = {
   identity: AppIdentity;
   onChange: (page: ActivePage) => void;
   onOpenIdentity: () => void;
+  onOpenConsole: () => void;
 };
 
-export default function AppNav({ activePage, identity, onChange, onOpenIdentity }: AppNavProps) {
+export default function AppNav({ activePage, identity, onChange, onOpenIdentity, onOpenConsole }: AppNavProps) {
   return (
     <nav className="app-nav" aria-label="页面导航">
       <button type="button" className="nav-brand" onClick={() => onChange("home")}>
@@ -44,11 +45,12 @@ export default function AppNav({ activePage, identity, onChange, onOpenIdentity 
           </button>
         ))}
       </div>
+      {identity.role === "admin" ? <button type="button" className="nav-console" onClick={onOpenConsole}><LayoutDashboard size={16} />服务控制台</button> : null}
       <button type="button" className="nav-identity" onClick={onOpenIdentity}>
         <span className="nav-identity-avatar"><UserRound size={17} /></span>
         <span>
           <strong>{identity.registered ? identity.nickname : "访客体验"}</strong>
-          <small>{identity.accountKind === "demo" ? "当前浏览器体验" : "账号记录已保存"}</small>
+          <small>{identity.role === "admin" ? "管理员" : identity.accountKind === "demo" ? "当前浏览器体验" : "普通用户"}</small>
         </span>
       </button>
     </nav>
