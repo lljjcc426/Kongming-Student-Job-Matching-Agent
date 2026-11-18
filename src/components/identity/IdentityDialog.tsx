@@ -1,4 +1,4 @@
-import { Check, Copy, KeyRound, LogIn, LogOut, ShieldCheck, UserPlus, UserRound, X } from "lucide-react";
+import { ArrowRight, Check, Compass, Copy, Eye, EyeOff, KeyRound, LockKeyhole, LogIn, LogOut, ShieldCheck, UserPlus, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import AuthLayout from "./AuthLayout";
 import type { AppIdentity } from "../../features/identity/identityClient";
@@ -46,6 +46,7 @@ export default function IdentityDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -58,6 +59,7 @@ export default function IdentityDialog({
     setBusy(false);
     setError("");
     setCopied(false);
+    setShowPassword(false);
   }, [open]);
 
   if (!open) return null;
@@ -122,61 +124,60 @@ export default function IdentityDialog({
   const content = (
       <section className={`identity-dialog ${required ? "identity-login-dialog" : ""}`} role={required ? undefined : "dialog"} aria-modal={required ? undefined : true} aria-labelledby="identity-title">
         {closeButton}
-        {required && (mode === "login" || mode === "register") ? <div className="auth-tabs" role="tablist" aria-label="账号操作"><button type="button" role="tab" aria-selected={mode === "login"} className={mode === "login" ? "active" : ""} onClick={() => { setMode("login"); setError(""); }}>登录</button><button type="button" role="tab" aria-selected={mode === "register"} className={mode === "register" ? "active" : ""} onClick={() => { setMode("register"); setError(""); }}>注册</button></div> : null}
+        {required && (mode === "login" || mode === "register") ? <div className="auth-tabs" role="tablist" aria-label="账号操作"><button id="identity-login-tab" type="button" role="tab" aria-controls="identity-login-panel" aria-selected={mode === "login"} className={mode === "login" ? "active" : ""} disabled={busy} onClick={() => { setMode("login"); setError(""); setShowPassword(false); }}>登录</button><button id="identity-register-tab" type="button" role="tab" aria-controls="identity-register-panel" aria-selected={mode === "register"} className={mode === "register" ? "active" : ""} disabled={busy} onClick={() => { setMode("register"); setError(""); setShowPassword(false); }}>注册</button></div> : null}
 
         {mode === "login" ? (
-          <form onSubmit={(event) => { event.preventDefault(); void login(); }}>
-            <div className="identity-dialog-icon"><LogIn size={28} /></div>
-            <span className="identity-eyebrow">KONGMING ACCOUNT</span>
-            <h2 id="identity-title">登录孔明职配</h2>
-            <p>欢迎回来，继续你的求职准备。</p>
+          <form key="login" id="identity-login-panel" className="auth-panel" role={required ? "tabpanel" : undefined} aria-labelledby={required ? "identity-login-tab" : undefined} onSubmit={(event) => { event.preventDefault(); void login(); }}>
+            {!required ? <><div className="identity-dialog-icon"><LogIn size={28} /></div><span className="identity-eyebrow">KONGMING ACCOUNT</span></> : null}
+            <h2 id="identity-title" className={required ? "auth-screen-reader" : undefined}>登录孔明职配</h2>
+            {!required ? <p>欢迎回来，继续你的求职准备。</p> : null}
             <label className="identity-field">
               <span>昵称</span>
-              <input autoFocus autoComplete="username" value={nickname} maxLength={24} placeholder="请输入昵称" onChange={(event) => setNickname(event.target.value)} />
+              <span className={required ? "identity-input" : undefined}>{required ? <UserRound aria-hidden="true" /> : null}<input autoFocus autoComplete="username" value={nickname} maxLength={24} placeholder="请输入昵称" onChange={(event) => setNickname(event.target.value)} /></span>
             </label>
             <label className="identity-field">
               <span>密码</span>
-              <input type="password" autoComplete="current-password" value={password} maxLength={128} placeholder="请输入密码" onChange={(event) => setPassword(event.target.value)} />
+              <span className={required ? "identity-input" : undefined}>{required ? <LockKeyhole aria-hidden="true" /> : null}<input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} maxLength={128} placeholder="请输入密码" onChange={(event) => setPassword(event.target.value)} />{required ? <button type="button" className="identity-password-toggle" aria-label={showPassword ? "隐藏密码" : "显示密码"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button> : null}</span>
             </label>
             {error ? <p className="identity-error" role="alert">{error}</p> : null}
-            <button type="submit" className="identity-wide-action" disabled={busy || loading}>{busy ? "正在登录" : "登录"}</button>
             <div className="identity-login-links">
               {!required ? <button type="button" onClick={() => { setMode("register"); setError(""); }}>创建账号</button> : null}
               <button type="button" onClick={() => { setMode("recover"); setError(""); }}>忘记密码</button>
             </div>
-            <div className="identity-demo-divider"><span>快速体验</span></div>
+            <button type="submit" className="identity-wide-action" disabled={busy || loading}>{busy ? "正在登录" : "登录"}{required ? <ArrowRight aria-hidden="true" /> : null}</button>
+            {!required ? <div className="identity-demo-divider"><span>快速体验</span></div> : null}
             <button type="button" className="identity-demo-action" onClick={() => void loginDemo()} disabled={busy || loading}>
-              <UserRound size={18} /> 以访客身份体验
-              <small>独立体验空间 · 无需注册</small>
+              {required ? <Compass aria-hidden="true" /> : <UserRound size={18} />} {required ? "访客体验" : "以访客身份体验"}
+              {!required ? <small>独立体验空间 · 无需注册</small> : null}
             </button>
           </form>
         ) : null}
 
         {mode === "register" ? (
-          <form onSubmit={(event) => { event.preventDefault(); void register(); }}>
-            <div className="identity-dialog-icon"><UserPlus size={28} /></div>
-            <span className="identity-eyebrow">创建正式账号</span>
-            <h2 id="identity-title">创建你的求职账号</h2>
-            <p>账号用于跨设备保存个人记录，并生成用于找回密码的 6 位恢复码。</p>
+          <form key="register" id="identity-register-panel" className="auth-panel" role={required ? "tabpanel" : undefined} aria-labelledby={required ? "identity-register-tab" : undefined} onSubmit={(event) => { event.preventDefault(); void register(); }}>
+            {!required ? <><div className="identity-dialog-icon"><UserPlus size={28} /></div><span className="identity-eyebrow">创建正式账号</span></> : null}
+            <h2 id="identity-title" className={required ? "auth-screen-reader" : undefined}>创建你的求职账号</h2>
+            {!required ? <p>账号用于跨设备保存个人记录，并生成用于找回密码的 6 位恢复码。</p> : null}
             <label className="identity-field">
               <span>昵称</span>
-              <input autoFocus autoComplete="username" value={nickname} maxLength={24} placeholder="例如：小孔明" onChange={(event) => setNickname(event.target.value)} />
-              <small>2–24 个字符，昵称不可与其他用户重复。</small>
+              <span className={required ? "identity-input" : undefined}>{required ? <UserRound aria-hidden="true" /> : null}<input autoFocus autoComplete="username" value={nickname} maxLength={24} placeholder={required ? "2–24 个字符" : "例如：小孔明"} onChange={(event) => setNickname(event.target.value)} /></span>
+              {!required ? <small>2–24 个字符，昵称不可与其他用户重复。</small> : null}
             </label>
             <label className="identity-field">
               <span>设置密码</span>
-              <input type="password" autoComplete="new-password" value={password} maxLength={128} placeholder="至少 8 个字符" onChange={(event) => setPassword(event.target.value)} />
-              <small>请勿使用 123456、12345678 等常见弱密码。</small>
+              <span className={required ? "identity-input" : undefined}>{required ? <LockKeyhole aria-hidden="true" /> : null}<input type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} maxLength={128} placeholder="至少 8 个字符" onChange={(event) => setPassword(event.target.value)} />{required ? <button type="button" className="identity-password-toggle" aria-label={showPassword ? "隐藏密码" : "显示密码"} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button> : null}</span>
+              {!required ? <small>请勿使用 123456、12345678 等常见弱密码。</small> : null}
             </label>
             <label className="identity-field">
               <span>确认密码</span>
-              <input type="password" autoComplete="new-password" value={confirmPassword} maxLength={128} placeholder="再次输入密码" onChange={(event) => setConfirmPassword(event.target.value)} />
+              <span className={required ? "identity-input" : undefined}>{required ? <ShieldCheck aria-hidden="true" /> : null}<input type="password" autoComplete="new-password" value={confirmPassword} maxLength={128} placeholder="再次输入密码" onChange={(event) => setConfirmPassword(event.target.value)} /></span>
             </label>
             {error ? <p className="identity-error" role="alert">{error}</p> : null}
-            <div className="identity-form-actions">
+            {required ? <button type="submit" className="identity-wide-action" disabled={busy || loading}>{busy ? "正在创建" : "注册"}<ArrowRight aria-hidden="true" /></button> : <div className="identity-form-actions">
               <button type="button" className="secondary" onClick={() => setMode("login")}>返回登录</button>
               <button type="submit" className="primary" disabled={busy || loading}>{busy ? "正在创建" : "创建账号"}</button>
-            </div>
+            </div>}
+            {required ? <button type="button" className="identity-demo-action" onClick={() => void loginDemo()} disabled={busy || loading}><Compass aria-hidden="true" />访客体验</button> : null}
           </form>
         ) : null}
 

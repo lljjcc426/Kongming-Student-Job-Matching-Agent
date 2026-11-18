@@ -272,14 +272,14 @@ async function main() {
   await page.locator(".auth-page").waitFor({ state: "visible" });
   const identityDialog = await page.locator(".identity-dialog").count();
   const identityLoginTitle = await page.getByRole("heading", { name: "登录孔明职配" }).count();
-  const identityDemoAction = await page.getByRole("button", { name: /以访客身份体验/ }).count();
+  const identityDemoAction = await page.getByRole("button", { name: "访客体验", exact: true }).count();
   await page.getByRole("tab", { name: "注册", exact: true }).click();
   const registrationTitle = await page.getByRole("heading", { name: "创建你的求职账号" }).count();
   const registrationPasswordFields = await page.locator('.identity-dialog input[type="password"]').count();
   await page.locator('.identity-dialog input[autocomplete="username"]').fill(`界面验证${Date.now()}`);
   await page.locator('.identity-dialog input[type="password"]').nth(0).fill("ui-account-test-2026");
   await page.locator('.identity-dialog input[type="password"]').nth(1).fill("ui-account-test-2026");
-  await page.getByRole("button", { name: "创建账号", exact: true }).click();
+  await page.getByRole("button", { name: "注册", exact: true }).click();
   await page.getByRole("heading", { name: "请保存恢复信息" }).waitFor({ state: "visible" });
   const issuedCode = await page.locator(".identity-recovery-card strong").innerText();
   if (!/^\d{6}$/.test(issuedCode)) throw new Error("注册后未显示恢复码。");
@@ -289,7 +289,7 @@ async function main() {
   await page.getByRole("heading", { name: "登录孔明职配" }).waitFor({ state: "visible" });
 
   await page.screenshot({ path: screenshotPaths.identity, fullPage: false });
-  await page.getByRole("button", { name: /以访客身份体验/ }).click();
+  await page.getByRole("button", { name: "访客体验", exact: true }).click();
   await page.locator(".app-nav").waitFor({ state: "visible", timeout: 8000 });
 
   const title = await page.locator("h1").first().innerText();
