@@ -152,9 +152,9 @@ export default function AssistantChatPanel({
             type="button"
             className="assistant-memory-clear"
             aria-label="清除长期记忆"
-            title="清除本机长期记忆"
+            title="清除当前账号的工作区与长期记忆"
             onClick={onClearMemory}
-            disabled={memoryStatus === "loading"}
+            disabled={memoryStatus === "loading" || status === "loading"}
           >
             <Trash2 size={15} />
           </button>

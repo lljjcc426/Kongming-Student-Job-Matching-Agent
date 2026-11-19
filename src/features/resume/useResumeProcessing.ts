@@ -26,6 +26,7 @@ import {
 } from "./documentProcessing";
 import { MAX_RESUME_UPLOAD_BYTES } from "./fileProcessing";
 import type { OriginalResumePreview } from "./types";
+import type { WorkspaceSnapshot } from "../workspace/workspaceClient";
 
 type RunMatchAnalysisOptions = {
   selectedJob: Job;
@@ -37,24 +38,45 @@ type ResumeUploadContext = {
   jdText?: string;
 };
 
-const INITIAL_UPLOAD_MESSAGE = "支持 PDF、图片及 TXT/Markdown 文本文件，单个文件不超过 8MB。";
+const INITIAL_UPLOAD_MESSAGE = "支持 DOCX、PDF、图片及 TXT/Markdown，单个文件不超过 8MB；旧版 DOC 请先转换。";
 
-export function useResumeProcessing() {
-  const [resumeText, setResumeText] = useState("");
-  const [originalResumePreview, setOriginalResumePreview] = useState<OriginalResumePreview>({
+const textFromResumeFields = (resume: StructuredResume) => {
+  const sections: Array<[string, string[]]> = [
+    ["基础信息", resume.basicInfo],
+    ["教育经历", resume.education],
+    ["实习经历", resume.internships],
+    ["项目经历", resume.projects],
+    ["校园经历", resume.campus],
+    ["竞赛", resume.competitions],
+    ["证书", resume.certificates],
+    ["语言能力", resume.languages],
+    ["专业技能", resume.skills],
+    ["荣誉", resume.honors],
+    ["社交账号", resume.socialAccounts],
+  ];
+  return sections.filter(([, items]) => items.length)
+    .map(([title, items]) => `${title}\n${items.join("\n")}`).join("\n\n");
+};
+
+export function useResumeProcessing(initial?: WorkspaceSnapshot["resume"]) {
+  const [resumeText, setResumeText] = useState(initial?.text ?? "");
+  const [originalResumeText, setOriginalResumeText] = useState(initial?.originalText ?? "");
+  const [originalResumePreview, setOriginalResumePreview] = useState<OriginalResumePreview>(initial?.original ?? {
     kind: "text",
     name: "",
   });
   const [resumeOcrDocument, setResumeOcrDocument] = useState<OcrDocument | null>(null);
-  const [structuredResume, setStructuredResume] = useState<StructuredResume | null>(null);
-  const [modelJobs, setModelJobs] = useState<Job[]>([]);
-  const [modelInsight, setModelInsight] = useState("");
-  const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [documentStatus, setDocumentStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [modelMessage, setModelMessage] = useState("");
-  const [pipelineStep, setPipelineStep] = useState<PipelineStep>("idle");
-  const [uploadMessage, setUploadMessage] = useState(INITIAL_UPLOAD_MESSAGE);
-  const [resumeSource, setResumeSource] = useState("等待上传");
+  const [structuredResume, setStructuredResume] = useState<StructuredResume | null>(initial?.structured ?? null);
+  const [modelJobs, setModelJobs] = useState<Job[]>(initial?.modelJobs ?? []);
+  const [modelInsight, setModelInsight] = useState(initial?.insight ?? "");
+  const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">(initial?.structured ? "ready" : "idle");
+  const [documentStatus, setDocumentStatus] = useState<"idle" | "loading" | "ready" | "error">(initial?.text ? "ready" : "idle");
+  const [modelMessage, setModelMessage] = useState(initial?.text ? "已恢复上次工作区" : "");
+  const [pipelineStep, setPipelineStep] = useState<PipelineStep>(initial?.modelJobs.length ? "done" : "idle");
+  const [uploadMessage, setUploadMessage] = useState(initial?.text
+    ? initial.original.kind !== "text" ? "已恢复简历文字；查看原文件预览需重新上传。" : "已恢复上次简历。"
+    : INITIAL_UPLOAD_MESSAGE);
+  const [resumeSource, setResumeSource] = useState(initial?.source ?? "等待上传");
   const pipelineRunRef = useRef(0);
   const activeProfile = useMemo(
     () => profileFromStructuredResume(structuredResume, resumeText),
@@ -82,6 +104,21 @@ export function useResumeProcessing() {
     }
 
     setOriginalResumePreview({ kind: "text", name: file.name });
+  };
+
+  const updateResumeFields = (resume: StructuredResume) => {
+    pipelineRunRef.current += 1;
+    const text = textFromResumeFields(resume);
+    setStructuredResume(resume);
+    setResumeText(text);
+    setModelJobs([]);
+    setModelInsight("");
+    setModelStatus("idle");
+    setPipelineStep("idle");
+    setDocumentStatus(text ? "ready" : "idle");
+    setModelMessage("简历字段已更新，可生成岗位推荐或分析意向岗位。");
+    setUploadMessage("简历字段已更新，可生成岗位推荐或分析意向岗位。");
+    if (!originalResumePreview.name) setResumeSource("手动填写");
   };
 
   const runJobRecommendations = async (
@@ -203,6 +240,7 @@ export function useResumeProcessing() {
       setStructuredResume(parsedResume);
       await runJobRecommendations(nextResumeText, parsedResume, recommendationJdText, runId);
     } catch (error) {
+      if (runId !== pipelineRunRef.current) return;
       setModelStatus("error");
       setPipelineStep("error");
       setModelMessage(error instanceof Error ? `模型返回格式无法解析：${error.message}` : "模型返回格式无法解析。");
@@ -229,6 +267,7 @@ export function useResumeProcessing() {
     }
 
     setResumeText(result.text);
+    setOriginalResumeText(result.text);
     if (result.insight) setModelInsight(result.insight);
     setDocumentStatus("ready");
     setUploadMessage(`${result.uploadMessage} 文档已可查看，正在后台生成画像和岗位推荐。`);
@@ -257,12 +296,14 @@ export function useResumeProcessing() {
     if (!file) return;
     const isImage = file.type.startsWith("image/");
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isDocx = file.name.toLowerCase().endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     const isText = file.type.startsWith("text/") || /\.(txt|md|text)$/i.test(file.name);
-    if (!isImage && !isPdf && !isText) {
+    if (file.name.toLowerCase().endsWith(".doc") || (!isImage && !isPdf && !isText && !isDocx)) {
+      const message = "暂不支持此文件格式；旧版 DOC 请另存为 DOCX、PDF 或 TXT 后上传。";
       setModelStatus("error");
       setPipelineStep("error");
-      setModelMessage("暂不支持此文件格式，请将 Word 文档导出为 PDF 或 TXT 后上传。");
-      setUploadMessage("支持 PDF、图片及 TXT/Markdown 文本文件。");
+      setModelMessage(message);
+      setUploadMessage(message);
       return;
     }
     const runId = pipelineRunRef.current + 1;
@@ -290,19 +331,45 @@ export function useResumeProcessing() {
     }
 
     try {
-      const text = await file.text();
+      let text: string;
+      if (isDocx) {
+        const { default: mammoth } = await import("mammoth");
+        const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+        text = result.value.trim();
+      } else {
+        text = await file.text();
+      }
       if (runId !== pipelineRunRef.current) return;
+      if (!text.trim()) throw new Error("文档中没有可读取的文字，请检查内容或转换为 PDF 后上传。");
       setResumeText(text);
+      setOriginalResumeText(text);
       setDocumentStatus("ready");
       setUploadMessage(`已读取 ${file.name}，共 ${text.trim().length} 字。文档已可查看，正在后台生成画像和岗位推荐。`);
-      setResumeSource("文本文件读取");
+      setResumeSource(isDocx ? "DOCX 文本提取" : "文本文件读取");
       void runModelPipeline(text, recommendationJdText, runId);
-    } catch {
+    } catch (error) {
       if (runId !== pipelineRunRef.current) return;
       setDocumentStatus("error");
       setModelStatus("error");
       setPipelineStep("error");
-      setUploadMessage(`未能读取 ${file.name}，请检查文件格式后重试。`);
+      const message = isDocx
+        ? `未能读取 ${file.name}，请确认文件是有效的 DOCX 文档，并包含文字。`
+        : error instanceof Error ? error.message : `未能读取 ${file.name}，请检查文件格式后重试。`;
+      setModelMessage(message);
+      setUploadMessage(message);
+    }
+  };
+
+  const generateRecommendations = async (context: ResumeUploadContext = {}) => {
+    if (!resumeText.trim()) return;
+    const runId = ++pipelineRunRef.current;
+    setModelStatus("loading");
+    setModelJobs([]);
+    setModelInsight("");
+    if (structuredResume) {
+      await runJobRecommendations(resumeText, structuredResume, context.jdText ?? "", runId);
+    } else {
+      await runModelPipeline(resumeText, context.jdText ?? "", runId);
     }
   };
 
@@ -316,6 +383,7 @@ export function useResumeProcessing() {
       setModelMessage("请先完成模型简历解析和岗位推荐，再进行模型增强分析。");
       return;
     }
+    const runId = ++pipelineRunRef.current;
     setModelStatus("loading");
     setPipelineStep("analysis");
     setModelMessage("正在调用模型生成增强分析");
@@ -325,6 +393,7 @@ export function useResumeProcessing() {
       selectedJob,
       matchResult,
     });
+    if (runId !== pipelineRunRef.current) return;
 
     if (response.ok && response.content) {
       setModelInsight(response.content);
@@ -341,10 +410,12 @@ export function useResumeProcessing() {
 
   return {
     resumeText,
+    originalResumeText: originalResumeText || resumeText,
     originalResumePreview,
     resumeOcrDocument,
     structuredResume,
     setStructuredResume,
+    updateResumeFields,
     activeProfile,
     modelJobs,
     modelInsight,
@@ -356,6 +427,7 @@ export function useResumeProcessing() {
     resumeSource,
     hasResume: resumeText.trim().length > 0,
     uploadResume,
+    generateRecommendations,
     runMatchAnalysis,
   };
 }

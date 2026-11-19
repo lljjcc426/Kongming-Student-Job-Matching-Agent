@@ -117,6 +117,21 @@ const unique = <T,>(items: T[]) => [...new Set(items)];
 
 const normalizeText = (value: string) => value.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
 
+export const jobAbilityKeywords = (job: Job, keywords = job.keywords, cityPreferences: string[] = []) => {
+  const locations = new Set([job.city, ...cityPreferences]
+    .flatMap((location) => location.replace(/省|市/g, " ").split(/[\s,，、/|·]+/))
+    .map(normalizeText).filter(Boolean));
+  const levels = new Set(job.level.split(/[\s,，、/|·]+/).map(normalizeText));
+  return unique(keywords.map((keyword) => keyword.trim()).filter(Boolean)).filter((keyword) => {
+    const term = normalizeText(keyword);
+    const location = normalizeText(keyword.replace(/^(?:工作|办公|招聘)?(?:地点|城市)\s*[:：]?\s*/, "")).replace(/(?:省|市)$/, "");
+    if (locations.has(location) || levels.has(term)) return false;
+    if (/^(?:实习(?:生)?|全职|兼职|应届(?:生|毕业生)?|校招|社招|初级|中级|高级|资深|不限|全国|远程|面议|薪资面议)$/.test(term)) return false;
+    const compact = keyword.replace(/\s/g, "");
+    return !/^(?:(?:薪资|薪酬|工资|待遇)[:：]?)?\d+(?:\.\d+)?(?:[kw千万元])?(?:[-~—至]\d+(?:\.\d+)?)?[kw千万元](?:\/(?:天|日|月|年|时|小时))?(?:[·x×]\d+薪)?$/i.test(compact);
+  });
+};
+
 const containsTerm = (text: string, term: string) => {
   const trimmed = term.trim();
   if (!trimmed) return false;
@@ -210,8 +225,8 @@ const classifyAbility = (name: string): AbilityNode["category"] => {
 const statementMatchesAbility = (statement: string, ability: string) =>
   relatedTerms(ability).some((term) => containsTerm(statement, term));
 
-function buildAbilityGraph(job: Job, evidence: MatchEvidence[]): AbilityGraph {
-  const keywords = unique(job.keywords.map((item) => item.trim()).filter(Boolean)).slice(0, 12);
+function buildAbilityGraph(job: Job, evidence: MatchEvidence[], cityPreferences: string[]): AbilityGraph {
+  const keywords = jobAbilityKeywords(job, job.keywords, cityPreferences).slice(0, 12);
   const nodes = keywords.map<AbilityNode>((name, index) => {
     const requirementSources = unique([
       ...job.requirements.filter((item) => statementMatchesAbility(item, name)),
@@ -359,7 +374,7 @@ export function analyzeMatch(
   structured?: StructuredResume | null,
 ): MatchResult {
   const evidence = buildEvidenceBank(profile, resumeText, structured);
-  const abilityGraph = buildAbilityGraph(job, evidence);
+  const abilityGraph = buildAbilityGraph(job, evidence, profile.cityPreference);
   const coveredNodes = abilityGraph.nodes.filter((item) => item.status !== "gap");
   const coveredKeywords = coveredNodes.map((item) => item.name);
   const missingKeywords = abilityGraph.nodes.filter((item) => item.status === "gap").map((item) => item.name);

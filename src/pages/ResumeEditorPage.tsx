@@ -1,4 +1,4 @@
-import { FilePenLine, FileText, ScanText, Upload } from "lucide-react";
+import { BriefcaseBusiness, FilePenLine, FileText, ScanText, Upload } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { OriginalResumePreview } from "../features/resume/types";
 import type { StructuredResume } from "../modelParsers";
@@ -15,8 +15,11 @@ type ResumeEditorPageProps = {
   resume: StructuredResume | null;
   onChange: (resume: StructuredResume) => void;
   onUpload: (file?: File) => void | Promise<void>;
+  onGenerateRecommendations: () => void;
   uploadMessage: string;
   isUploading: boolean;
+  isGenerating: boolean;
+  hasResume: boolean;
 };
 
 type ListField = ResumeFieldKey;
@@ -98,7 +101,7 @@ function ResumeUploadControl({
       <span>{isUploading ? "正在解析" : compact ? "替换简历" : "选择简历文件"}</span>
       <input
         type="file"
-        accept=".txt,.md,.text,.pdf,application/pdf,image/*"
+        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.txt,.md,.text,.pdf,application/pdf,image/*"
         aria-label={compact ? "替换原简历" : "上传原简历"}
         disabled={isUploading}
         onChange={(event) => {
@@ -120,7 +123,7 @@ function EmptyResumeState({
     <div className="resume-editor-empty">
       <span><ScanText size={28} /></span>
       <strong>上传原简历</strong>
-      <p>支持 PDF、图片和文本文件。上传后将自动识别内容，并同步生成结构化简历。</p>
+      <p>支持 DOCX、PDF、图片和文本文件，也可直接填写右侧字段。</p>
       <ResumeUploadControl onUpload={onUpload} isUploading={isUploading} />
       <small>{uploadMessage}</small>
     </div>
@@ -257,8 +260,11 @@ export default function ResumeEditorPage({
   resume,
   onChange,
   onUpload,
+  onGenerateRecommendations,
   uploadMessage,
   isUploading,
+  isGenerating,
+  hasResume,
 }: ResumeEditorPageProps) {
   const [activeField, setActiveField] = useState<ResumeFieldKey | null>(null);
   const currentResume = resume ?? EMPTY_RESUME;
@@ -280,9 +286,9 @@ export default function ResumeEditorPage({
       const name = readValue(["姓名", "名字", "Name"]);
       const target = readValue(["求职意向", "求职方向", "目标岗位", "应聘岗位"]);
       const summary = readValue(["个人简介", "个人总结", "自我评价", "简介"]);
-      if (name) nextResume.name = name;
-      if (target) nextResume.targetRoles = target.split(/[，,、/|；;]/).map((item) => item.trim()).filter(Boolean);
-      if (summary) nextResume.summary = summary;
+      nextResume.name = name;
+      nextResume.targetRoles = target.split(/[，,、/|；;]/).map((item) => item.trim()).filter(Boolean);
+      nextResume.summary = summary;
     }
 
     if (key === "competitions" || key === "certificates") {
@@ -307,7 +313,7 @@ export default function ResumeEditorPage({
           <span><FilePenLine size={16} /> Resume Studio</span>
           <h1>简历编辑</h1>
         </div>
-        <p>上传简历后，在右侧编辑识别出的字段；点击任一字段时，左侧简历文档会定位并高亮对应内容。</p>
+        <p>上传简历或直接填写字段，编辑后可生成岗位推荐；点击字段可对照原文。</p>
       </header>
 
       <div className="resume-editor-grid">
@@ -356,6 +362,9 @@ export default function ResumeEditorPage({
                 />
               </label>
             ))}
+            <button type="button" className="primary-action" onClick={onGenerateRecommendations} disabled={!hasResume || isUploading || isGenerating}>
+              <BriefcaseBusiness size={16} />{isGenerating ? "正在生成推荐" : "生成岗位推荐"}
+            </button>
           </form>
         </EditorColumn>
       </div>

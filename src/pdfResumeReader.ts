@@ -64,6 +64,7 @@ const RESUME_SIGNAL_TERMS = [
 
 const normalizeText = (text: string) =>
   text
+    .normalize("NFKC")
     .replace(/\r/g, "\n")
     .replace(/[ \t\f\v]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")

@@ -10,6 +10,7 @@ import {
   type StructuredResume,
 } from "../../modelParsers";
 import { EMPTY_JOB } from "./recommendationSupervisor";
+import type { WorkspaceSnapshot } from "../workspace/workspaceClient";
 
 type UseJobWorkspaceOptions = {
   resumeText: string;
@@ -17,6 +18,7 @@ type UseJobWorkspaceOptions = {
   onResumeProfileChange: (resume: StructuredResume) => void;
   modelJobs: Job[];
   profile: StudentProfile;
+  initial?: WorkspaceSnapshot["jobs"];
 };
 
 export function useJobWorkspace({
@@ -25,14 +27,15 @@ export function useJobWorkspace({
   onResumeProfileChange,
   modelJobs,
   profile,
+  initial,
 }: UseJobWorkspaceOptions) {
-  const [selectedJobId, setSelectedJobId] = useState("");
-  const [customTitle, setCustomTitle] = useState("");
-  const [customJdText, setCustomJdText] = useState("");
-  const [customJobs, setCustomJobs] = useState<Job[]>([]);
-  const [jdStatus, setJdStatus] = useState<AsyncStatus>("idle");
-  const [jdStep, setJdStep] = useState<JdPipelineStep>("idle");
-  const [jdMessage, setJdMessage] = useState("等待意向岗位输入");
+  const [selectedJobId, setSelectedJobId] = useState(initial?.selectedJobId ?? "");
+  const [customTitle, setCustomTitle] = useState(initial?.customTitle ?? "");
+  const [customJdText, setCustomJdText] = useState(initial?.customJdText ?? "");
+  const [customJobs, setCustomJobs] = useState<Job[]>(initial?.customJobs ?? []);
+  const [jdStatus, setJdStatus] = useState<AsyncStatus>(initial?.customJobs.length ? "ready" : "idle");
+  const [jdStep, setJdStep] = useState<JdPipelineStep>(initial?.customJobs.length ? "done" : "idle");
+  const [jdMessage, setJdMessage] = useState(initial?.customJobs.length ? "已恢复意向岗位分析" : "等待意向岗位输入");
 
   const availableJobs = useMemo(() => {
     if (!resumeText.trim() && !customJobs.length) return [];
@@ -169,6 +172,7 @@ export function useJobWorkspace({
 
   return {
     selectedJob,
+    selectedJobId,
     hasAnalysis,
     matchResult,
     rankedJobs,

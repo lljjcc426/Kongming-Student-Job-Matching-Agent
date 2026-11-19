@@ -123,6 +123,33 @@ if (emptyResult.abilityGraph.nodes.some((node) => node.status !== "gap" || node.
   throw new Error("Ability nodes must remain gaps when no resume evidence exists");
 }
 
+const chengduJob = {
+  ...job, title: "Python后端开发实习生", city: "四川省成都市", level: "实习",
+  requirements: ["熟悉 Python 和 SQL"], responsibilities: ["开发与维护后端服务"], bonus: [],
+  keywords: ["成都", "成都市", "工作地点：成都", "实习生", "200-300元/天", "20k-30k", "Python", "SQL"],
+};
+const chengduResult = analyzeMatch(emptyProfile, chengduJob, "", null);
+const pythonProfile = { ...emptyProfile, skills: ["Python", "SQL"], resumeText: "熟悉 Python 与 SQL，完成后端数据查询项目。" };
+const constrainedSkillResult = analyzeMatch(pythonProfile, chengduJob, pythonProfile.resumeText, null);
+const skillOnlyResult = analyzeMatch(pythonProfile, { ...chengduJob, keywords: ["Python", "SQL"] }, pythonProfile.resumeText, null);
+if (JSON.stringify(chengduResult.abilityGraph.nodes.map((node) => node.name)) !== JSON.stringify(["Python", "SQL"]) || JSON.stringify(chengduResult.missingKeywords) !== JSON.stringify(["Python", "SQL"])) {
+  throw new Error("Job location, level and salary must not become ability nodes or missing skills");
+}
+for (const id of ["ability", "keyword"]) {
+  if (constrainedSkillResult.dimensions.find((item) => item.id === id).score !== skillOnlyResult.dimensions.find((item) => item.id === id).score) {
+    throw new Error("Job constraints must not change professional ability or keyword scores");
+  }
+}
+if (!chengduResult.dimensions.find((item) => item.id === "interest").factors.some((item) => item.label === "城市偏好" && item.explanation.includes(chengduJob.city))) {
+  throw new Error("Location must remain available to the intention dimension");
+}
+const dialectResult = analyzeMatch(emptyProfile, {
+  ...chengduJob, keywords: ["成都", "成都方言"], requirements: ["能够使用成都方言完成本地访谈"],
+}, "", null);
+if (dialectResult.abilityGraph.nodes.length !== 1 || dialectResult.abilityGraph.nodes[0].name !== "成都方言") {
+  throw new Error("An explicit dialect capability must not be removed just because it contains a city name");
+}
+
 const relatedJob = { ...job, keywords: ["用户研究"], requirements: ["具备用户研究能力"] };
 const relatedProfile = { ...emptyProfile, skills: ["访谈"], resumeText: "技能：访谈" };
 const relatedResult = analyzeMatch(relatedProfile, relatedJob, relatedProfile.resumeText, null);

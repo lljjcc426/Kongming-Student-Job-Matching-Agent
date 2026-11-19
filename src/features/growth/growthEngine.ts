@@ -1,5 +1,5 @@
 import type { Job, StudentProfile } from "../../data";
-import type { MatchResult } from "../../matchEngine";
+import { jobAbilityKeywords, type MatchResult } from "../../matchEngine";
 import type {
   GrowthAdaptation,
   GrowthAssessment,
@@ -410,9 +410,9 @@ const interviewGaps = (interview: InterviewGrowthSnapshot): GrowthGap[] => {
     }));
 };
 
-const jobGaps = (matchResult: MatchResult): GrowthGap[] => {
+const jobGaps = ({ matchResult, job, profile }: GrowthPlanInput): GrowthGap[] => {
   const ability = matchResult.dimensions.find((item) => item.name === "能力匹配")?.score ?? 60;
-  return matchResult.missingKeywords.slice(0, 4).map((keyword, index) => ({
+  return jobAbilityKeywords(job, matchResult.missingKeywords, profile.cityPreference).slice(0, 4).map((keyword, index) => ({
     id: `job-${slug(keyword)}-${index + 1}`,
     name: keyword,
     source: "job" as const,
@@ -425,7 +425,7 @@ const jobGaps = (matchResult: MatchResult): GrowthGap[] => {
 };
 
 const buildGaps = (input: GrowthPlanInput) => {
-  const gaps = [...jobGaps(input.matchResult), ...interviewGaps(input.interview)];
+  const gaps = [...jobGaps(input), ...interviewGaps(input.interview)];
   if (gaps.length) return gaps.slice(0, 6);
   return [{
     id: "resume-evidence",

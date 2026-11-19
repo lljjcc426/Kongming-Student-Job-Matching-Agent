@@ -11,6 +11,7 @@ const MAX_FEEDBACK_CORRECTION_CHARS = 1000;
 const MAX_CONTEXT_CHARS = 120_000;
 const MAX_GROWTH_PLAN_CHARS = 500_000;
 const MAX_INTERVIEW_REPORT_CHARS = 180_000;
+const MAX_WORKSPACE_BYTES = 1_000_000;
 const MIN_NICKNAME_CHARS = 2;
 const MAX_NICKNAME_CHARS = 24;
 const MIN_PASSWORD_CHARS = 8;
@@ -153,6 +154,13 @@ const openDatabase = () => {
       user_id TEXT PRIMARY KEY,
       plan_json TEXT NOT NULL,
       created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES agent_memory_profiles(user_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS agent_workspaces (
+      user_id TEXT PRIMARY KEY,
+      workspace_json TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY(user_id) REFERENCES agent_memory_profiles(user_id) ON DELETE CASCADE
     );
@@ -921,6 +929,45 @@ const saveGrowthPlan = (db, userId, body) => {
   return { status: 200, payload: growthPlanPayload(db, userId) };
 };
 
+const workspacePayload = (db, userId) => {
+  const row = db.prepare("SELECT workspace_json, updated_at FROM agent_workspaces WHERE user_id = ?").get(userId);
+  return { ok: true, workspace: row ? parseJson(row.workspace_json, null) : null, updatedAt: row?.updated_at ?? null };
+};
+
+const saveWorkspace = (db, userId, body) => {
+  const input = body.workspace;
+  const resume = input?.resume;
+  const jobs = input?.jobs;
+  if (
+    input?.version !== 1 || !resume || !jobs
+    || ![resume.text, resume.originalText, resume.insight, resume.source, resume.original?.name, jobs.customTitle, jobs.customJdText, jobs.selectedJobId].every(value => typeof value === "string")
+    || !["text", "pdf", "image"].includes(resume.original?.kind)
+    || !Array.isArray(resume.modelJobs) || !Array.isArray(jobs.customJobs)
+    || (resume.structured !== null && (typeof resume.structured !== "object" || Array.isArray(resume.structured)))
+  ) {
+    return { status: 400, payload: { ok: false, error: "工作区格式不正确。" } };
+  }
+  const workspace = {
+    version: 1,
+    resume: {
+      text: resume.text, originalText: resume.originalText, structured: resume.structured,
+      modelJobs: resume.modelJobs, insight: resume.insight, source: resume.source,
+      original: { name: resume.original.name, kind: resume.original.kind },
+    },
+    jobs: { customTitle: jobs.customTitle, customJdText: jobs.customJdText, customJobs: jobs.customJobs, selectedJobId: jobs.selectedJobId },
+  };
+  const serialized = JSON.stringify(workspace);
+  if (Buffer.byteLength(serialized, "utf8") > MAX_WORKSPACE_BYTES) {
+    return { status: 413, payload: { ok: false, error: "工作区内容超过 1MB，未能保存，请精简简历或岗位内容。" } };
+  }
+  ensureProfile(db, userId);
+  db.prepare(`
+    INSERT INTO agent_workspaces (user_id, workspace_json, updated_at) VALUES (?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET workspace_json = excluded.workspace_json, updated_at = excluded.updated_at
+  `).run(userId, serialized, nowIso());
+  return { status: 200, payload: { ok: true } };
+};
+
 export const runAgentMemoryRequest = async (body = {}, requestContext = {}) => {
   try {
     const db = openDatabase();
@@ -976,6 +1023,12 @@ export const runAgentMemoryRequest = async (body = {}, requestContext = {}) => {
     if (body.action === "save-growth") {
       return saveGrowthPlan(db, userId, body);
     }
+    if (body.action === "load-workspace") {
+      return { status: 200, payload: workspacePayload(db, userId) };
+    }
+    if (body.action === "save-workspace") {
+      return saveWorkspace(db, userId, body);
+    }
     if (body.action === "identity-status") {
       return {
         status: 200,
@@ -983,6 +1036,7 @@ export const runAgentMemoryRequest = async (body = {}, requestContext = {}) => {
       };
     }
     if (body.action === "clear") {
+      db.prepare("DELETE FROM agent_workspaces WHERE user_id = ?").run(userId);
       const registered = db.prepare(`
         SELECT 1 FROM agent_accounts WHERE user_id = ?
       `).get(userId);

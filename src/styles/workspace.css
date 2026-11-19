@@ -1,0 +1,3 @@
+.workspace-save-state { position:fixed; right:14px; bottom:10px; z-index:100; max-width:calc(100vw - 28px); padding:5px 9px; border:1px solid #dbe7f3; border-radius:7px; color:#6b829b; background:#f8fbffed; font-size:11px; line-height:1.6; box-shadow:0 3px 12px #263e6608; }
+.workspace-save-state[data-status="error"] { display:flex; align-items:center; gap:10px; max-width:min(480px,calc(100vw - 28px)); color:#a33e36; border-color:#ebc7c2; background:#fff7f5; }
+.workspace-save-state button { flex-shrink:0; padding:2px 5px; border:0; border-bottom:1px solid currentColor; color:inherit; background:transparent; font:inherit; cursor:pointer; }

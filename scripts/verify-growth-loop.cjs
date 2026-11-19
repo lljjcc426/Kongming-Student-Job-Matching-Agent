@@ -91,6 +91,18 @@ const input = {
 };
 
 let plan = createGrowthPlan(input);
+const constrainedPlan = createGrowthPlan({
+  ...input,
+  job: { ...job, city: "四川·成都", level: "实习", keywords: ["成都", "实习", "200-300元/天", "Python", "SQL"] },
+  matchResult: { ...matchResult, missingKeywords: ["成都", "工作地点：成都", "实习生", "200-300元/天", "Python", "SQL"] },
+});
+const jobGapNames = constrainedPlan.gaps.filter((gap) => gap.source === "job").map((gap) => gap.name);
+if (JSON.stringify(jobGapNames) !== JSON.stringify(["Python", "SQL"])) {
+  throw new Error("Growth gaps must retain Python/SQL while excluding location, internship level and salary constraints before limiting the gap count");
+}
+if (constrainedPlan.tasks.some((task) => /训练成都/.test(`${task.title} ${task.description}`)) || constrainedPlan.recommendations.some((item) => /成都中文课程/.test(item.title))) {
+  throw new Error("Job location must not generate ability training or course recommendations");
+}
 if (plan.planningDays !== 42 || plan.tasks.length !== 12) {
   throw new Error(`Dynamic schedule invariant failed: ${plan.planningDays} days, ${plan.tasks.length} tasks`);
 }
