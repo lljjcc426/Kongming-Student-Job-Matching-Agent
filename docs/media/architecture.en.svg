@@ -1,1 +1,85 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="980" viewBox="0 0 1280 980" role="img" aria-labelledby="title"><title id="title">Kongming architecture</title><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#83aa9b" stroke-width="1.5"/></marker></defs><g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif"><rect x="1" y="1" width="1278" height="978" rx="24" fill="#f4f8f5" stroke="#dce8df"/><text x="40" y="53" font-size="30" fill="#173e49" font-weight="650">Architecture</text><text x="40" y="85" font-size="19" fill="#55776e" font-weight="400">User and operator workspaces share authenticated APIs and persistent storage</text><rect x="40" y="117" width="770" height="176" rx="16" fill="#fff" stroke="#cedfd6"/><text x="64" y="156" font-size="23" fill="#204c48" font-weight="650">Career workspace · /app</text><text x="64" y="193" font-size="18" fill="#55776e" font-weight="400">Resume import / editing · Profiles · Job analysis</text><text x="64" y="226" font-size="18" fill="#55776e" font-weight="400">Interview practice · Assistant · Review and growth</text><text x="64" y="259" font-size="18" fill="#55776e" font-weight="400">React / TypeScript · PDF.js · Recharts</text><rect x="840" y="117" width="400" height="176" rx="16" fill="#fff" stroke="#cedfd6"/><text x="864" y="156" font-size="23" fill="#204c48" font-weight="650">Service console · /console</text><text x="864" y="193" font-size="18" fill="#55776e" font-weight="400">Traffic · Tokens · Service state</text><text x="864" y="226" font-size="18" fill="#55776e" font-weight="400">Accounts · Sessions · Audit</text><text x="864" y="259" font-size="18" fill="#55776e" font-weight="400">Administrator access only</text><path d="M420 293V336" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><path d="M1040 293V336" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><rect x="40" y="336" width="1200" height="64" rx="12" fill="#173e49"/><text x="65" y="376" font-size="22" fill="#e6f5ec" font-weight="550">Node.js / Express · HttpOnly session cookies · Server-side account and role checks</text><path d="M230 400V445" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><path d="M640 400V445" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><path d="M1040 400V445" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><rect x="40" y="445" width="380" height="185" rx="16" fill="#fff" stroke="#cedfd6"/><text x="64" y="484" font-size="23" fill="#204c48" font-weight="650">Model tasks and adapters</text><text x="64" y="521" font-size="18" fill="#55776e" font-weight="400">/api/ark</text><text x="64" y="554" font-size="18" fill="#55776e" font-weight="400">Resume · JD · Interview · Chat</text><text x="64" y="587" font-size="18" fill="#55776e" font-weight="400">Text / vision · Reported usage</text><rect x="450" y="445" width="380" height="185" rx="16" fill="#fff" stroke="#cedfd6"/><text x="474" y="484" font-size="23" fill="#204c48" font-weight="650">Documents and retrieval</text><text x="474" y="521" font-size="18" fill="#55776e" font-weight="400">/api/ocr · /api/jobs/search</text><text x="474" y="554" font-size="18" fill="#55776e" font-weight="400">Scans / coordinates · Retrieval</text><text x="474" y="587" font-size="18" fill="#55776e" font-weight="400">Optional local or remote services</text><rect x="860" y="445" width="380" height="185" rx="16" fill="#fff" stroke="#cedfd6"/><text x="884" y="484" font-size="23" fill="#204c48" font-weight="650">Accounts and operations</text><text x="884" y="521" font-size="18" fill="#55776e" font-weight="400">/api/memory · /api/admin</text><text x="884" y="554" font-size="18" fill="#55776e" font-weight="400">Personal data · Metrics · Audit</text><text x="884" y="587" font-size="18" fill="#55776e" font-weight="400">Server CLI controls admin roles</text><path d="M230 630V704" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><path d="M640 630V704" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><path d="M1040 630V704" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><rect x="40" y="704" width="380" height="214" rx="16" fill="#fff" stroke="#cedfd6"/><text x="64" y="743" font-size="23" fill="#204c48" font-weight="650">Cloud / self-hosted models</text><text x="64" y="780" font-size="18" fill="#55776e" font-weight="400">OpenAI · Claude · DeepSeek</text><text x="64" y="813" font-size="18" fill="#55776e" font-weight="400">Ollama · vLLM · LM Studio</text><text x="64" y="846" font-size="18" fill="#55776e" font-weight="400">OpenAI-compatible / Anthropic</text><text x="64" y="879" font-size="18" fill="#55776e" font-weight="400">Own API key or local model</text><rect x="450" y="704" width="380" height="214" rx="16" fill="#fff" stroke="#cedfd6"/><text x="474" y="743" font-size="23" fill="#204c48" font-weight="650">OCR and job knowledge base</text><text x="474" y="780" font-size="18" fill="#55776e" font-weight="400">RapidOCR / Volcengine OCR</text><text x="474" y="813" font-size="18" fill="#55776e" font-weight="400">Python · BGE · Qdrant · BM25</text><text x="474" y="846" font-size="18" fill="#55776e" font-weight="400">RRF fusion · Optional reranking</text><text x="474" y="879" font-size="18" fill="#55776e" font-weight="400">Requires data, models and indexes</text><rect x="860" y="704" width="380" height="214" rx="16" fill="#fff" stroke="#cedfd6"/><text x="884" y="743" font-size="23" fill="#204c48" font-weight="650">SQLite · WAL</text><text x="884" y="780" font-size="18" fill="#55776e" font-weight="400">Accounts · Sessions · Personal data</text><text x="884" y="813" font-size="18" fill="#55776e" font-weight="400">Metrics · Audit · Migrations</text><text x="884" y="846" font-size="18" fill="#55776e" font-weight="400">Persistent data · Online backups</text><text x="884" y="879" font-size="18" fill="#55776e" font-weight="400">Audited role changes</text><text x="40" y="956" font-size="18" fill="#55776e" font-weight="400">Credentials stay server-side. Operational logs contain metadata, without resume text, conversations or keys.</text></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1050" viewBox="0 0 1280 1050" role="img" aria-labelledby="title desc">
+  <title id="title">Kongming architecture</title>
+  <desc id="desc">Browser workspaces, authenticated services, model adapters, retrieval and account-scoped SQLite storage.</desc>
+  <defs>
+    <linearGradient id="page" x2="1" y2="1"><stop stop-color="#f7fbff"/><stop offset=".72" stop-color="#f2f8ff"/><stop offset="1" stop-color="#fff9ee"/></linearGradient>
+    <linearGradient id="service" x2="1"><stop stop-color="#dceeff"/><stop offset="1" stop-color="#c9e3fb"/></linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#9cbfdd" stroke-width="1.4"/></marker>
+    <marker id="gold-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#d6ae63" stroke-width="1.4"/></marker>
+  </defs>
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif">
+<rect x="1" y="1" width="1278" height="1048" rx="24" fill="url(#page)" stroke="#dce8f4"/>
+<text x="40" y="54" font-size="30" fill="#263e66" font-weight="650">Architecture</text>
+<text x="40" y="87" font-size="19" fill="#637e99" font-weight="400">Career workspace and service console share authenticated APIs and persistent data.</text>
+<rect x="40" y="103" width="42" height="3" rx="1" fill="#d6ae63" stroke="none"/>
+<rect x="40" y="122" width="770" height="202" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="64" y="144" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="80" y="165" font-size="22" fill="#35587d" font-weight="600">Career workspace · /app</text>
+<text x="64" y="202" font-size="17" fill="#637e99" font-weight="400">Import / manual entry · Profile · Matching</text>
+<text x="64" y="235" font-size="17" fill="#637e99" font-weight="400">Interview · Review · Growth planning</text>
+<text x="64" y="268" font-size="17" fill="#637e99" font-weight="400">DOCX / Mammoth · PDF.js · Recharts</text>
+<text x="64" y="301" font-size="17" fill="#637e99" font-weight="400">Account-scoped workspace save and restore</text>
+<rect x="840" y="122" width="400" height="202" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="864" y="144" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="880" y="165" font-size="22" fill="#35587d" font-weight="600">Service console · /console</text>
+<text x="864" y="202" font-size="17" fill="#637e99" font-weight="400">Traffic · Tokens · Service health</text>
+<text x="864" y="235" font-size="17" fill="#637e99" font-weight="400">Users · Sessions · Audit trail</text>
+<text x="864" y="268" font-size="17" fill="#637e99" font-weight="400">Administrator access only</text>
+<text x="864" y="301" font-size="17" fill="#637e99" font-weight="400">Admin roles granted from server CLI</text>
+<path d="M425 324V360" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M1040 324V360" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="40" y="360" width="1200" height="64" rx="12" fill="url(#service)" stroke="#bbd7ef"/>
+<text x="640" y="400" font-size="21" fill="#35587d" font-weight="550" text-anchor="middle">Node.js / Express · HttpOnly sessions · Server-side account and role checks</text>
+<path d="M230 424V468" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M640 424V468" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M1050 424V468" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="40" y="468" width="380" height="214" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="64" y="490" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="80" y="511" font-size="22" fill="#35587d" font-weight="600">Model tasks and adapters</text>
+<text x="64" y="548" font-size="17" fill="#637e99" font-weight="400">/api/ark</text>
+<text x="64" y="581" font-size="17" fill="#637e99" font-weight="400">Resume · JD · Interview · Chat</text>
+<text x="64" y="614" font-size="17" fill="#637e99" font-weight="400">OpenAI-compatible / Anthropic</text>
+<text x="64" y="647" font-size="17" fill="#637e99" font-weight="400">Credentials read on the server</text>
+<rect x="450" y="468" width="380" height="214" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="474" y="490" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="490" y="511" font-size="22" fill="#35587d" font-weight="600">Documents and job retrieval</text>
+<text x="474" y="548" font-size="17" fill="#637e99" font-weight="400">/api/ocr · /api/jobs/search</text>
+<text x="474" y="581" font-size="17" fill="#637e99" font-weight="400">Scan text / coordinates · Hybrid search</text>
+<text x="474" y="614" font-size="17" fill="#637e99" font-weight="400">Optional reranking</text>
+<text x="474" y="647" font-size="17" fill="#637e99" font-weight="400">Local or remote services</text>
+<rect x="860" y="468" width="380" height="214" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="884" y="490" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="900" y="511" font-size="22" fill="#35587d" font-weight="600">Accounts and operations</text>
+<text x="884" y="548" font-size="17" fill="#637e99" font-weight="400">/api/memory · /api/admin</text>
+<text x="884" y="581" font-size="17" fill="#637e99" font-weight="400">Workspace save / restore · Chat history</text>
+<text x="884" y="614" font-size="17" fill="#637e99" font-weight="400">Interview records · Growth plans</text>
+<text x="884" y="647" font-size="17" fill="#637e99" font-weight="400">Request metadata · Admin audit</text>
+<path d="M230 682V724" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M640 682V724" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M1050 682V724" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="40" y="724" width="380" height="258" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="64" y="746" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="80" y="767" font-size="22" fill="#35587d" font-weight="600">Cloud / self-hosted models</text>
+<text x="64" y="804" font-size="17" fill="#637e99" font-weight="400">OpenAI · Claude · DeepSeek</text>
+<text x="64" y="837" font-size="17" fill="#637e99" font-weight="400">Ollama · vLLM · LM Studio</text>
+<text x="64" y="870" font-size="17" fill="#637e99" font-weight="400">Text and vision configured separately</text>
+<text x="64" y="903" font-size="17" fill="#637e99" font-weight="400">Own API key or local model</text>
+<rect x="450" y="724" width="380" height="258" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="474" y="746" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="490" y="767" font-size="22" fill="#35587d" font-weight="600">OCR and job knowledge base</text>
+<text x="474" y="804" font-size="17" fill="#637e99" font-weight="400">RapidOCR / Volcengine OCR</text>
+<text x="474" y="837" font-size="17" fill="#637e99" font-weight="400">Python · BGE · Qdrant · BM25</text>
+<text x="474" y="870" font-size="17" fill="#637e99" font-weight="400">RRF fusion · Optional reranking</text>
+<text x="474" y="903" font-size="17" fill="#637e99" font-weight="400">Requires data, models and indexes</text>
+<rect x="860" y="724" width="380" height="258" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="884" y="746" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="900" y="767" font-size="22" fill="#35587d" font-weight="600">SQLite · WAL</text>
+<text x="884" y="804" font-size="17" fill="#637e99" font-weight="400">Accounts · Sessions</text>
+<text x="884" y="837" font-size="17" fill="#637e99" font-weight="400">Resume · Recommended jobs · Custom JDs</text>
+<text x="884" y="870" font-size="17" fill="#637e99" font-weight="400">Conversations · Interviews · Growth</text>
+<text x="884" y="903" font-size="17" fill="#637e99" font-weight="400">Usage metrics · Audit trail</text>
+<text x="884" y="936" font-size="17" fill="#637e99" font-weight="400">Persistent data · Online backups</text>
+<text x="40" y="1011" font-size="17" fill="#637e99" font-weight="400">Account data and workspace state persist in SQLite. Credentials remain server-side.</text>
+<text x="40" y="1036" font-size="17" fill="#637e99" font-weight="400">Snapshots retain text and analysis. Original PDF / image previews require a new upload.</text>
+  </g>
+</svg>

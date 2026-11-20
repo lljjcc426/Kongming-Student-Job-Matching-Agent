@@ -1,1 +1,85 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="980" viewBox="0 0 1280 980" role="img" aria-labelledby="title"><title id="title">孔明职配技术架构</title><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#83aa9b" stroke-width="1.5"/></marker></defs><g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif"><rect x="1" y="1" width="1278" height="978" rx="24" fill="#f4f8f5" stroke="#dce8df"/><text x="40" y="53" font-size="30" fill="#173e49" font-weight="650">技术架构</text><text x="40" y="85" font-size="19" fill="#55776e" font-weight="400">用户工作区与服务控制台，通过同源 API 连接业务服务和持久化数据</text><rect x="40" y="117" width="770" height="176" rx="16" fill="#fff" stroke="#cedfd6"/><text x="64" y="156" font-size="23" fill="#204c48" font-weight="650">用户工作区 · /app</text><text x="64" y="193" font-size="18" fill="#55776e" font-weight="400">简历导入与编辑 · 学生画像 · 岗位分析</text><text x="64" y="226" font-size="18" fill="#55776e" font-weight="400">模拟面试 · 求职助手 · 复盘与成长计划</text><text x="64" y="259" font-size="18" fill="#55776e" font-weight="400">React / TypeScript · PDF.js · Recharts</text><rect x="840" y="117" width="400" height="176" rx="16" fill="#fff" stroke="#cedfd6"/><text x="864" y="156" font-size="23" fill="#204c48" font-weight="650">服务控制台 · /console</text><text x="864" y="193" font-size="18" fill="#55776e" font-weight="400">请求趋势 · 模型用量 · 服务状态</text><text x="864" y="226" font-size="18" fill="#55776e" font-weight="400">用户与会话 · 管理操作审计</text><text x="864" y="259" font-size="18" fill="#55776e" font-weight="400">仅管理员角色可访问</text><path d="M420 293V336" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><path d="M1040 293V336" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><rect x="40" y="336" width="1200" height="64" rx="12" fill="#173e49"/><text x="65" y="376" font-size="22" fill="#e6f5ec" font-weight="550">Node.js / Express · HttpOnly 会话 Cookie · 服务端账号状态与角色鉴权</text><path d="M230 400V445" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><path d="M640 400V445" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><path d="M1040 400V445" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><rect x="40" y="445" width="380" height="185" rx="16" fill="#fff" stroke="#cedfd6"/><text x="64" y="484" font-size="23" fill="#204c48" font-weight="650">模型任务与协议适配</text><text x="64" y="521" font-size="18" fill="#55776e" font-weight="400">/api/ark</text><text x="64" y="554" font-size="18" fill="#55776e" font-weight="400">简历 · JD · 面试 · 对话</text><text x="64" y="587" font-size="18" fill="#55776e" font-weight="400">文本 / 视觉模型 · 上游用量</text><rect x="450" y="445" width="380" height="185" rx="16" fill="#fff" stroke="#cedfd6"/><text x="474" y="484" font-size="23" fill="#204c48" font-weight="650">文档与岗位检索</text><text x="474" y="521" font-size="18" fill="#55776e" font-weight="400">/api/ocr · /api/jobs/search</text><text x="474" y="554" font-size="18" fill="#55776e" font-weight="400">扫描件文字与坐标 · 混合召回</text><text x="474" y="587" font-size="18" fill="#55776e" font-weight="400">按需启用本地或远程服务</text><rect x="860" y="445" width="380" height="185" rx="16" fill="#fff" stroke="#cedfd6"/><text x="884" y="484" font-size="23" fill="#204c48" font-weight="650">账号与运行指标</text><text x="884" y="521" font-size="18" fill="#55776e" font-weight="400">/api/memory · /api/admin</text><text x="884" y="554" font-size="18" fill="#55776e" font-weight="400">账号记录 · 请求元数据 · 审计</text><text x="884" y="587" font-size="18" fill="#55776e" font-weight="400">服务器命令维护管理员角色</text><path d="M230 630V704" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><path d="M640 630V704" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><path d="M1040 630V704" stroke="#83aa9b" stroke-width="2" marker-end="url(#arrow)"/><rect x="40" y="704" width="380" height="214" rx="16" fill="#fff" stroke="#cedfd6"/><text x="64" y="743" font-size="23" fill="#204c48" font-weight="650">云端 / 自托管模型</text><text x="64" y="780" font-size="18" fill="#55776e" font-weight="400">OpenAI · Claude · DeepSeek</text><text x="64" y="813" font-size="18" fill="#55776e" font-weight="400">Ollama · vLLM · LM Studio</text><text x="64" y="846" font-size="18" fill="#55776e" font-weight="400">OpenAI 兼容 / Anthropic 协议</text><text x="64" y="879" font-size="18" fill="#55776e" font-weight="400">部署者自配 API Key 或本地模型</text><rect x="450" y="704" width="380" height="214" rx="16" fill="#fff" stroke="#cedfd6"/><text x="474" y="743" font-size="23" fill="#204c48" font-weight="650">OCR 与岗位知识库</text><text x="474" y="780" font-size="18" fill="#55776e" font-weight="400">RapidOCR / Volcengine OCR</text><text x="474" y="813" font-size="18" fill="#55776e" font-weight="400">Python · BGE · Qdrant · BM25</text><text x="474" y="846" font-size="18" fill="#55776e" font-weight="400">RRF 融合 · 可选重排</text><text x="474" y="879" font-size="18" fill="#55776e" font-weight="400">需要数据、模型与持久化索引</text><rect x="860" y="704" width="380" height="214" rx="16" fill="#fff" stroke="#cedfd6"/><text x="884" y="743" font-size="23" fill="#204c48" font-weight="650">SQLite · WAL</text><text x="884" y="780" font-size="18" fill="#55776e" font-weight="400">账号 · 会话 · 对话 · 个人记录</text><text x="884" y="813" font-size="18" fill="#55776e" font-weight="400">请求指标 · 管理审计 · 版本迁移</text><text x="884" y="846" font-size="18" fill="#55776e" font-weight="400">发布目录外持久化 · 在线备份</text><text x="884" y="879" font-size="18" fill="#55776e" font-weight="400">角色变更保留审计记录</text><text x="40" y="956" font-size="18" fill="#55776e" font-weight="400">模型凭据保留在服务端；控制台保存请求元数据，不记录简历、对话正文或密钥。</text></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1050" viewBox="0 0 1280 1050" role="img" aria-labelledby="title desc">
+  <title id="title">孔明职配技术架构</title>
+  <desc id="desc">浏览器工作区与管理员控制台，经鉴权服务连接模型、岗位检索和按账号隔离的 SQLite 持久化数据。</desc>
+  <defs>
+    <linearGradient id="page" x2="1" y2="1"><stop stop-color="#f7fbff"/><stop offset=".72" stop-color="#f2f8ff"/><stop offset="1" stop-color="#fff9ee"/></linearGradient>
+    <linearGradient id="service" x2="1"><stop stop-color="#dceeff"/><stop offset="1" stop-color="#c9e3fb"/></linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#9cbfdd" stroke-width="1.4"/></marker>
+    <marker id="gold-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#d6ae63" stroke-width="1.4"/></marker>
+  </defs>
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif">
+<rect x="1" y="1" width="1278" height="1048" rx="24" fill="url(#page)" stroke="#dce8f4"/>
+<text x="40" y="54" font-size="30" fill="#263e66" font-weight="650">技术架构</text>
+<text x="40" y="87" font-size="19" fill="#637e99" font-weight="400">用户工作区与服务控制台，通过同源 API 连接业务服务和持久化数据</text>
+<rect x="40" y="103" width="42" height="3" rx="1" fill="#d6ae63" stroke="none"/>
+<rect x="40" y="122" width="770" height="202" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="64" y="144" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="80" y="165" font-size="23" fill="#35587d" font-weight="600">用户工作区 · /app</text>
+<text x="64" y="202" font-size="18" fill="#637e99" font-weight="400">导入与手填 · 学生画像 · 岗位匹配</text>
+<text x="64" y="235" font-size="18" fill="#637e99" font-weight="400">模拟面试 · 求职助手 · 复盘与成长</text>
+<text x="64" y="268" font-size="18" fill="#637e99" font-weight="400">DOCX / Mammoth · PDF.js · Recharts</text>
+<text x="64" y="301" font-size="18" fill="#637e99" font-weight="400">按账号保存与恢复简历、推荐、JD 和选择</text>
+<rect x="840" y="122" width="400" height="202" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="864" y="144" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="880" y="165" font-size="23" fill="#35587d" font-weight="600">服务控制台 · /console</text>
+<text x="864" y="202" font-size="18" fill="#637e99" font-weight="400">请求趋势 · 模型用量 · 服务状态</text>
+<text x="864" y="235" font-size="18" fill="#637e99" font-weight="400">用户与会话 · 管理操作审计</text>
+<text x="864" y="268" font-size="18" fill="#637e99" font-weight="400">仅管理员角色可访问</text>
+<text x="864" y="301" font-size="18" fill="#637e99" font-weight="400">管理员角色由服务器命令授权</text>
+<path d="M425 324V360" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M1040 324V360" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="40" y="360" width="1200" height="64" rx="12" fill="url(#service)" stroke="#bbd7ef"/>
+<text x="640" y="400" font-size="21" fill="#35587d" font-weight="550" text-anchor="middle">Node.js / Express · HttpOnly 会话 · 服务端账号状态与角色鉴权</text>
+<path d="M230 424V468" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M640 424V468" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M1050 424V468" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="40" y="468" width="380" height="214" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="64" y="490" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="80" y="511" font-size="23" fill="#35587d" font-weight="600">模型任务与协议适配</text>
+<text x="64" y="548" font-size="18" fill="#637e99" font-weight="400">/api/ark</text>
+<text x="64" y="581" font-size="18" fill="#637e99" font-weight="400">简历 · JD · 面试 · 对话</text>
+<text x="64" y="614" font-size="18" fill="#637e99" font-weight="400">OpenAI 兼容 / Anthropic 协议</text>
+<text x="64" y="647" font-size="18" fill="#637e99" font-weight="400">模型凭据仅由服务端读取</text>
+<rect x="450" y="468" width="380" height="214" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="474" y="490" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="490" y="511" font-size="23" fill="#35587d" font-weight="600">文档与岗位检索</text>
+<text x="474" y="548" font-size="18" fill="#637e99" font-weight="400">/api/ocr · /api/jobs/search</text>
+<text x="474" y="581" font-size="18" fill="#637e99" font-weight="400">扫描件文字与坐标 · 混合检索</text>
+<text x="474" y="614" font-size="18" fill="#637e99" font-weight="400">可选重排</text>
+<text x="474" y="647" font-size="18" fill="#637e99" font-weight="400">本地或远程服务按需启用</text>
+<rect x="860" y="468" width="380" height="214" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="884" y="490" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="900" y="511" font-size="23" fill="#35587d" font-weight="600">账号、工作区与运行指标</text>
+<text x="884" y="548" font-size="18" fill="#637e99" font-weight="400">/api/memory · /api/admin</text>
+<text x="884" y="581" font-size="18" fill="#637e99" font-weight="400">工作区保存恢复 · 对话记忆</text>
+<text x="884" y="614" font-size="18" fill="#637e99" font-weight="400">面试记录 · 成长计划</text>
+<text x="884" y="647" font-size="18" fill="#637e99" font-weight="400">请求元数据 · 管理审计</text>
+<path d="M230 682V724" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M640 682V724" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M1050 682V724" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="40" y="724" width="380" height="258" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="64" y="746" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="80" y="767" font-size="23" fill="#35587d" font-weight="600">云端 / 自托管模型</text>
+<text x="64" y="804" font-size="18" fill="#637e99" font-weight="400">OpenAI · Claude · DeepSeek</text>
+<text x="64" y="837" font-size="18" fill="#637e99" font-weight="400">Ollama · vLLM · LM Studio</text>
+<text x="64" y="870" font-size="18" fill="#637e99" font-weight="400">文本与视觉模型分别配置</text>
+<text x="64" y="903" font-size="18" fill="#637e99" font-weight="400">部署者自配 API Key 或本地模型</text>
+<rect x="450" y="724" width="380" height="258" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="474" y="746" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="490" y="767" font-size="23" fill="#35587d" font-weight="600">OCR 与岗位知识库</text>
+<text x="474" y="804" font-size="18" fill="#637e99" font-weight="400">RapidOCR / 火山引擎 OCR</text>
+<text x="474" y="837" font-size="18" fill="#637e99" font-weight="400">Python · BGE · Qdrant · BM25</text>
+<text x="474" y="870" font-size="18" fill="#637e99" font-weight="400">RRF 融合 · 可选重排</text>
+<text x="474" y="903" font-size="18" fill="#637e99" font-weight="400">需要数据、模型与持久化索引</text>
+<rect x="860" y="724" width="380" height="258" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="884" y="746" width="4" height="23" rx="2" fill="#d6ae63" stroke="none"/>
+<text x="900" y="767" font-size="23" fill="#35587d" font-weight="600">SQLite · WAL</text>
+<text x="884" y="804" font-size="18" fill="#637e99" font-weight="400">账号 · 会话</text>
+<text x="884" y="837" font-size="18" fill="#637e99" font-weight="400">简历 · 推荐岗位 · 自定义 JD</text>
+<text x="884" y="870" font-size="18" fill="#637e99" font-weight="400">对话 · 面试 · 成长计划</text>
+<text x="884" y="903" font-size="18" fill="#637e99" font-weight="400">模型用量 · 请求指标 · 管理审计</text>
+<text x="884" y="936" font-size="18" fill="#637e99" font-weight="400">发布目录外持久化 · 在线备份</text>
+<text x="40" y="1011" font-size="17" fill="#637e99" font-weight="400">账号与业务状态持久化；模型凭据仅保留在服务端。</text>
+<text x="40" y="1036" font-size="17" fill="#637e99" font-weight="400">工作区保存文字和分析结果，PDF / 图片原件预览需重新上传。</text>
+  </g>
+</svg>

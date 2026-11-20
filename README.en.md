@@ -4,7 +4,7 @@
 
 <h1 align="center">Kongming · 孔明职配</h1>
 <p align="center"><strong>Understand your resume. Explore the fit. Prepare your next step.</strong></p>
-<p align="center">An AI workspace for student job seekers, connecting resume analysis, job matching, resume improvement and interview practice.</p>
+<p align="center">An AI workspace for student job seekers, connecting resumes, job analysis, interview practice and growth plans.</p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-5277ea?style=flat-square" alt="Apache-2.0"></a>
@@ -22,9 +22,9 @@
 
 Kongming brings a student's resume and target job into one workflow. It structures education, skills and experience, explains how the available evidence relates to job requirements, suggests resume improvements and provides interview practice for the selected role.
 
-The application uses React and TypeScript with server-side adapters for OpenAI, Claude and OpenAI-compatible services, including local models through Ollama. OCR and a local job knowledge base are optional. User and administrator workspaces share a server with SQLite persistence for accounts, personal records and operational metrics. The interface and detailed documentation are primarily in Chinese.
+The application uses React and TypeScript with server-side adapters for OpenAI, Claude and OpenAI-compatible services, including local models through Ollama. OCR and a local job knowledge base are optional. User and administrator workspaces share a server with SQLite persistence for accounts, career workspaces, interview records, growth plans and operational metrics. The interface and detailed documentation are primarily in Chinese.
 
-![From resume import to interview practice](docs/media/workflow.en.svg)
+![From resume import to growth and review](docs/media/workflow.en.svg)
 
 ## Product tour
 
@@ -36,24 +36,24 @@ The recording shows the running frontend with a fictional resume and fixed API r
 
 <table>
   <tr>
-    <td width="50%"><a href="docs/media/home.webp"><img src="docs/media/home.webp" alt="01 · Import a resume"></a><br><strong>01 · Import a resume</strong><br>Upload a document or paste resume text.</td>
-    <td width="50%"><a href="docs/media/editor.webp"><img src="docs/media/editor.webp" alt="02 · Review and edit"></a><br><strong>02 · Review and edit</strong><br>Check structured fields against the original.</td>
+    <td width="50%"><a href="docs/media/account.webp"><img src="docs/media/account.webp" alt="Sign-in with the animated workflow illustration"></a><br><strong>01 · Sign in or register</strong><br>Continue with an account or try an independent guest session.</td>
+    <td width="50%"><a href="docs/media/home.webp"><img src="docs/media/home.webp" alt="Career workspace home and navigation"></a><br><strong>02 · Open the workspace</strong><br>Navigate to resumes, jobs, interviews and the assistant.</td>
   </tr>
   <tr>
-    <td width="50%"><a href="docs/media/resume.webp"><img src="docs/media/resume.webp" alt="03 · Explore the profile"></a><br><strong>03 · Explore the profile</strong><br>Review experience, skills and matching evidence.</td>
-    <td width="50%"><a href="docs/media/jobs.webp"><img src="docs/media/jobs.webp" alt="04 · Analyze a target role"></a><br><strong>04 · Analyze a target role</strong><br>Compare requirements and analyze a custom JD.</td>
+    <td><a href="docs/media/editor.webp"><img src="docs/media/editor.webp" alt="Resume source text and editable structured fields"></a><br><strong>03 · Import and edit a resume</strong><br>Upload DOCX, PDF, images or text, or fill in fields and generate recommendations.</td>
+    <td><a href="docs/media/resume.webp"><img src="docs/media/resume.webp" alt="Student profile, matching dimensions and resume suggestions"></a><br><strong>04 · Review matching evidence</strong><br>Check education, skills and experience alongside improvement suggestions.</td>
   </tr>
   <tr>
-    <td width="50%"><a href="docs/media/interview.webp"><img src="docs/media/interview.webp" alt="05 · Practice interviews"></a><br><strong>05 · Practice interviews</strong><br>Prepare for general, technical and HR interviews.</td>
-    <td width="50%"><a href="docs/media/assistant.webp"><img src="docs/media/assistant.webp" alt="06 · Discuss next steps"></a><br><strong>06 · Discuss next steps</strong><br>Ask questions with resume and role context.</td>
+    <td><a href="docs/media/jobs.webp"><img src="docs/media/jobs.webp" alt="Recommended roles, ability evidence and custom JD analysis"></a><br><strong>05 · Analyze a target role</strong><br>Compare requirements with resume evidence and analyze a custom JD.</td>
+    <td><a href="docs/media/interview.webp"><img src="docs/media/interview.webp" alt="Interview avatar, competencies and text follow-up"></a><br><strong>06 · Practice interviews</strong><br>Answer questions, discuss follow-ups and generate a review report.</td>
   </tr>
   <tr>
-    <td width="50%"><a href="docs/media/account.webp"><img src="docs/media/account.webp" alt="Account sign-in and independent guest access"></a><br><strong>07 · Save your progress</strong><br>Sign in across devices or start an independent guest session.</td>
-    <td width="50%"><a href="docs/media/growth.webp"><img src="docs/media/growth.webp" alt="Growth plan with tasks and evidence"></a><br><strong>08 · Practice and review</strong><br>Turn interview gaps into tasks and compare later assessments.</td>
+    <td><a href="docs/media/growth.webp"><img src="docs/media/growth.webp" alt="Growth plan with skill gaps, practice tasks and evidence progress"></a><br><strong>07 · Plan further practice</strong><br>Turn gaps into tasks, submit evidence and schedule reassessment.</td>
+    <td><a href="docs/media/assistant.webp"><img src="docs/media/assistant.webp" alt="Career assistant using resume, job and conversation context"></a><br><strong>08 · Discuss next steps</strong><br>Ask follow-up questions with your resume, role and conversation history.</td>
   </tr>
   <tr>
-    <td width="50%"><a href="docs/media/console.webp"><img src="docs/media/console.webp" alt="Service console with request trends and model usage"></a><br><strong>09 · Monitor the service</strong><br>Review requests, model usage, resources and backups.</td>
-    <td width="50%"><a href="docs/media/users.webp"><img src="docs/media/users.webp" alt="Account status and session management"></a><br><strong>10 · Manage accounts</strong><br>Disable or restore ordinary accounts, revoke sessions and review audit events.</td>
+    <td><a href="docs/media/console.webp"><img src="docs/media/console.webp" alt="Administrator console with requests, usage and service status"></a><br><strong>09 · Monitor the service</strong><br>Review requests, usage, configuration, resources and backups.</td>
+    <td><a href="docs/media/users.webp"><img src="docs/media/users.webp" alt="Account roles, status and session management"></a><br><strong>10 · Manage accounts</strong><br>Disable or restore users, revoke sessions and review audit events.</td>
   </tr>
 </table>
 
@@ -61,12 +61,13 @@ The recording shows the running frontend with a fictional resume and fixed API r
 
 | Area | Available functionality |
 | --- | --- |
-| Resume parsing | Text, Markdown, PDF and images. PDF text extraction runs first; OCR can provide text and coordinates for scanned pages. |
+| Resume parsing | DOCX, PDF, images, TXT / Markdown and direct field entry. PDF text extraction runs first; OCR can provide text and coordinates for scans. Convert legacy DOC files before uploading. |
 | Profiles and explanations | Education, skills and experience organized into a student profile, with five matching dimensions. |
 | Job recommendations | Custom JD analysis; optional vector + BM25 retrieval with source links and verification timestamps. |
 | Resume improvement | Keyword gaps, evidence and action suggestions; copy an improvement draft or download a Markdown analysis report. |
 | Interview practice | General, technical and HR modes with text answers. Speech and camera features depend on browser support and permissions. |
-| Career assistant and account memory | Conversations grounded in resume, role and feedback, with account sign-in, independent guest sessions and private SQLite storage. |
+| Career assistant | Multi-turn conversations grounded in resume, role, history and feedback, with saved messages and feedback. |
+| Accounts and workspaces | Account sign-in or independent guest sessions; resume text, structured fields, recommendations, JD drafts and role selection are saved per account and restored after refresh. |
 | Service console | Request trends, success rate, average / P95 latency, reported model tokens, service configuration, resources, backups, account status and audit events. |
 | Interview review and growth plans | Evidence by competency, stage or formal reports, practice tasks and comparisons with later assessments. |
 
@@ -154,7 +155,9 @@ See the [configuration guide](docs/configuration.md#模型接入) for API key se
 node --env-file=.env --run dev
 ```
 
-Open the local address printed in the terminal, usually **http://localhost:5173**. Upload a resume, review its structured fields, compare jobs and open interview practice or the assistant.
+Open the local address printed in the terminal, usually **http://localhost:5173**. Register and sign in, or select “访客体验” (guest access). In “简历编辑” (resume editor), upload a file or fill in fields. After manual entry, select “生成岗位推荐” (generate recommendations), then review your profile, compare roles, practice interviews and build a growth plan.
+
+The workspace saves automatically; registered users can continue after signing in again. PDF and image resumes restore as text. Upload the original again to restore its file preview.
 
 For a UI-only visit, `npm run dev` works without model credentials. Resume structuring, JD analysis and model conversations require a valid connection. The Node.js `--env-file` option loads server variables into the process.
 
@@ -177,9 +180,9 @@ Existing `setup:ocr`, `setup:rag` and `build:job-index` scripts target Windows /
 | --- | --- |
 | Frontend | React 19, TypeScript, Vite, Recharts and Three.js / React Three Fiber. |
 | Workflow | Business hooks and model adapters for resume processing, job analysis, interviews and chat. |
-| Documents | PDF.js, RapidOCR / Volcengine OCR and coordinate-based source highlighting. |
+| Documents | Mammoth for DOCX text, PDF.js for PDFs, and RapidOCR / Volcengine OCR for scans and images. |
 | Model services | Node.js reads server credentials, adapts OpenAI / Claude protocols and routes text or vision tasks through same-origin APIs. |
-| Accounts and operations | SQLite WAL, versioned migrations, server-side role checks, isolated personal records, request metadata, audit events and online backups. |
+| Accounts and operations | SQLite WAL, versioned migrations, server-side role checks, isolated workspaces, conversations, interviews, growth plans, request metadata, audit events and online backups. |
 | Optional retrieval | Python, LlamaIndex, BGE, Qdrant, BM25, RRF fusion and optional reranking. |
 
 The job knowledge base requires Python, job data and persistent indexes. After building, run `node --env-file=.env --run start` to serve both the UI and API; `npm run preview` only serves static output. See [model configuration](docs/configuration.md) and [server deployment](docs/deployment.md).
@@ -188,7 +191,7 @@ The job knowledge base requires Python, job data and persistent indexes. After b
 
 ```text
 src/        Frontend pages, components, workflows and adapters
-server/     Model proxy, OCR and local retrieval services
+server/     Accounts, authorization, metrics, model proxy, OCR and retrieval
 api/        Model and OCR HTTP entry points
 scripts/    Setup, job collection and verification tools
 public/     Avatars, PDF character maps and static assets

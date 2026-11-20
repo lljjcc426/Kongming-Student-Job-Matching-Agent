@@ -5,7 +5,7 @@
 <h1 align="center">孔明职配 · Kongming</h1>
 
 <p align="center"><strong>读懂简历，理解岗位，准备下一步。</strong></p>
-<p align="center">面向学生求职的 AI 工作台，连接简历解析、岗位匹配、简历优化与模拟面试。</p>
+<p align="center">面向学生求职的 AI 工作台，连接简历、岗位、面试与成长计划。</p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-5277ea?style=flat-square" alt="Apache-2.0"></a>
@@ -23,9 +23,9 @@
 
 孔明职配将学生简历与目标岗位放在同一个工作流中：提取教育、技能和经历，分析岗位要求与简历证据的关联，生成有依据的匹配说明与修改建议，再围绕目标岗位开展面试练习。
 
-项目采用 React + TypeScript 构建交互界面，通过服务端适配 OpenAI、Claude 与 OpenAI 兼容接口，也可连接 Ollama 等本地模型；OCR 与岗位知识库按需启用。提供用户求职工作区与管理员服务控制台，使用 SQLite 持久化账号、个人记录及运维指标。
+项目采用 React + TypeScript 构建交互界面，通过服务端适配 OpenAI、Claude 与 OpenAI 兼容接口，也可连接 Ollama 等本地模型；OCR 与岗位知识库按需启用。提供用户求职工作区与管理员服务控制台，使用 SQLite 保存账号、求职工作区、面试记录、成长计划及运维指标。
 
-![从简历导入到面试练习的五步工作流](docs/media/workflow.svg)
+![从简历导入到成长复盘的求职准备工作流](docs/media/workflow.svg)
 
 ## 产品演示
 
@@ -39,24 +39,24 @@
 
 <table>
   <tr>
-    <td width="50%"><a href="docs/media/home.webp"><img src="docs/media/home.webp" alt="首页：简历导入与求职工作台入口"></a><br><strong>01 · 导入简历</strong><br>上传文档或粘贴文本，开始求职准备。</td>
-    <td width="50%"><a href="docs/media/editor.webp"><img src="docs/media/editor.webp" alt="简历编辑：原始文档与结构化字段对照"></a><br><strong>02 · 核对与编辑</strong><br>对照原文检查字段，完善简历内容。</td>
+    <td width="50%"><a href="docs/media/account.webp"><img src="docs/media/account.webp" alt="登录注册：浅蓝流程动效与账号入口"></a><br><strong>01 · 登录与注册</strong><br>使用个人账号继续求职准备，也可先以访客身份体验。</td>
+    <td width="50%"><a href="docs/media/home.webp"><img src="docs/media/home.webp" alt="求职工作台：首页与功能入口"></a><br><strong>02 · 进入求职工作台</strong><br>从首页进入简历、岗位、面试与求职助手。</td>
   </tr>
   <tr>
-    <td><a href="docs/media/resume.webp"><img src="docs/media/resume.webp" alt="学生画像：经历、能力雷达与匹配解释"></a><br><strong>03 · 查看学生画像</strong><br>梳理教育、技能和经历，检查匹配依据。</td>
-    <td><a href="docs/media/jobs.webp"><img src="docs/media/jobs.webp" alt="岗位推荐：岗位要求、候选岗位和 JD 分析"></a><br><strong>04 · 分析目标岗位</strong><br>比较岗位要求，查看差距，分析自定义 JD。</td>
+    <td><a href="docs/media/editor.webp"><img src="docs/media/editor.webp" alt="简历编辑：原文对照、结构化字段与生成岗位推荐"></a><br><strong>03 · 导入与编辑简历</strong><br>上传 DOCX、PDF、图片或文本，也可直接填写字段并生成推荐。</td>
+    <td><a href="docs/media/resume.webp"><img src="docs/media/resume.webp" alt="简历解析：学生画像、匹配维度与优化建议"></a><br><strong>04 · 查看画像与匹配依据</strong><br>核对教育、技能和经历，查看匹配解释与简历优化建议。</td>
   </tr>
   <tr>
-    <td><a href="docs/media/interview.webp"><img src="docs/media/interview.webp" alt="模拟面试：面试类型、数字面试官与回答区域"></a><br><strong>05 · 练习模拟面试</strong><br>围绕目标岗位开展综合面、技术面与 HR 面练习。</td>
-    <td><a href="docs/media/assistant.webp"><img src="docs/media/assistant.webp" alt="AI 求职助手：结合简历和岗位上下文的多轮对话"></a><br><strong>06 · 讨论准备重点</strong><br>结合简历、岗位与匹配结果，继续追问求职问题。</td>
+    <td><a href="docs/media/jobs.webp"><img src="docs/media/jobs.webp" alt="岗位推荐：候选岗位、能力证据与自定义 JD 分析"></a><br><strong>05 · 分析目标岗位</strong><br>比较岗位要求与简历证据，分析自定义 JD。</td>
+    <td><a href="docs/media/interview.webp"><img src="docs/media/interview.webp" alt="模拟面试：数字面试官、能力维度与文字追问"></a><br><strong>06 · 练习模拟面试</strong><br>围绕目标岗位回答问题、接受追问并生成复盘报告。</td>
   </tr>
   <tr>
-    <td><a href="docs/media/account.webp"><img src="docs/media/account.webp" alt="账号登录与独立访客入口"></a><br><strong>07 · 保存个人进度</strong><br>使用账号跨设备登录，或直接进入独立访客空间。</td>
-    <td><a href="docs/media/growth.webp"><img src="docs/media/growth.webp" alt="成长计划：任务、证据与后续复测"></a><br><strong>08 · 持续练习与复盘</strong><br>将面试薄弱项转为任务，记录成果并比较后续评估。</td>
+    <td><a href="docs/media/growth.webp"><img src="docs/media/growth.webp" alt="成长计划：能力短板、阶段任务与证据进度"></a><br><strong>07 · 制定成长计划</strong><br>把面试短板转为练习任务，提交成果证据并安排复测。</td>
+    <td><a href="docs/media/assistant.webp"><img src="docs/media/assistant.webp" alt="AI 求职助手：结合简历、目标岗位和历史对话提供建议"></a><br><strong>08 · 讨论准备重点</strong><br>结合简历、岗位与历史对话，继续追问求职问题。</td>
   </tr>
   <tr>
-    <td><a href="docs/media/console.webp"><img src="docs/media/console.webp" alt="服务控制台：请求趋势、模型用量、服务配置与资源状态"></a><br><strong>09 · 查看服务运行</strong><br>管理员查看调用、用量、数据库与备份状态。</td>
-    <td><a href="docs/media/users.webp"><img src="docs/media/users.webp" alt="用户管理：账号角色、状态与会话管理"></a><br><strong>10 · 管理账号与会话</strong><br>停用或恢复普通账号，撤销登录会话，查看操作审计。</td>
+    <td><a href="docs/media/console.webp"><img src="docs/media/console.webp" alt="管理员控制台：请求趋势、模型用量、服务与资源状态"></a><br><strong>09 · 查看服务运行</strong><br>管理员查看调用、用量、服务配置、资源与备份状态。</td>
+    <td><a href="docs/media/users.webp"><img src="docs/media/users.webp" alt="用户管理：账号角色、停用恢复与会话撤销"></a><br><strong>10 · 管理账号与会话</strong><br>停用或恢复普通账号，撤销登录会话，查看操作审计。</td>
   </tr>
 </table>
 
@@ -64,12 +64,13 @@
 
 | 能力 | 功能说明 |
 | --- | --- |
-| 多格式简历解析 | 支持文本、Markdown、PDF 和图片。优先读取 PDF 文字层，扫描件可通过 OCR 提取文本与坐标。 |
+| 多格式简历解析 | 支持 DOCX、PDF、图片、TXT / Markdown 与直接填写。优先读取 PDF 文字层，扫描件可通过 OCR 提取文本与坐标；旧版 DOC 需先转换。 |
 | 学生画像与匹配解释 | 汇总教育、技能、项目和实习经历，从能力、经历、关键词、兴趣与成长潜力五个维度展示匹配情况。 |
 | 岗位推荐与 JD 分析 | 支持自定义岗位描述；配置知识库后，使用向量检索与 BM25 混合召回，并保留岗位来源和核验时间。 |
 | 简历优化与导出 | 提供关键词差距、经历表达与行动建议，支持复制优化稿、下载 Markdown 分析报告。 |
 | 模拟面试 | 提供综合面、技术面和 HR 面练习，支持文字回答；语音与摄像头能力取决于浏览器和设备权限。 |
-| AI 求职助手与账号记忆 | 结合简历、岗位、历史对话和反馈开展问答；支持账号登录与独立访客体验，使用 SQLite 保存个人记录。 |
+| AI 求职助手 | 结合简历、岗位、历史对话和反馈开展多轮问答，保存对话与反馈。 |
+| 账号与工作区 | 注册登录或独立访客体验；按账号自动保存简历文字、结构化字段、岗位推荐、JD 草稿与岗位选择，刷新后恢复。 |
 | 管理员服务控制台 | 请求趋势、成功率、平均 / P95 耗时、模型 Token 用量、服务配置、主机资源与数据库备份；支持账号状态管理、会话撤销与操作审计。 |
 | 面试复盘与成长计划 | 按岗位能力维度整理回答证据，生成阶段报告或正式报告，保存薄弱项与练习任务，支持后续复测比较。 |
 
@@ -157,7 +158,9 @@ MODEL_REQUEST_TIMEOUT_MS=180000
 node --env-file=.env --run dev
 ```
 
-打开终端输出的本地地址，默认是 **http://localhost:5173**。注册并登录，或以独立访客身份体验。上传简历后，可依次进入简历解析、岗位推荐、模拟面试与 AI 助手。
+打开终端输出的本地地址，默认是 **http://localhost:5173**。注册并登录，或点击“访客体验”。进入“简历编辑”上传文件或直接填写字段；手动填写后点击“生成岗位推荐”，再进入简历解析、岗位推荐、模拟面试与成长规划。
+
+工作区自动保存，注册账号可在重新登录后继续使用。PDF / 图片恢复为文字对照；查看原文件预览需重新上传原件。
 
 仅浏览界面可直接运行 `npm run dev`；简历结构化、JD 分析与模型问答需要有效的模型配置。`node --env-file=.env` 用于将服务端变量加载到进程中。
 
@@ -180,9 +183,9 @@ node --env-file=.env --run dev
 | --- | --- |
 | 交互界面 | React 19、TypeScript、Vite；Recharts 展示匹配维度，Three.js / React Three Fiber 呈现交互视觉。 |
 | 任务编排 | 按简历处理、岗位分析、面试与对话组织任务；业务 hooks 与模型适配器管理状态和调用。 |
-| 文档处理 | PDF.js、RapidOCR / 火山 OCR，保留文字与位置之间的关联。 |
+| 文档处理 | Mammoth 提取 DOCX 文字，PDF.js 读取 PDF，RapidOCR / 火山 OCR 处理扫描件与图片。 |
 | 模型服务 | Node.js 服务端读取凭据并适配 OpenAI / Claude 协议，按任务选择文本或视觉模型；浏览器调用同源 API。 |
-| 账号与运维 | SQLite WAL、版本迁移、服务端角色鉴权；保存独立账号记录、请求指标与管理审计，支持在线备份。 |
+| 账号与运维 | SQLite WAL、版本迁移、服务端角色鉴权；保存独立账号工作区、对话、面试与成长计划，记录请求指标和管理审计，支持在线备份。 |
 | 可选检索 | Python、LlamaIndex、BGE、Qdrant、BM25 与 RRF 融合，支持多查询召回与可选重排。 |
 
 岗位知识库需要独立的 Python 环境、岗位数据和持久化索引。构建后可使用 `node --env-file=.env --run start` 同时提供页面与 API；`npm run preview` 仅预览静态产物。详见[模型配置](docs/configuration.md)与[服务器部署](docs/deployment.md)。
@@ -193,7 +196,7 @@ node --env-file=.env --run dev
 .
 ├── src/                 # 前端页面、组件、业务流程与模型适配器
 │   ├── pages/           # 用户工作区与管理员控制台
-│   ├── features/        # 简历处理、岗位检索、匹配解释与对话
+│   ├── features/        # 简历、岗位、面试、成长计划与工作区持久化
 │   └── components/      # 品牌、可视化、布局与业务组件
 ├── server/              # 账号鉴权、运维指标、模型代理、OCR 与岗位检索
 ├── api/                 # 模型与 OCR HTTP 入口

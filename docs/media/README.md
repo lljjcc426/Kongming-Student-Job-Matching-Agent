@@ -10,49 +10,39 @@
 | `workflow.svg` / `workflow.en.svg` | 中英文求职准备工作流图。 |
 | `architecture.svg` / `architecture.en.svg` | 中英文技术架构图，涵盖模型适配、云端 / 本地模型与可选服务。 |
 | `demo-preview.gif` | README 中自动播放的视频预览。 |
-| [kongming-demo.mp4](kongming-demo.mp4) | 完整界面演示，无配音；覆盖简历导入、解析、岗位分析、文字模拟面试与助手问答。 |
-| `home.webp` / `editor.webp` | 首页与简历编辑工作台。 |
+| [kongming-demo.mp4](kongming-demo.mp4) | 完整界面演示，无配音；覆盖登录动效、简历编辑、画像与岗位分析、文字面试、成长计划、助手问答及管理员控制台。 |
+| `home.webp` / `editor.webp` | 求职工作台首页与简历编辑；使用当前青简标识和浅蓝、白、金主题。 |
 | `resume.webp` / `jobs.webp` | 学生画像、匹配分析与岗位推荐。 |
 | `interview.webp` / `assistant.webp` | 模拟面试与 AI 求职助手。 |
-| `account.webp` / `growth.webp` | 登录注册入口与成长计划；使用临时账号及虚构业务数据。 |
+| `account.webp` / `growth.webp` | 流程动效登录页与成长计划；使用临时身份及虚构业务数据。 |
 | `console.webp` / `users.webp` | 运行概览与用户管理；来自临时数据库的实际统计，页面标明演示环境。 |
 | [sample-resume.md](sample-resume.md) | 可用于试用和录制的虚构简历。 |
 | [demo-data.json](demo-data.json) | 录制专用的固定接口数据，不参与应用运行。 |
 
 ## 重新录制
 
-需要项目依赖、Playwright 浏览器及 FFmpeg。先运行 `npm ci`，然后安装录制所需的浏览器工具：
+需要项目依赖、Playwright 浏览器及 FFmpeg。将支持 H.264、WebP 和 GIF 编码的 FFmpeg 加入 PATH，或通过 `FFMPEG_PATH` 指定路径。先运行 `npm ci`，然后安装录制所需的浏览器工具：
 
 ```bash
 npx playwright install chromium ffmpeg
 ```
 
-在一个终端中启动前端。仅录制界面时，可跳过知识库预热：
+构建当前前端并录制：
 
 ```bash
-JOB_RAG_SKIP_WARMUP=true npm run dev
-```
-
-PowerShell 中先执行 `$env:JOB_RAG_SKIP_WARMUP="true"`，再执行 `npm run dev`。
-
-另一个终端运行：
-
-```bash
+npm run build
 node scripts/capture-showcase.cjs
 ```
 
-脚本从 `http://127.0.0.1:5173` 以独立访客身份录制实际交互，并覆盖本目录中生成的 WebP、GIF 与 MP4。原始截图和 WebM 保存到已被 Git 忽略的 `artifacts/showcase/`。录制使用文字面试，关闭浏览器语音合成，不启用摄像头；不调用外部模型、OCR 或招聘服务，也不修改应用代码。
+脚本自行启动仅监听本机的服务，创建临时 SQLite 数据库和演示账号，按当前界面完成操作。结束后关闭服务并清理临时数据库，不使用本地开发数据库或线上账号。
+
+脚本统一覆盖 `account`、`home`、`editor`、`resume`、`jobs`、`interview`、`growth`、`assistant`、`console`、`users` 十张 WebP，以及 GIF 预览和 MP4 视频。原始 PNG 与 WebM 保存到已被 Git 忽略的 `artifacts/showcase/`。视频包含登录流程动效、工作区恢复与管理员界面；录制使用文字面试，不启用摄像头，不调用外部模型、OCR 或招聘服务。
 
 可选环境变量：
 
 | 变量 | 用途 |
 | --- | --- |
-| `SHOWCASE_URL` | 开发服务地址。 |
 | `SHOWCASE_BROWSER_CHANNEL` | 例如 `chrome`，使用已安装的 Chrome；默认使用 Playwright Chromium。 |
 | `FFMPEG_PATH` | FFmpeg 可执行文件路径；默认从 PATH 查找 `ffmpeg`。 |
 
 维护 README 时，在同一提交中更新演示素材与说明，保持页面功能和展示内容一致。
-
-控制台与移动布局可通过 `npm run build && npm run verify:console` 验证，截图保存在 `output/verification/console/`。登录页与控制台使用原生 SVG 品牌标识，源文件位于 `public/brand/kongming-mark.svg`。
-
-账号与成长计划截图可通过 `npm run verify:ui:standalone` 生成，原图位于 `output/verification/ui/`。该验证使用临时数据库，结束后清理测试账号与记录。

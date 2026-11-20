@@ -1,60 +1,60 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="334" viewBox="0 0 1280 334" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="610" viewBox="0 0 1280 610" role="img" aria-labelledby="title desc">
   <title id="title">Kongming workflow</title>
-  <desc id="desc">Import：PDF / images / text：Read text and pages；Structure：Education, skills, experience：Review fields and evidence；Match：Job retrieval / custom JD：Compare role requirements；Improve：Keywords and experience：Edit and export；Practice：General / technical / HR：Answers and feedback</desc>
+  <desc id="desc">Import or manually enter a resume, review the profile, match roles, improve the resume, practice interviews and review growth evidence.</desc>
   <defs>
-    <linearGradient id="bg" x2="1" y2="1">
-      <stop stop-color="#f6f9ff"/>
-      <stop offset="1" stop-color="#edf5ff"/>
-    </linearGradient>
-    <linearGradient id="blue" x2="1" y2="1">
-      <stop stop-color="#2356c7"/>
-      <stop offset="1" stop-color="#4486ef"/>
-    </linearGradient>
-    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-      <path d="M0 0L8 4L0 8" fill="none" stroke="#7d9fc7" stroke-width="1.5"/>
-    </marker>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
-      <feDropShadow dy="8" stdDeviation="12" flood-color="#2d5284" flood-opacity=".1"/>
-    </filter>
+    <linearGradient id="page" x2="1" y2="1"><stop stop-color="#f7fbff"/><stop offset=".72" stop-color="#f2f8ff"/><stop offset="1" stop-color="#fff9ee"/></linearGradient>
+    <linearGradient id="service" x2="1"><stop stop-color="#dceeff"/><stop offset="1" stop-color="#c9e3fb"/></linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#9cbfdd" stroke-width="1.4"/></marker>
+    <marker id="gold-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#d6ae63" stroke-width="1.4"/></marker>
   </defs>
-  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
-    <rect x="1" y="1" width="1278" height="332" rx="24" fill="url(#bg)" stroke="#dce6f2"/>
-    <text x="40" y="48" font-size="28" fill="#183e74" font-weight="650">The career preparation workflow</text>
-    <text x="40" y="80" font-size="18" fill="#647f9f" font-weight="400">Resume context connects role analysis, improvements and interview practice.</text>
-    <rect x="40" y="116" width="224" height="150" rx="16" fill="#fff" stroke="#d4e1f2"/>
-    <rect x="56" y="132" width="32" height="27" rx="7" fill="#e9f1ff" stroke="none"/>
-    <text x="63" y="152" font-size="13" fill="#446dac" font-weight="600">01</text>
-    <text x="56" y="193" font-size="25" fill="#244b81" font-weight="650">Import</text>
-    <text x="56" y="223" font-size="14" fill="#637c9a" font-weight="400">PDF / images / text</text>
-    <text x="56" y="248" font-size="14" fill="#637c9a" font-weight="400">Read text and pages</text>
-    <path d="M267 191H280" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <rect x="284" y="116" width="224" height="150" rx="16" fill="#fff" stroke="#d4e1f2"/>
-    <rect x="300" y="132" width="32" height="27" rx="7" fill="#e9f1ff" stroke="none"/>
-    <text x="307" y="152" font-size="13" fill="#446dac" font-weight="600">02</text>
-    <text x="300" y="193" font-size="25" fill="#244b81" font-weight="650">Structure</text>
-    <text x="300" y="223" font-size="14" fill="#637c9a" font-weight="400">Education, skills, experience</text>
-    <text x="300" y="248" font-size="14" fill="#637c9a" font-weight="400">Review fields and evidence</text>
-    <path d="M511 191H524" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <rect x="528" y="116" width="224" height="150" rx="16" fill="#fff" stroke="#d4e1f2"/>
-    <rect x="544" y="132" width="32" height="27" rx="7" fill="#e9f1ff" stroke="none"/>
-    <text x="551" y="152" font-size="13" fill="#446dac" font-weight="600">03</text>
-    <text x="544" y="193" font-size="25" fill="#244b81" font-weight="650">Match</text>
-    <text x="544" y="223" font-size="14" fill="#637c9a" font-weight="400">Job retrieval / custom JD</text>
-    <text x="544" y="248" font-size="14" fill="#637c9a" font-weight="400">Compare role requirements</text>
-    <path d="M755 191H768" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <rect x="772" y="116" width="224" height="150" rx="16" fill="#fff" stroke="#d4e1f2"/>
-    <rect x="788" y="132" width="32" height="27" rx="7" fill="#e9f1ff" stroke="none"/>
-    <text x="795" y="152" font-size="13" fill="#446dac" font-weight="600">04</text>
-    <text x="788" y="193" font-size="25" fill="#244b81" font-weight="650">Improve</text>
-    <text x="788" y="223" font-size="14" fill="#637c9a" font-weight="400">Keywords and experience</text>
-    <text x="788" y="248" font-size="14" fill="#637c9a" font-weight="400">Edit and export</text>
-    <path d="M999 191H1012" fill="none" stroke="#7d9fc7" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <rect x="1016" y="116" width="224" height="150" rx="16" fill="#fff" stroke="#d4e1f2"/>
-    <rect x="1032" y="132" width="32" height="27" rx="7" fill="#e9f1ff" stroke="none"/>
-    <text x="1039" y="152" font-size="13" fill="#446dac" font-weight="600">05</text>
-    <text x="1032" y="193" font-size="25" fill="#244b81" font-weight="650">Practice</text>
-    <text x="1032" y="223" font-size="14" fill="#637c9a" font-weight="400">General / technical / HR</text>
-    <text x="1032" y="248" font-size="14" fill="#637c9a" font-weight="400">Answers and feedback</text>
-    <text x="40" y="307" font-size="18" fill="#42689b" font-weight="400">Career assistant: discuss next steps with the current resume, target role and matching context.</text>
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif">
+<rect x="1" y="1" width="1278" height="608" rx="24" fill="url(#page)" stroke="#dce8f4"/>
+<text x="40" y="52" font-size="28" fill="#263e66" font-weight="650">The career preparation workflow</text>
+<text x="40" y="85" font-size="18" fill="#637e99" font-weight="400">Resume evidence connects matching, practice and review.</text>
+<rect x="40" y="101" width="42" height="3" rx="1" fill="#d6ae63" stroke="none"/>
+<rect x="40" y="124" width="380" height="172" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="62" y="144" width="36" height="28" rx="7" fill="#edf6ff" stroke="#d8e7f4"/>
+<text x="80" y="164" font-size="13" fill="#638bb2" font-weight="600" text-anchor="middle">01</text>
+<text x="62" y="212" font-size="24" fill="#35587d" font-weight="600">Import / enter</text>
+<text x="62" y="243" font-size="17" fill="#637e99" font-weight="400">DOCX · PDF · Images · Text</text>
+<text x="62" y="270" font-size="17" fill="#637e99" font-weight="400">Upload a file or fill in fields</text>
+<rect x="450" y="124" width="380" height="172" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="472" y="144" width="36" height="28" rx="7" fill="#edf6ff" stroke="#d8e7f4"/>
+<text x="490" y="164" font-size="13" fill="#638bb2" font-weight="600" text-anchor="middle">02</text>
+<text x="472" y="212" font-size="24" fill="#35587d" font-weight="600">Build a profile</text>
+<text x="472" y="243" font-size="17" fill="#637e99" font-weight="400">Education · Skills · Experience</text>
+<text x="472" y="270" font-size="17" fill="#637e99" font-weight="400">Review fields and source evidence</text>
+<rect x="860" y="124" width="380" height="172" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="882" y="144" width="36" height="28" rx="7" fill="#edf6ff" stroke="#d8e7f4"/>
+<text x="900" y="164" font-size="13" fill="#638bb2" font-weight="600" text-anchor="middle">03</text>
+<text x="882" y="212" font-size="24" fill="#35587d" font-weight="600">Match roles</text>
+<text x="882" y="243" font-size="17" fill="#637e99" font-weight="400">Job retrieval / Custom JD</text>
+<text x="882" y="270" font-size="17" fill="#637e99" font-weight="400">Compare requirements and evidence</text>
+<rect x="860" y="358" width="380" height="172" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="882" y="378" width="36" height="28" rx="7" fill="#edf6ff" stroke="#d8e7f4"/>
+<text x="900" y="398" font-size="13" fill="#638bb2" font-weight="600" text-anchor="middle">04</text>
+<text x="882" y="446" font-size="24" fill="#35587d" font-weight="600">Improve</text>
+<text x="882" y="477" font-size="17" fill="#637e99" font-weight="400">Review gaps and suggestions</text>
+<text x="882" y="504" font-size="17" fill="#637e99" font-weight="400">Edit fields / Export analysis</text>
+<rect x="450" y="358" width="380" height="172" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="472" y="378" width="36" height="28" rx="7" fill="#edf6ff" stroke="#d8e7f4"/>
+<text x="490" y="398" font-size="13" fill="#638bb2" font-weight="600" text-anchor="middle">05</text>
+<text x="472" y="446" font-size="24" fill="#35587d" font-weight="600">Practice</text>
+<text x="472" y="477" font-size="17" fill="#637e99" font-weight="400">General · Technical · HR</text>
+<text x="472" y="504" font-size="17" fill="#637e99" font-weight="400">Follow-up questions and feedback</text>
+<rect x="40" y="358" width="380" height="172" rx="16" fill="#fff" stroke="#d8e6f2"/>
+<rect x="62" y="378" width="36" height="28" rx="7" fill="#edf6ff" stroke="#d8e7f4"/>
+<text x="80" y="398" font-size="13" fill="#638bb2" font-weight="600" text-anchor="middle">06</text>
+<text x="62" y="446" font-size="24" fill="#35587d" font-weight="600">Review and grow</text>
+<text x="62" y="477" font-size="17" fill="#637e99" font-weight="400">Plan tasks around a target date</text>
+<text x="62" y="504" font-size="17" fill="#637e99" font-weight="400">Submit evidence / Reassess</text>
+<path d="M420 210H450" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M830 210H860" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M1050 296V358" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M860 444H830" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M450 444H420" fill="none" stroke="#9cbfdd" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M230 530V556H20V210H40" fill="none" stroke="#d6ae63" stroke-width="2" marker-end="url(#gold-arrow)"/>
+<text x="266" y="561" font-size="17" fill="#9c7d42" font-weight="400">New evidence feeds the resume, matching and the next interview.</text>
+<text x="40" y="592" font-size="17" fill="#637e99" font-weight="400">Account-scoped autosave: resume, recommendations, custom JDs and selected role.</text>
   </g>
 </svg>
